@@ -97,6 +97,7 @@
     var c = cur();
     if (!c) return;
     renderCraftsBadge();
+    renderSaved();
     if (!c.planSt) { updateTabStep(null); return; }
     var steps = E.plan(designOf(c), c.planSt);
     updateTabStep(steps[0].kind === 'done' ? '✓' : String(c.hist.filter(function (x) { return !x.e; }).length + 1));
@@ -164,16 +165,22 @@
   /* ---------- storage: your account (db) when available, this browser otherwise ---------- */
   var store = { mode: 'local', col: null, inflight: {}, dirty: {}, timers: {}, last: {}, remoteIds: null, readOnly: false };
   function worth(c) { return c && (targetCount(c) > 0 || c.st); }
+  var saveOk = null, localDirty = false;
   function saveLocal() {
+    clearTimeout(localTimer); localTimer = null; localDirty = false;
     try {
       var all = {};
       Object.keys(app.crafts).forEach(function (id) { if (worth(app.crafts[id]) || id === app.curId) all[id] = packCraft(app.crafts[id]); });
       localStorage.setItem(LS, JSON.stringify({ cur: app.curId, league: app.league, view: app.view, crafts: all }));
-    } catch (e) { /* storage blocked: the page still works for this visit */ }
+      saveOk = true;
+    } catch (e) { saveOk = false; /* storage blocked: the page still works for this visit */ }
+    renderSaved();
   }
   function loadLocal() {
+    var txt;
+    try { txt = localStorage.getItem(LS); } catch (e) { saveOk = false; return; }
     try {
-      var raw = JSON.parse(localStorage.getItem(LS) || 'null');
+      var raw = JSON.parse(txt || 'null');
       if (!raw || typeof raw !== 'object') return;
       if (raw.league === 'fr' || raw.league === 'roa') app.league = raw.league;
       if (raw.view === 'design' || raw.view === 'plan' || raw.view === 'ref') app.view = raw.view;
@@ -182,27 +189,62 @@
     } catch (e) { /* ignore a bad cache */ }
   }
   function queueSave(id) {
+    localDirty = true;
     saveLocalSoon();
-    if (store.mode !== 'db' || store.readOnly) return;
-    clearTimeout(store.timers[id]);
-    store.timers[id] = setTimeout(function () { pushRemote(id); }, 900);
+    if (store.mode === 'db' && !store.readOnly) {
+      clearTimeout(store.timers[id]);
+      store.timers[id] = setTimeout(function () { pushRemote(id); }, 900);
+    }
+    renderSaved();
   }
   var localTimer = null;
   function saveLocalSoon() { clearTimeout(localTimer); localTimer = setTimeout(saveLocal, 250); }
   function pushRemote(id) {
+    clearTimeout(store.timers[id]); store.timers[id] = null;
     var c = app.crafts[id];
-    if (!c || !store.col || !worth(c)) return;
+    if (!c || !store.col || !worth(c)) { renderSaved(); return; }
     var body = packCraft(c), json = JSON.stringify(body);
-    if (store.last[id] === json) return;
+    if (store.last[id] === json) { renderSaved(); return; }
     if (store.inflight[id]) { store.dirty[id] = true; return; }
     store.inflight[id] = true;
+    renderSaved();
     store.col.doc(id).set(body).then(function () { store.last[id] = json; }).catch(function (e) {
-      if (e && e.code === 'unavailable') { setTimeout(function () { pushRemote(id); }, 1500 + Math.random() * 1500); return; }
+      if (e && e.code === 'unavailable') { store.timers[id] = setTimeout(function () { pushRemote(id); }, 1500 + Math.random() * 1500); return; }
       store.readOnly = true; renderStore();
     }).then(function () {
       store.inflight[id] = false;
       if (store.dirty[id]) { store.dirty[id] = false; pushRemote(id); }
+      renderSaved();
     });
+  }
+  /* The Saved button next to the + says whether the open craft is safe, and where. */
+  function toAccount() { return store.mode === 'db' && !!store.col && !store.readOnly; }
+  function canSave() { return toAccount() || saveOk !== false; }
+  function savedState() {
+    var id = app.curId;
+    if (!canSave()) return 'fail';
+    if (localDirty || store.timers[id] || store.inflight[id]) return 'saving';
+    return toAccount() && worth(cur()) ? 'account' : 'local';
+  }
+  function savedText(state) {
+    var c = cur();
+    var where = toAccount() ? 'to your account' : 'in this browser';
+    if (state === 'saving') return 'Saving your latest change…';
+    if (state === 'fail') return 'Not saved: this browser blocks storage here (a private window can do that), so your crafts only last while this page is open.';
+    if (!worth(c)) return 'Crafts save automatically ' + where + '. This one is empty so far.';
+    if (state === 'account') return 'The ' + c.base + ' craft is saved to your account, so it follows you to other devices. Every change saves as you go. Find it again in My crafts.';
+    return 'The ' + c.base + ' craft is saved in this browser. Every change saves as you go. Find it again in My crafts.';
+  }
+  var savedKey = '';
+  function renderSaved() {
+    var b = $('saved');
+    if (!b || !cur()) return;
+    var st = savedState(), text = savedText(st);
+    if (savedKey === st + text) return;
+    savedKey = st + text;
+    b.setAttribute('data-state', st);
+    b.title = text;
+    b.innerHTML = ico(st === 'fail' ? 'u-x' : 'u-check') + '<span class="lbl"><span class="sv-ed">' + (st === 'fail' ? 'Not saved' : 'Saved') + '</span><span class="sv-ing">Saving</span></span>';
   }
   function deleteRemote(id) {
     if (store.mode !== 'db' || store.readOnly || !store.col) return;
@@ -948,6 +990,11 @@
     var o = outs[i];
     if (!o) return;
     var title = step.title + (opt && opt.key !== 'settle' && opt.key !== 'restart' ? ' · ' + opt.label : '');
+    if (o.astrid) {
+      c.astrid = true; touch(c); renderPlan();
+      toast('Astrid’s Creativity is on for this craft, so it can take a second crafted modifier. The steps now show how.', 6000);
+      return;
+    }
     if (o.edit) {
       pushHist(c, { t: step.title, o: o.label });
       if (step.kind === 'base') c.st = { rarity: 'magic', mods: [], done: {}, skip: (c.st && c.st.skip) || {} };
@@ -981,9 +1028,19 @@
     toast('Undid “' + x.t + '”.');
   }
   function startCopy() {
-    var c = cur();
+    var c = cur(), cat = catOf(c);
     var mods = [];
-    [0, 1].forEach(function (s) { c.targets[s].forEach(function (t) { if (t) mods.push({ id: E.newId(), s: s, mi: t.mi, mark: 'auto' }); }); });
+    [0, 1].forEach(function (s) {
+      c.targets[s].forEach(function (t) {
+        if (!t) return;
+        var m = { id: E.newId(), s: s, mi: t.mi, mark: 'auto' };
+        // An alloy or essence-only target is a crafted mod, a desecration-only one is desecrated, as when picked by hand
+        var o = E.tierOptions(cat, famOf(t.mi)).filter(function (x) { return x.mi === t.mi; })[0];
+        if (o && (o.kind === 'alloy' || o.kind === 'essence')) m.crafted = true;
+        if (o && o.kind === 'lich') m.desec = true;
+        mods.push(m);
+      });
+    });
     var perSide = [0, 1].map(function (s) { return mods.filter(function (m) { return m.s === s; }).length; });
     var doIt = function () {
       c.st = { rarity: (perSide[0] > 1 || perSide[1] > 1) ? 'rare' : mods.length ? 'magic' : 'none', mods: mods, done: {}, skip: (c.st && c.st.skip) || {} };
@@ -1218,13 +1275,13 @@
   }
   function renderCraftsBadge() {
     var n = Object.keys(app.crafts).filter(function (id) { return worth(app.crafts[id]); }).length;
-    $('crafts-n').textContent = n ? '(' + n + ')' : '';
+    $('crafts-n').textContent = n ? String(n) : '';
   }
   function storeLine() {
     if (store.mode === 'db' && !store.readOnly) return '<p class="store synced"><i></i>Saved to your account, so it follows you between devices.</p>';
     return '<p class="store"><i></i>Saved in this browser only.</p>';
   }
-  function renderStore() { var el = $('dr-store'); if (el) el.innerHTML = storeLine(); }
+  function renderStore() { var el = $('dr-store'); if (el) el.innerHTML = storeLine(); renderSaved(); }
   function openDrawer() {
     hideToast();
     app.ui.confirmDel = null;
@@ -1248,12 +1305,14 @@
     $('drawer').innerHTML = h;
   }
   function newCraft() {
-    var c = blankCraft(cur() ? cur().cls : 'gloves');
+    var prev = cur();
+    var c = blankCraft(prev ? prev.cls : 'gloves');
     app.crafts[c.id] = c; app.curId = c.id;
     touch(c);
     if (!$('drawer').hidden) closeDrawer();
     go('design');
     renderCraftsBadge();
+    toast(!worth(prev) ? 'New craft started.' : 'New craft started. The ' + prev.base + ' craft is ' + (canSave() ? 'saved in My crafts.' : 'still in My crafts until you close this page.'));
   }
 
   /* ---------- toast ---------- */
@@ -1275,6 +1334,7 @@
     var lg = e.target.closest('[data-lg]');
     if (lg) { setLeague(lg.getAttribute('data-lg')); return; }
     if (e.target.closest('#crafts-open')) { openDrawer(); return; }
+    if (e.target.closest('#saved')) { savedKey = ''; renderSaved(); toast(savedText(savedState()), 6500); return; }
     if (e.target.closest('#slot-pick')) { openSlots(); return; }
     if (e.target === $('picker')) { closePicker(); return; }
     if (e.target === $('drawer')) { closeDrawer(); return; }

@@ -41,6 +41,12 @@ async function addTarget(page, side, i, query, famText) {
     assert.equal(await page.locator('#d-item .box:not(.empty)').count(), 6);
     await page.screenshot({ path: `${OUT}/${scheme}-design.png`, fullPage: true });
 
+    // The header: full league names, and a Saved button that says where the craft is kept
+    assert.deepEqual(await page.locator('.bar [data-lg]').allInnerTexts(), ['Forbidden Rites', 'Runes of Aldur']);
+    await page.waitForSelector('#saved[data-state="local"]');
+    await page.click('#saved');
+    assert.match(await page.locator('#toast').innerText(), /The Blacksteel Gauntlets craft is saved in this browser/);
+
     // Astrid's Creativity opens a second crafted slot; untick it again for the rest of the walk-through
     await page.check('#d-astrid');
     assert.match(await page.locator('.slot2').first().innerText(), /crafted slots[\s\S]*1 free/i);
@@ -108,6 +114,38 @@ async function addTarget(page, side, i, query, famText) {
     await ctx.close();
   }
 
+  // A last target that needs a second crafted slot: the plan offers Astrid's Creativity, then shows the way.
+  // At 1280px wide the league switch sits in a row under the header.
+  const ctx2 = await browser.newContext({ viewport: { width: 1280, height: 900 }, colorScheme: 'dark' });
+  const q = await ctx2.newPage();
+  q.on('pageerror', (e) => errors.push('astrid: ' + e.message));
+  await q.goto(URL);
+  assert.ok(await q.locator('.league-row').isVisible(), 'league row under the header');
+  assert.ok(await q.locator('.bar .league-wrap').isHidden(), 'no league switch in the header');
+  await q.fill('#find-q', 'cryptic leggings');
+  await q.keyboard.press('Enter');
+  await addTarget(q, 0, 0, 'movement speed', 'Movement Speed');
+  await addTarget(q, 0, 1, 'runic ward', 'Runic Ward');
+  await addTarget(q, 1, 0, 'rarity', 'Rarity of Items');
+  await addTarget(q, 1, 1, 'socketed augment', 'Socketed Augment');
+  await q.click('[data-act="to-plan"]');
+  await q.click('[data-act="start-copy"]');
+  await q.locator('.srow', { hasText: 'Socketed Augment' }).locator('[data-act="have-del"]').click();
+  await q.click('.forge [data-act="forge"]');
+  assert.match(await q.locator('.card h3').textContent(), /Use Astrid’s Creativity for Effect of Socketed Augment Items/);
+  await q.screenshot({ path: `${OUT}/dark-astrid.png`, fullPage: true });
+  await q.click('.card [data-act="out"][data-i="0"]');
+  assert.match(await q.locator('#toast').innerText(), /Astrid’s Creativity is on/);
+  assert.equal(await q.locator('.st', { hasText: 'Socket Astrid’s Creativity' }).count(), 1, 'the plan sockets the rune');
+  await q.click('.tabs [data-go="design"]');
+  assert.ok(await q.isChecked('#d-astrid'));
+  // The gold + starts a new craft in the same slot and says the old one is saved
+  await q.click('.new-btn');
+  assert.match(await q.locator('#toast').innerText(), /New craft started\. The Cryptic Leggings craft is saved in My crafts/);
+  assert.equal(await q.locator('#d-item .box:not(.empty)').count(), 0);
+  assert.equal(await q.locator('.slot[aria-pressed="true"]').getAttribute('data-cls'), 'boots');
+  await ctx2.close();
+
   // Phone
   const ph = await browser.newContext({ viewport: { width: 400, height: 860 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 });
   const p = await ph.newPage();
@@ -119,6 +157,8 @@ async function addTarget(page, side, i, query, famText) {
   await p.click('.forge [data-act="forge"]');
   const [sw, w] = await p.evaluate(() => [document.documentElement.scrollWidth, window.innerWidth]);
   assert.ok(sw <= w, 'no sideways scroll on a phone');
+  assert.ok(await p.locator('.league-row').isVisible(), 'league switch under the header on a phone');
+  assert.equal(await p.locator('#saved').innerText(), 'Saved');
   await p.screenshot({ path: `${OUT}/phone-plan.png`, fullPage: true });
   await p.click('.tabbar [data-go="design"]');
   await p.fill('#find-q', 'cryptic leg');

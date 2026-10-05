@@ -143,13 +143,16 @@ function twoAlloyGloves(astrid) {
   };
 }
 
-test('astrid: without the rune, a second alloy-only mod has no route and the plan says why', () => {
+test('astrid: without the rune, a second alloy-only mod ends on a step that explains it and offers the rune', () => {
   const steps = E.plan(twoAlloyGloves(false), { rarity: 'none', mods: [] });
-  assert.equal(steps[steps.length - 1].kind, 'stop');
   const warned = steps.find((s) => (s.warn || []).some((w) => /Only one crafted modifier/.test(w)));
   assert.ok(warned, 'warns about the one crafted slot');
   assert.ok(warned.warn.some((w) => /Astrid’s Creativity/.test(w)), 'and points at Astrid’s Creativity');
-  assert.ok(!steps.some((s) => s.kind === 'rune'));
+  const last = steps[steps.length - 1];
+  assert.match(last.title, /Use Astrid’s Creativity for Cast Speed/);
+  assert.match(last.how, /only comes from a Swift Alloy/);
+  assert.ok(last.outcomes[0].astrid, 'first choice turns the rune on');
+  assert.ok(!last.project, 'nothing is socketed until you choose it');
 });
 
 test('astrid: both alloys go on, with the rune socketed right before the second', () => {
@@ -195,6 +198,47 @@ test('astrid: craft-only mods get the crafted slots before an essence takes one'
   const crafts = steps.filter((s) => s.kind === 'craft');
   assert.deepEqual(crafts.map((s) => s.mats[s.mats.length - 1].n), ['Sovereign Alloy', 'Essence of Horror']);
   assert.ok(crafts.every((s) => s.odds.p >= 0.995), 'each deletion only hits junk: the second sacrifice goes on the empty side');
+});
+
+test('astrid: a last target that needs a second crafted slot offers the rune, then sacrifice, socket, essence', () => {
+  // The user's leggings: Life, Movement Speed kept at T2 and Runic Ward from the alloy; Rarity and a desecrated
+  // Fire Resistance kept instead of Lightning. Effect of Socketed Augment Items only comes from the Essence of Horror.
+  const cat = E.catalog('Cryptic Leggings', 82);
+  const lightning = tgt(cat, 1, '+#% to Lightning Resistance', 'T1');
+  const design = (astrid) => ({
+    cls: 'boots', base: 'Cryptic Leggings', ilvl: 82, runeforge: false, league: 'fr', astrid,
+    targets: [[tgt(cat, 0, '+# to maximum Life', 'T2'), tgt(cat, 0, '#% increased Movement Speed', 'T1'), tgt(cat, 0, '#% increased Runic Ward', 'Alloy')],
+      [tgt(cat, 1, '#% increased Rarity of Items found', 'T1'), lightning, tgt(cat, 1, '#% increased effect of Socketed Augment Items', 'Essence')]]
+  });
+  const item = () => ({ rarity: 'rare', done: {}, skip: { [lightning.f]: true }, mods: [
+    mod(cat, 0, '+# to maximum Life', 'T2'), mod(cat, 0, '#% increased Movement Speed', 'T2', { mark: 'keep' }),
+    mod(cat, 0, '#% increased Runic Ward', 'Alloy', { crafted: true }), mod(cat, 1, '#% increased Rarity of Items found', 'T1'),
+    mod(cat, 1, '+#% to Fire Resistance', 'T3', { mark: 'keep', desec: true })] });
+  const off = E.nextStep(design(false), item());
+  assert.equal(off.kind, 'rune');
+  assert.match(off.title, /Use Astrid’s Creativity for Effect of Socketed Augment Items/);
+  assert.match(off.how, /only comes from an Essence of Horror[\s\S]*already has its one crafted modifier: Runic Ward/);
+  assert.ok(off.outcomes[0].astrid, 'first choice plans it with the rune');
+  assert.ok(off.outcomes.some((o) => /^Skip Effect of Socketed Augment Items/.test(o.label)), 'or skip it');
+  const on = E.plan(design(true), item());
+  assert.deepEqual(on.slice(0, 3).map((s) => s.kind), ['sacrifice', 'rune', 'craft']);
+  assert.deepEqual(on[0].mats.map((m) => m.n), ['Omen of Dextral Exaltation', 'Exalted Orb'], 'junk goes on the suffix side first');
+  assert.deepEqual(on[2].mats.map((m) => m.n), ['Omen of Dextral Crystallisation', 'Essence of Horror']);
+  assert.match(on[2].how, /corrupted essence[\s\S]*deletes a random suffix/);
+  assert.ok(Math.abs(on[2].odds.p - 1 / 3) < 1e-9, 'it deletes the junk one time in three');
+});
+
+test('crafted slot full: a target only a magic-item essence adds is a stop, not a rune offer', () => {
+  const cat = E.catalog('Warden Bow', 82);
+  // Bows have two "+# to Accuracy Rating" families; the essence-only one is the target here
+  const F = cat.sides[0].find((f) => f.t === '+# to Accuracy Rating' && E.tierOptions(cat, f.f).some((o) => o.label === 'Essence'));
+  const o = E.tierOptions(cat, F.f).find((x) => x.label === 'Essence');
+  const acc = { f: F.f, lv: o.l, mi: o.mi };
+  const design = { cls: 'bow', base: 'Warden Bow', ilvl: 82, league: 'fr', targets: [[acc], [tgt(cat, 1, '+# to maximum Runic Ward', 'Alloy')]] };
+  const step = E.nextStep(design, { rarity: 'rare', done: {}, skip: {}, mods: [mod(cat, 1, '+# to maximum Runic Ward', 'Alloy', { crafted: true })] });
+  assert.equal(step.kind, 'stop');
+  assert.match(step.how, /only comes from a Greater Essence of Battle, which needs a magic item/);
+  assert.ok(!step.outcomes.some((o) => o.astrid), 'the rune wouldn’t help');
 });
 
 test('magic: an augment doesn’t aim at the target an essence adds anyway', () => {

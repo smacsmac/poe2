@@ -11,16 +11,16 @@
       <button type="button" class="tab" data-go="ref">Reference</button>
     </nav>
     <div class="bar-tools">
-      <div class="league" role="group" aria-label="Prices from league">
-        <button type="button" data-lg="fr" aria-pressed="true" title="Forbidden Rites prices">FR</button>
-        <button type="button" data-lg="roa" aria-pressed="false" title="Runes of Aldur prices">RoA</button>
-      </div>
+      <div class="league-wrap"><span class="league-lbl" aria-hidden="true">Prices</span><div class="league" role="group" aria-label="Prices from league"><button type="button" data-lg="fr" aria-pressed="true" title="Prices from the Forbidden Rites league">Forbidden Rites</button><button type="button" data-lg="roa" aria-pressed="false" title="Prices from the Runes of Aldur league">Runes of Aldur</button></div></div>
+      <button type="button" class="btn small quiet saved-btn" id="saved" data-state="local"><svg class="ico" aria-hidden="true"><use href="#u-check"/></svg><span class="lbl"><span class="sv-ed">Saved</span><span class="sv-ing">Saving</span></span></button>
+      <button type="button" class="btn small new-btn" data-act="new-craft" aria-label="New craft" title="New craft"><svg class="ico" aria-hidden="true"><use href="#u-plus"/></svg></button>
       <button type="button" class="btn small quiet crafts-btn" id="crafts-open" aria-haspopup="dialog"><svg class="ico" aria-hidden="true"><use href="#u-stack"/></svg><span class="lbl">My crafts</span> <span class="mono" id="crafts-n"></span></button>
     </div>
   </div>
 </header>
 
 <main>
+  <div class="league-row"><span class="league-lbl" aria-hidden="true">Prices</span><div class="league" role="group" aria-label="Prices from league"><button type="button" data-lg="fr" aria-pressed="true" title="Prices from the Forbidden Rites league">Forbidden Rites</button><button type="button" data-lg="roa" aria-pressed="false" title="Prices from the Runes of Aldur league">Runes of Aldur</button></div></div>
   <!-- DESIGN -->
   <section id="v-design" class="view" aria-labelledby="d-title">
     <div class="view-head">

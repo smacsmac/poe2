@@ -6,6 +6,8 @@ A single-page web app for Path of Exile 2 (patch 0.5.5) crafting. Three screens:
 - **Forge** (the plan; internally still `plan`: `#v-plan`, `data-go="plan"`, `renderPlan`, and `#forge` works as a link): "Want" vs "Have" per slot, prefixes and suffixes each in their own box (suffix text in `--tip-suffix`), plus a step timeline. "Suggest" fills the item with what a bought base of the chosen rarity should have (`E.suggest`), and the "what's on your item" pickers list the design's targets for that side first. The current step is highlighted with materials, prices and odds; the user records what happened and the plan re-plans. Hand edits make the plan stale until "Reforge from here".
 - **Reference**: the playbook text, crafting rules, quick fixes and a sortable materials/price ledger.
 
+The header has the price league switch with full names (below 1320px wide it moves to `.league-row` under the header; both sets of `[data-lg]` buttons stay in sync), a **Saved** button that says where the open craft is kept (`savedState()` in app.js: `local`, `account`, `saving`, or `fail` when the browser blocks storage; clicking it explains in a toast) and a gold **+** that starts a new craft in the same slot and says the old one is in My crafts.
+
 It ships as one self-contained HTML file. It is published as a claude.ai artifact and can also be served as a static page (`docs/index.html`, GitHub Pages ready).
 
 ## Commands
@@ -67,11 +69,13 @@ Shapes:
 
 - `design = {cls, base, ilvl, runeforge, astrid, league, targets:[[{f, mi, lv}|null...], [...]]}`
 - `st = {rarity:'none'|'magic'|'rare', mods:[{id, s, mi|null, mark:'auto'|'keep'|'junk', crafted?, desec?, fract?, pseudo?:'any'|'junk', est?}], done:{}, skip:{famIdx:true}}`
-- A step: `{kind, title, how, mats:[{k, n, q?, opt?}], odds?:{p, what, alt?}, note?, warn?, spec?, options?, recommended?, outcomes:[{label, o}|{label, pick}|{label, edit}], project}`
+- A step: `{kind, title, how, mats:[{k, n, q?, opt?}], odds?:{p, what, alt?}, note?, warn?, spec?, options?, recommended?, outcomes:[{label, o}|{label, pick}|{label, edit}|{label, astrid}], project}`. `astrid: true` turns Astrid's Creativity on for the craft (the UI ticks the Design checkbox and re-plans).
 
 Crafted slots go to craft-only targets first (`craftedPlan`: `cp` now, `cp.next` after it, `cp.extra` can't fit); the magic-to-rare essence bonus only takes a slot that is still free after them, and augments don't aim at the target it will add. A deleting craft with no junk to delete first gets a sacrifice on a side that holds nothing worth keeping (the other side, else its own side), so the deletion is certain where possible.
 
-Policy order in `rareStep`: (0) if a removal will be needed anyway and starting over is the recommendation, say so before spending; (1) crafted mod that deletes (alloy / Perfect or corrupted essence), aimed with Crystallisation at the side holding only junk; (2) removal when junk blocks a target; (3) Exalt slams on the hardest side first, reserving slots for the crafted and desecrated targets; (4) desecration for the last open target; (5) removal or stop with skip options.
+Policy order in `rareStep`: (0) if a removal will be needed anyway and starting over is the recommendation, say so before spending; (1) crafted mod that deletes (alloy / Perfect or corrupted essence), aimed with Crystallisation at the side holding only junk, or, when no side is clean, after a `sacrifice` slam (an omen-aimed Exalt that adds junk) on the side where that gives the best odds; (2) removal when junk blocks a target; (3) Exalt slams on the hardest side first, reserving slots for the crafted and desecrated targets; (4) desecration for the last open target; (5) removal, `craftCapStep`, or stop with skip options.
+
+Craft-only targets (alloy or essence only) are `stuck` once the item's crafted slots are full: they don't count as blocked by junk (no removal or restart advice for them), and `craftCapStep` explains them instead. On a base with augment sockets it is a `rune` step whose first outcome is `{astrid: true}` ("Plan it with Astrid's Creativity"); otherwise a stop with skip and new-base outcomes. A target that only a regular essence adds (those need a magic item) is a stop on a rare either way: the rune wouldn't help. Craft steps for Perfect and corrupted essences start with what they do and where to get one (`craftIntro`).
 
 Removal advice: options get `cost` (per try) and `exp` (rough average spend). With 2+ target mods on the item the cheapest fix up to 50 div is suggested; with 0-1 a new base; otherwise skip the hardest target. Every option is always shown.
 
@@ -88,8 +92,8 @@ Removal advice: options get `cost` (per try) and `exp` (rough average spend). Wi
 
 - One self-contained file. External scripts only from cdnjs/jsdelivr/unpkg; stylesheets only Google Fonts. **No external images** (the CSP blocks them), so art is inline SVG. The gloves hero (`HERO_GLOVES` in app.js) is hand-drawn.
 - Colours are tokens in `:root` (dark first) with light overrides under `prefers-color-scheme: light` and `[data-theme="light"]`. The item tooltip (`--tip-*`) stays dark in both themes on purpose. Never put a literal colour in a component rule.
-- Must work at 400px wide with no sideways scroll; the phone layout uses a bottom tab bar, and its slot list is a drawer from the left (the "All slots" button) instead of the side rail. Tablets keep the rail as a sideways strip.
-- `localStorage` reads and writes stay in try/catch. Key: `poe2-crafting-playbook-app-v2` (crafts, current id, league, view) and `poe2-crafting-playbook-v1` (ledger sort/filter).
+- Must work at 400px wide with no sideways scroll; the phone layout uses a bottom tab bar, and its slot list is a drawer from the left (the "All slots" button) instead of the side rail. Tablets keep the rail as a sideways strip. The phone header keeps Saved and + visible: My crafts shows its count as a badge, and below 350px Saved is icon-only.
+- `localStorage` reads and writes stay in try/catch (`saveOk` remembers whether the last one worked, for the Saved button). Key: `poe2-crafting-playbook-app-v2` (crafts, current id, league, view) and `poe2-crafting-playbook-v1` (ledger sort/filter).
 - `window.claude` only exists inside claude.ai. With `claude.use('user')` and `claude.use('db')` crafts sync to `data/users/<uid>/<craftId>` (doc format `v: 2`, see `packCraft` in app.js; `as: 1` marks Astrid's Creativity). Without it (standalone page, friends without write access) everything falls back to localStorage. Never let the app depend on `window.claude`.
 - `alert`/`confirm`/`prompt` don't work in artifacts. Confirmations are inline buttons.
 

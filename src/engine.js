@@ -275,6 +275,13 @@
       return hitShare(W, [t]);
     }
 
+    /* What a deleting crafted mod is, for the steps that use one: Perfect and corrupted essences are less familiar than alloys. */
+    function craftIntro(cp) {
+      if (cp.via !== 'essLate') return '';
+      return cp.src.tier === 'corrupted'
+        ? 'The ' + cp.src.name + ' is a corrupted essence. On a rare it removes a random mod and adds its own, which counts as a crafted modifier. Buy it on the Currency Exchange, or make one by using a Remnant of Corruption on an essence monolith. '
+        : 'A Perfect Essence on a rare removes a random mod and adds its own, which counts as a crafted modifier. ';
+    }
     function craftRoute(cat, t, st) {
       var m = methods(cat, t);
       if (st.rarity !== 'rare' && m.essEarly.length) return { t: t, via: 'essEarly', src: m.essEarly[0] };
@@ -535,9 +542,13 @@
       }
       if (cp && cp.via === 'essEarlyLost') warn.push(tName(cp.t) + ' at this tier only comes from a ' + cp.src.name + ', which needs a magic item. Start a new base to get it.');
 
+      /* Craft-only targets with no crafted slot left can't be helped by making room; craftCapStep explains them. */
+      var stuck = A.craftedUsed ? A.sides[0].unfilled.concat(A.sides[1].unfilled).filter(function (t) { return methods(cat, t).craftOnly; }) : [];
+      var live = function (S) { return S.unfilled.filter(function (t) { return stuck.indexOf(t) < 0; }); };
+
       // 0) a removal will be needed later anyway: if starting over is the cheaper fix, say so before spending more
       {
-        var deficit = [0, 1].map(function (x) { return A.sides[x].unfilled.length - A.sides[x].open; });
+        var deficit = [0, 1].map(function (x) { return live(A.sides[x]).length - A.sides[x].open; });
         if (cp && (cp.via === 'alloy' || cp.via === 'essLate')) {
           var Xd = [0, 1].filter(function (x) { return A.sides[x].junkRem.length; }).sort(function (a, b) { return deficit[b] - deficit[a]; })[0];
           if (Xd !== undefined) deficit[Xd] -= 1;
@@ -569,9 +580,9 @@
             return { label: 'It deleted ' + modLabel(m), o: { type: 'craft', remove: m.id, mods: [newMod] }, bad: m.status === 'hit' || m.status === 'keep' };
           });
           outs.sort(function (a, b) { return a.bad - b.bad; });
-          var how = 'Activate ' + omenCr(c.X).n + ', then use the ' + cp.src.name + '. It deletes a random ' + SIDE[c.X] + ' and adds ' + MODS[cp.src.mi].x + ' as a ' + SIDE[yc] + '.';
+          var how = craftIntro(cp) + 'Activate ' + omenCr(c.X).n + ', then use the ' + cp.src.name + '. It deletes a random ' + SIDE[c.X] + ' and adds ' + MODS[cp.src.mi].x + ' as a ' + SIDE[yc] + '.';
           var note = c.p >= 0.995 ? 'Every ' + SIDE[c.X] + ' on the item is junk, so the deletion can only hit junk.' :
-            'The ' + SIDE[c.X] + ' side also holds ' + list(S.removable.filter(function (m) { return m.status !== 'junk' && m.status !== 'low'; }).map(modLabel)) + ', so this can delete a good mod. If it does, tell the planner and it will re-route.';
+            'The ' + SIDE[c.X] + ' side also holds ' + listAnd(S.removable.filter(function (m) { return m.status !== 'junk' && m.status !== 'low'; }).map(modLabel)) + ', so this can delete a good mod. If it does, tell the planner and it will re-route.';
           return {
             kind: 'craft', side: c.X, title: 'Add ' + tName(cp.t) + ' with the ' + cp.src.name, how: how,
             mats: [omenCr(c.X), { k: cp.src.name, n: cp.src.name }],
@@ -584,7 +595,13 @@
         var X2 = 1 - yc;
         var clean = function (x) { return !A.sides[x].mods.some(function (m) { return m.status === 'hit' || m.status === 'keep'; }); };
         var bothOpen = A.sides[X2].open > 0 && A.sides[yc].open > 0;
-        var sx = bothOpen && clean(X2) ? X2 : (A.sides[yc].open > 0 && clean(yc)) ? yc : bothOpen ? X2 : null;
+        var sx = bothOpen && clean(X2) ? X2 : (A.sides[yc].open > 0 && clean(yc)) ? yc : null;
+        if (sx === null) {
+          /* Every side holds mods worth keeping: put the junk where the deletion is likeliest to take it. */
+          var pX2 = bothOpen ? 1 / (A.sides[X2].removable.length + 1) : -1;
+          var pY = A.sides[yc].open > 0 ? 1 / (A.sides[yc].removable.length + 1) : -1;
+          if (pX2 > 0 || pY > 0) sx = pX2 >= pY ? X2 : yc;
+        }
         if (sx !== null) {
           var same = sx === yc;
           var aims2 = A.sides[sx].unfilled.filter(function (t) { return methods(cat, t).slam && !(dp && dp.t === t); });
@@ -612,7 +629,7 @@
           var newMod2 = { id: newId(), s: yc, mi: cp.src.mi, mark: 'auto', crafted: true };
           return {
             kind: 'craft', side: yc, title: 'Add ' + tName(cp.t) + ' with the ' + cp.src.name,
-            how: 'The ' + SIDE[yc] + ' side is full and holds no junk, so the ' + cp.src.name + ' (with ' + omenCr(yc).n + ') will delete one of your ' + SIDE[yc] + 'es to make room.',
+            how: craftIntro(cp) + 'The ' + SIDE[yc] + ' side is full and holds no junk, so the ' + cp.src.name + ' (with ' + omenCr(yc).n + ') will delete one of your ' + SIDE[yc] + 'es to make room.',
             mats: [omenCr(yc), { k: cp.src.name, n: cp.src.name }],
             odds: { p: 0, what: 'to keep every ' + SIDE[yc] }, warn: warn,
             note: 'You’ll re-slam whichever mod it deletes.',
@@ -626,8 +643,8 @@
       var blocked = null;
       [0, 1].forEach(function (s) {
         var S = A.sides[s];
-        var need = S.unfilled.filter(function (t) { return !(cp && cp.t === t && FAMS[t.f].s === s && cp.inPlace); }).length;
-        var lowBlock = S.low.length > 0 && S.unfilled.some(function (t) { return S.low.some(function (m) { return MODS[m.mi].f === t.f; }); });
+        var need = live(S).filter(function (t) { return !(cp && cp.t === t && FAMS[t.f].s === s && cp.inPlace); }).length;
+        var lowBlock = S.low.length > 0 && live(S).some(function (t) { return S.low.some(function (m) { return MODS[m.mi].f === t.f; }); });
         if ((need > S.open || lowBlock) && S.junkRem.length && !blocked) blocked = { s: s, need: need };
       });
       if (blocked) return removalStep(design, st, A, cat, blocked.s, warn);
@@ -672,15 +689,44 @@
         return desecStep(design, st, A, cat, dp, warn);
       }
 
-      // 5) still unfilled but no open route: removal or acceptance
-      var sideWithJunk = [0, 1].find(function (s) { return A.sides[s].unfilled.length && A.sides[s].junkRem.length; });
+      // 5) still unfilled but no open route: removal, a crafted slot that's full, or acceptance
+      var sideWithJunk = [0, 1].find(function (s) { return live(A.sides[s]).length && A.sides[s].junkRem.length; });
       if (sideWithJunk !== undefined) return removalStep(design, st, A, cat, sideWithJunk, warn);
+      if (stuck.length) return craftCapStep(design, st, A, cat, stuck, warn);
       var left = A.sides[0].unfilled.concat(A.sides[1].unfilled);
       return {
         kind: 'stop', title: 'No route left for ' + list(left.map(tName)),
         how: 'The slots are taken by mods you want to keep, and the crafted and desecrated slots are used. Change a target, mark a mod as junk, or start a new base.',
         mats: [], warn: warn,
         outcomes: [{ label: 'Start a new base', o: { type: 'restart' } }].concat(left.map(function (t) { return { label: 'Skip ' + tName(t), o: { type: 'skip', f: t.f } }; }))
+      };
+    }
+
+    function listAnd(names) { return names.length < 2 ? names.join('') : names.slice(0, -1).join(', ') + ' and ' + names[names.length - 1]; }
+    /* A craft-only target is left, but the item already has all the crafted modifiers it can hold. Say why, and offer
+       Astrid's Creativity when the base can take it. */
+    function craftCapStep(design, st, A, cat, stuck, warn) {
+      // Alloys and Perfect or corrupted essences work on a rare; the other essences only on a magic item
+      var onRare = function (x) { var mx = methods(cat, x); return mx.alloy.length > 0 || mx.essLate.length > 0; };
+      var t = stuck.filter(onRare)[0] || stuck[0], m = methods(cat, t), late = onRare(t);
+      var src = (m.alloy[0] || m.essLate[0] || m.essEarly[0]).name;
+      var have = listAnd(st.mods.filter(function (x) { return x.crafted; }).map(modLabel));
+      var canRune = late && A.craftCap < 2 && socketable(cat.base);
+      var outs = [];
+      if (canRune) outs.push({ label: 'Plan it with Astrid’s Creativity', astrid: true });
+      stuck.forEach(function (x) { outs.push({ label: 'Skip ' + tName(x), o: { type: 'skip', f: x.f } }); });
+      outs.push({ label: 'Start a new base', o: { type: 'restart' } });
+      return {
+        kind: canRune ? 'rune' : 'stop',
+        title: canRune ? 'Use Astrid’s Creativity for ' + tName(t) : late ? 'No crafted slot left for ' + listAnd(stuck.map(tName)) : 'No route left for ' + listAnd(stuck.map(tName)),
+        how: !late ? tName(t) + ' at this tier only comes from ' + an(src) + ', which needs a magic item, and this one is rare. Start a new base to get it, or skip it.' :
+          tName(t) + ' only comes from ' + an(src) + ', and that adds a crafted modifier. ' +
+          (A.craftCap > 1 ? 'Both crafted slots are already used (' + have + ').' : 'Your item already has its one crafted modifier: ' + have + '.') +
+          (canRune ? ' Astrid’s Creativity, a rune, lets it hold a second. Plan it with the rune and the next steps show the way: socket the rune (with an Artificer’s Orb if there’s no free socket), then use the ' + src + ' with a Crystallisation omen.'
+            : socketable(cat.base) ? ' Two is the most an item can hold, even with Astrid’s Creativity.' : ' This base can’t take augment sockets, so Astrid’s Creativity isn’t an option.'),
+        mats: canRune ? [{ k: 'Astrid\'s Creativity', n: 'Astrid’s Creativity' }, { k: src, n: src }] : [],
+        note: canRune ? 'The prices are for the rune and the ' + src + '. The omens and any sacrifice show up in the next steps.' : null,
+        warn: warn, outcomes: outs
       };
     }
 
@@ -740,7 +786,8 @@
     }
 
     function removalStep(design, st, A, cat, s, warn) {
-      var S = A.sides[s];
+      var S0 = A.sides[s];
+      var S = Object.assign({}, S0, { unfilled: S0.unfilled.filter(function (t) { return !(A.craftedUsed && methods(cat, t).craftOnly); }) });
       var lg = design.league || LEAGUE;
       var options = [];
       function lvl(m) { return m.pseudo ? 999 : MODS[m.mi].l; }

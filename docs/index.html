@@ -106,7 +106,7 @@ svg.ico{width:1.25em;height:1.25em;flex:none;stroke-width:2.6;vertical-align:-.2
 .bar-in{max-width:96rem;margin:0 auto;height:var(--bar-h);padding-inline:clamp(16px,2.5vw,32px);display:flex;align-items:center;gap:clamp(.75rem,2vw,2rem)}
 .brand{display:flex;align-items:center;gap:.6rem;min-width:0;text-decoration:none;color:var(--fg)}
 .brand-mark{width:12px;height:12px;background:var(--brass);transform:rotate(45deg);flex:none;box-shadow:0 0 0 3px var(--surface),0 0 0 4px var(--brass-dim)}
-.brand-name{font-family:var(--font-display);font-weight:700;font-size:1.22rem;white-space:nowrap}
+.brand-name{font-family:var(--font-display);font-weight:700;font-size:1.22rem;white-space:nowrap;min-width:0;overflow:hidden;text-overflow:ellipsis}
 .brand-sub{font-family:var(--font-mono);font-size:.66rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);white-space:nowrap}
 .tabs{display:flex;gap:.25rem;height:100%}
 .tab{display:flex;align-items:center;gap:.45rem;height:100%;padding:0 .85rem;border:0;background:none;color:var(--muted);font-family:var(--font-display);font-weight:500;font-size:1.06rem;border-bottom:2px solid transparent;margin-bottom:-1px}
@@ -127,6 +127,23 @@ svg.ico{width:1.25em;height:1.25em;flex:none;stroke-width:2.6;vertical-align:-.2
 .btn.primary:hover{filter:brightness(1.07)}
 .btn.danger{color:var(--junk);border-color:color-mix(in srgb,var(--junk) 45%,var(--line-2))}
 .crafts-btn .lbl{white-space:nowrap}
+#crafts-n:not(:empty)::before{content:"("}
+#crafts-n:not(:empty)::after{content:")"}
+.league-wrap{display:flex;align-items:center;gap:.5rem;flex:none}
+.league-lbl{font-family:var(--font-mono);font-size:.64rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.league button{white-space:nowrap}
+.league-row{display:none;align-items:center;justify-content:flex-end;gap:.6rem;margin:0 0 1rem}
+.saved-btn .ico{color:var(--hit)}
+.saved-btn .lbl{display:inline-grid;justify-items:center}
+.saved-btn .lbl>span{grid-area:1/1;white-space:nowrap}
+.saved-btn .sv-ing,.saved-btn[data-state="saving"] .sv-ed{visibility:hidden}
+.saved-btn[data-state="saving"] .sv-ing{visibility:visible}
+.saved-btn[data-state="saving"] .ico{color:var(--muted)}
+.saved-btn[data-state="fail"]{color:var(--junk);border-color:color-mix(in srgb,var(--junk) 45%,var(--line-2))}
+.saved-btn[data-state="fail"] .ico{color:var(--junk)}
+.btn.new-btn{padding:.25rem;background:transparent;border-color:var(--brass-dim);color:var(--brass)}
+.btn.new-btn .ico{width:1.35em;height:1.35em;stroke-width:3}
+.btn.new-btn:hover{border-color:var(--brass);background:var(--brass-wash)}
 
 /* phone tab bar */
 .tabbar{display:none}
@@ -571,6 +588,10 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
 .links{display:flex;flex-wrap:wrap;gap:.4rem 1.4rem}
 
 /* ---------- responsive ---------- */
+@media (max-width:1320px){
+  .bar .league-wrap{display:none}
+  .league-row{display:flex}
+}
 @media (max-width:1180px){
   .design{grid-template-columns:minmax(0,1fr) 19rem}
   .side{grid-column:1/-1;position:relative;top:auto;max-height:none;grid-template-rows:none;gap:.75rem}
@@ -582,20 +603,32 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
   .rail .slot svg{width:22px;height:22px}
 }
 @media (max-width:980px){
+  .brand-sub{display:none}
   .plan-grid{grid-template-columns:minmax(0,1fr)}
   .have-col{position:static}
   .plan-grid.started .steps-col{order:-1}
 }
 @media (max-width:860px){
+  .crafts-btn .lbl{display:none}
   .design{grid-template-columns:minmax(0,1fr)}
   .route{position:static}
 }
 @media (max-width:760px){
   :root{--bar-h:52px;--tab-h:calc(60px + env(safe-area-inset-bottom,0px))}
   .tabs{display:none}
-  .brand-sub{display:none}
   .brand-name{font-size:1.08rem}
-  .crafts-btn .lbl{display:none}
+  .bar-tools{gap:.4rem}
+  .saved-btn{padding-inline:.45rem}
+  .saved-btn .lbl{display:inline}
+  .saved-btn .sv-ing{display:none}
+  .saved-btn[data-state="saving"] .sv-ed{visibility:visible}
+  .crafts-btn{position:relative;padding-inline:.5rem}
+  #crafts-n{position:absolute;top:-.5rem;right:-.5rem;min-width:1.1rem;height:1.1rem;padding:0 .28rem;border-radius:.55rem;background:var(--brass);color:var(--brass-ink);font-size:.64rem;font-weight:700;line-height:1.1rem;text-align:center}
+  #crafts-n:empty{display:none}
+  #crafts-n:not(:empty)::before,#crafts-n:not(:empty)::after{content:none}
+  .league-row{justify-content:stretch;margin-top:-.35rem}
+  .league-row .league{flex:1}
+  .league-row .league button{flex:1;padding-block:.5rem}
   .find{max-width:none}
   .rail{display:none}
   .slot-pick{display:flex}
@@ -645,6 +678,14 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
   .st{grid-template-columns:28px minmax(0,1fr);gap:.6rem}
   .st-n{margin-left:3px}
   .st.now .st-n{margin-left:1px}
+}
+@media (max-width:380px){
+  .bar-in{gap:.5rem}
+  .bar-tools{gap:.35rem}
+  .brand-name{font-size:.95rem}
+}
+@media (max-width:350px){
+  .saved-btn .lbl{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 }
 @media (prefers-reduced-motion:reduce){*{animation:none!important;scroll-behavior:auto!important}}
 
@@ -808,16 +849,16 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
       <button type="button" class="tab" data-go="ref">Reference</button>
     </nav>
     <div class="bar-tools">
-      <div class="league" role="group" aria-label="Prices from league">
-        <button type="button" data-lg="fr" aria-pressed="true" title="Forbidden Rites prices">FR</button>
-        <button type="button" data-lg="roa" aria-pressed="false" title="Runes of Aldur prices">RoA</button>
-      </div>
+      <div class="league-wrap"><span class="league-lbl" aria-hidden="true">Prices</span><div class="league" role="group" aria-label="Prices from league"><button type="button" data-lg="fr" aria-pressed="true" title="Prices from the Forbidden Rites league">Forbidden Rites</button><button type="button" data-lg="roa" aria-pressed="false" title="Prices from the Runes of Aldur league">Runes of Aldur</button></div></div>
+      <button type="button" class="btn small quiet saved-btn" id="saved" data-state="local"><svg class="ico" aria-hidden="true"><use href="#u-check"/></svg><span class="lbl"><span class="sv-ed">Saved</span><span class="sv-ing">Saving</span></span></button>
+      <button type="button" class="btn small new-btn" data-act="new-craft" aria-label="New craft" title="New craft"><svg class="ico" aria-hidden="true"><use href="#u-plus"/></svg></button>
       <button type="button" class="btn small quiet crafts-btn" id="crafts-open" aria-haspopup="dialog"><svg class="ico" aria-hidden="true"><use href="#u-stack"/></svg><span class="lbl">My crafts</span> <span class="mono" id="crafts-n"></span></button>
     </div>
   </div>
 </header>
 
 <main>
+  <div class="league-row"><span class="league-lbl" aria-hidden="true">Prices</span><div class="league" role="group" aria-label="Prices from league"><button type="button" data-lg="fr" aria-pressed="true" title="Prices from the Forbidden Rites league">Forbidden Rites</button><button type="button" data-lg="roa" aria-pressed="false" title="Prices from the Runes of Aldur league">Runes of Aldur</button></div></div>
   <!-- DESIGN -->
   <section id="v-design" class="view" aria-labelledby="d-title">
     <div class="view-head">
@@ -1370,6 +1411,13 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
       return hitShare(W, [t]);
     }
 
+    /* What a deleting crafted mod is, for the steps that use one: Perfect and corrupted essences are less familiar than alloys. */
+    function craftIntro(cp) {
+      if (cp.via !== 'essLate') return '';
+      return cp.src.tier === 'corrupted'
+        ? 'The ' + cp.src.name + ' is a corrupted essence. On a rare it removes a random mod and adds its own, which counts as a crafted modifier. Buy it on the Currency Exchange, or make one by using a Remnant of Corruption on an essence monolith. '
+        : 'A Perfect Essence on a rare removes a random mod and adds its own, which counts as a crafted modifier. ';
+    }
     function craftRoute(cat, t, st) {
       var m = methods(cat, t);
       if (st.rarity !== 'rare' && m.essEarly.length) return { t: t, via: 'essEarly', src: m.essEarly[0] };
@@ -1630,9 +1678,13 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
       }
       if (cp && cp.via === 'essEarlyLost') warn.push(tName(cp.t) + ' at this tier only comes from a ' + cp.src.name + ', which needs a magic item. Start a new base to get it.');
 
+      /* Craft-only targets with no crafted slot left can't be helped by making room; craftCapStep explains them. */
+      var stuck = A.craftedUsed ? A.sides[0].unfilled.concat(A.sides[1].unfilled).filter(function (t) { return methods(cat, t).craftOnly; }) : [];
+      var live = function (S) { return S.unfilled.filter(function (t) { return stuck.indexOf(t) < 0; }); };
+
       // 0) a removal will be needed later anyway: if starting over is the cheaper fix, say so before spending more
       {
-        var deficit = [0, 1].map(function (x) { return A.sides[x].unfilled.length - A.sides[x].open; });
+        var deficit = [0, 1].map(function (x) { return live(A.sides[x]).length - A.sides[x].open; });
         if (cp && (cp.via === 'alloy' || cp.via === 'essLate')) {
           var Xd = [0, 1].filter(function (x) { return A.sides[x].junkRem.length; }).sort(function (a, b) { return deficit[b] - deficit[a]; })[0];
           if (Xd !== undefined) deficit[Xd] -= 1;
@@ -1664,9 +1716,9 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
             return { label: 'It deleted ' + modLabel(m), o: { type: 'craft', remove: m.id, mods: [newMod] }, bad: m.status === 'hit' || m.status === 'keep' };
           });
           outs.sort(function (a, b) { return a.bad - b.bad; });
-          var how = 'Activate ' + omenCr(c.X).n + ', then use the ' + cp.src.name + '. It deletes a random ' + SIDE[c.X] + ' and adds ' + MODS[cp.src.mi].x + ' as a ' + SIDE[yc] + '.';
+          var how = craftIntro(cp) + 'Activate ' + omenCr(c.X).n + ', then use the ' + cp.src.name + '. It deletes a random ' + SIDE[c.X] + ' and adds ' + MODS[cp.src.mi].x + ' as a ' + SIDE[yc] + '.';
           var note = c.p >= 0.995 ? 'Every ' + SIDE[c.X] + ' on the item is junk, so the deletion can only hit junk.' :
-            'The ' + SIDE[c.X] + ' side also holds ' + list(S.removable.filter(function (m) { return m.status !== 'junk' && m.status !== 'low'; }).map(modLabel)) + ', so this can delete a good mod. If it does, tell the planner and it will re-route.';
+            'The ' + SIDE[c.X] + ' side also holds ' + listAnd(S.removable.filter(function (m) { return m.status !== 'junk' && m.status !== 'low'; }).map(modLabel)) + ', so this can delete a good mod. If it does, tell the planner and it will re-route.';
           return {
             kind: 'craft', side: c.X, title: 'Add ' + tName(cp.t) + ' with the ' + cp.src.name, how: how,
             mats: [omenCr(c.X), { k: cp.src.name, n: cp.src.name }],
@@ -1679,7 +1731,13 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
         var X2 = 1 - yc;
         var clean = function (x) { return !A.sides[x].mods.some(function (m) { return m.status === 'hit' || m.status === 'keep'; }); };
         var bothOpen = A.sides[X2].open > 0 && A.sides[yc].open > 0;
-        var sx = bothOpen && clean(X2) ? X2 : (A.sides[yc].open > 0 && clean(yc)) ? yc : bothOpen ? X2 : null;
+        var sx = bothOpen && clean(X2) ? X2 : (A.sides[yc].open > 0 && clean(yc)) ? yc : null;
+        if (sx === null) {
+          /* Every side holds mods worth keeping: put the junk where the deletion is likeliest to take it. */
+          var pX2 = bothOpen ? 1 / (A.sides[X2].removable.length + 1) : -1;
+          var pY = A.sides[yc].open > 0 ? 1 / (A.sides[yc].removable.length + 1) : -1;
+          if (pX2 > 0 || pY > 0) sx = pX2 >= pY ? X2 : yc;
+        }
         if (sx !== null) {
           var same = sx === yc;
           var aims2 = A.sides[sx].unfilled.filter(function (t) { return methods(cat, t).slam && !(dp && dp.t === t); });
@@ -1707,7 +1765,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
           var newMod2 = { id: newId(), s: yc, mi: cp.src.mi, mark: 'auto', crafted: true };
           return {
             kind: 'craft', side: yc, title: 'Add ' + tName(cp.t) + ' with the ' + cp.src.name,
-            how: 'The ' + SIDE[yc] + ' side is full and holds no junk, so the ' + cp.src.name + ' (with ' + omenCr(yc).n + ') will delete one of your ' + SIDE[yc] + 'es to make room.',
+            how: craftIntro(cp) + 'The ' + SIDE[yc] + ' side is full and holds no junk, so the ' + cp.src.name + ' (with ' + omenCr(yc).n + ') will delete one of your ' + SIDE[yc] + 'es to make room.',
             mats: [omenCr(yc), { k: cp.src.name, n: cp.src.name }],
             odds: { p: 0, what: 'to keep every ' + SIDE[yc] }, warn: warn,
             note: 'You’ll re-slam whichever mod it deletes.',
@@ -1721,8 +1779,8 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
       var blocked = null;
       [0, 1].forEach(function (s) {
         var S = A.sides[s];
-        var need = S.unfilled.filter(function (t) { return !(cp && cp.t === t && FAMS[t.f].s === s && cp.inPlace); }).length;
-        var lowBlock = S.low.length > 0 && S.unfilled.some(function (t) { return S.low.some(function (m) { return MODS[m.mi].f === t.f; }); });
+        var need = live(S).filter(function (t) { return !(cp && cp.t === t && FAMS[t.f].s === s && cp.inPlace); }).length;
+        var lowBlock = S.low.length > 0 && live(S).some(function (t) { return S.low.some(function (m) { return MODS[m.mi].f === t.f; }); });
         if ((need > S.open || lowBlock) && S.junkRem.length && !blocked) blocked = { s: s, need: need };
       });
       if (blocked) return removalStep(design, st, A, cat, blocked.s, warn);
@@ -1767,15 +1825,44 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
         return desecStep(design, st, A, cat, dp, warn);
       }
 
-      // 5) still unfilled but no open route: removal or acceptance
-      var sideWithJunk = [0, 1].find(function (s) { return A.sides[s].unfilled.length && A.sides[s].junkRem.length; });
+      // 5) still unfilled but no open route: removal, a crafted slot that's full, or acceptance
+      var sideWithJunk = [0, 1].find(function (s) { return live(A.sides[s]).length && A.sides[s].junkRem.length; });
       if (sideWithJunk !== undefined) return removalStep(design, st, A, cat, sideWithJunk, warn);
+      if (stuck.length) return craftCapStep(design, st, A, cat, stuck, warn);
       var left = A.sides[0].unfilled.concat(A.sides[1].unfilled);
       return {
         kind: 'stop', title: 'No route left for ' + list(left.map(tName)),
         how: 'The slots are taken by mods you want to keep, and the crafted and desecrated slots are used. Change a target, mark a mod as junk, or start a new base.',
         mats: [], warn: warn,
         outcomes: [{ label: 'Start a new base', o: { type: 'restart' } }].concat(left.map(function (t) { return { label: 'Skip ' + tName(t), o: { type: 'skip', f: t.f } }; }))
+      };
+    }
+
+    function listAnd(names) { return names.length < 2 ? names.join('') : names.slice(0, -1).join(', ') + ' and ' + names[names.length - 1]; }
+    /* A craft-only target is left, but the item already has all the crafted modifiers it can hold. Say why, and offer
+       Astrid's Creativity when the base can take it. */
+    function craftCapStep(design, st, A, cat, stuck, warn) {
+      // Alloys and Perfect or corrupted essences work on a rare; the other essences only on a magic item
+      var onRare = function (x) { var mx = methods(cat, x); return mx.alloy.length > 0 || mx.essLate.length > 0; };
+      var t = stuck.filter(onRare)[0] || stuck[0], m = methods(cat, t), late = onRare(t);
+      var src = (m.alloy[0] || m.essLate[0] || m.essEarly[0]).name;
+      var have = listAnd(st.mods.filter(function (x) { return x.crafted; }).map(modLabel));
+      var canRune = late && A.craftCap < 2 && socketable(cat.base);
+      var outs = [];
+      if (canRune) outs.push({ label: 'Plan it with Astrid’s Creativity', astrid: true });
+      stuck.forEach(function (x) { outs.push({ label: 'Skip ' + tName(x), o: { type: 'skip', f: x.f } }); });
+      outs.push({ label: 'Start a new base', o: { type: 'restart' } });
+      return {
+        kind: canRune ? 'rune' : 'stop',
+        title: canRune ? 'Use Astrid’s Creativity for ' + tName(t) : late ? 'No crafted slot left for ' + listAnd(stuck.map(tName)) : 'No route left for ' + listAnd(stuck.map(tName)),
+        how: !late ? tName(t) + ' at this tier only comes from ' + an(src) + ', which needs a magic item, and this one is rare. Start a new base to get it, or skip it.' :
+          tName(t) + ' only comes from ' + an(src) + ', and that adds a crafted modifier. ' +
+          (A.craftCap > 1 ? 'Both crafted slots are already used (' + have + ').' : 'Your item already has its one crafted modifier: ' + have + '.') +
+          (canRune ? ' Astrid’s Creativity, a rune, lets it hold a second. Plan it with the rune and the next steps show the way: socket the rune (with an Artificer’s Orb if there’s no free socket), then use the ' + src + ' with a Crystallisation omen.'
+            : socketable(cat.base) ? ' Two is the most an item can hold, even with Astrid’s Creativity.' : ' This base can’t take augment sockets, so Astrid’s Creativity isn’t an option.'),
+        mats: canRune ? [{ k: 'Astrid\'s Creativity', n: 'Astrid’s Creativity' }, { k: src, n: src }] : [],
+        note: canRune ? 'The prices are for the rune and the ' + src + '. The omens and any sacrifice show up in the next steps.' : null,
+        warn: warn, outcomes: outs
       };
     }
 
@@ -1835,7 +1922,8 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
     }
 
     function removalStep(design, st, A, cat, s, warn) {
-      var S = A.sides[s];
+      var S0 = A.sides[s];
+      var S = Object.assign({}, S0, { unfilled: S0.unfilled.filter(function (t) { return !(A.craftedUsed && methods(cat, t).craftOnly); }) });
       var lg = design.league || LEAGUE;
       var options = [];
       function lvl(m) { return m.pseudo ? 999 : MODS[m.mi].l; }
@@ -2187,6 +2275,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
     var c = cur();
     if (!c) return;
     renderCraftsBadge();
+    renderSaved();
     if (!c.planSt) { updateTabStep(null); return; }
     var steps = E.plan(designOf(c), c.planSt);
     updateTabStep(steps[0].kind === 'done' ? '✓' : String(c.hist.filter(function (x) { return !x.e; }).length + 1));
@@ -2254,16 +2343,22 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
   /* ---------- storage: your account (db) when available, this browser otherwise ---------- */
   var store = { mode: 'local', col: null, inflight: {}, dirty: {}, timers: {}, last: {}, remoteIds: null, readOnly: false };
   function worth(c) { return c && (targetCount(c) > 0 || c.st); }
+  var saveOk = null, localDirty = false;
   function saveLocal() {
+    clearTimeout(localTimer); localTimer = null; localDirty = false;
     try {
       var all = {};
       Object.keys(app.crafts).forEach(function (id) { if (worth(app.crafts[id]) || id === app.curId) all[id] = packCraft(app.crafts[id]); });
       localStorage.setItem(LS, JSON.stringify({ cur: app.curId, league: app.league, view: app.view, crafts: all }));
-    } catch (e) { /* storage blocked: the page still works for this visit */ }
+      saveOk = true;
+    } catch (e) { saveOk = false; /* storage blocked: the page still works for this visit */ }
+    renderSaved();
   }
   function loadLocal() {
+    var txt;
+    try { txt = localStorage.getItem(LS); } catch (e) { saveOk = false; return; }
     try {
-      var raw = JSON.parse(localStorage.getItem(LS) || 'null');
+      var raw = JSON.parse(txt || 'null');
       if (!raw || typeof raw !== 'object') return;
       if (raw.league === 'fr' || raw.league === 'roa') app.league = raw.league;
       if (raw.view === 'design' || raw.view === 'plan' || raw.view === 'ref') app.view = raw.view;
@@ -2272,27 +2367,62 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
     } catch (e) { /* ignore a bad cache */ }
   }
   function queueSave(id) {
+    localDirty = true;
     saveLocalSoon();
-    if (store.mode !== 'db' || store.readOnly) return;
-    clearTimeout(store.timers[id]);
-    store.timers[id] = setTimeout(function () { pushRemote(id); }, 900);
+    if (store.mode === 'db' && !store.readOnly) {
+      clearTimeout(store.timers[id]);
+      store.timers[id] = setTimeout(function () { pushRemote(id); }, 900);
+    }
+    renderSaved();
   }
   var localTimer = null;
   function saveLocalSoon() { clearTimeout(localTimer); localTimer = setTimeout(saveLocal, 250); }
   function pushRemote(id) {
+    clearTimeout(store.timers[id]); store.timers[id] = null;
     var c = app.crafts[id];
-    if (!c || !store.col || !worth(c)) return;
+    if (!c || !store.col || !worth(c)) { renderSaved(); return; }
     var body = packCraft(c), json = JSON.stringify(body);
-    if (store.last[id] === json) return;
+    if (store.last[id] === json) { renderSaved(); return; }
     if (store.inflight[id]) { store.dirty[id] = true; return; }
     store.inflight[id] = true;
+    renderSaved();
     store.col.doc(id).set(body).then(function () { store.last[id] = json; }).catch(function (e) {
-      if (e && e.code === 'unavailable') { setTimeout(function () { pushRemote(id); }, 1500 + Math.random() * 1500); return; }
+      if (e && e.code === 'unavailable') { store.timers[id] = setTimeout(function () { pushRemote(id); }, 1500 + Math.random() * 1500); return; }
       store.readOnly = true; renderStore();
     }).then(function () {
       store.inflight[id] = false;
       if (store.dirty[id]) { store.dirty[id] = false; pushRemote(id); }
+      renderSaved();
     });
+  }
+  /* The Saved button next to the + says whether the open craft is safe, and where. */
+  function toAccount() { return store.mode === 'db' && !!store.col && !store.readOnly; }
+  function canSave() { return toAccount() || saveOk !== false; }
+  function savedState() {
+    var id = app.curId;
+    if (!canSave()) return 'fail';
+    if (localDirty || store.timers[id] || store.inflight[id]) return 'saving';
+    return toAccount() && worth(cur()) ? 'account' : 'local';
+  }
+  function savedText(state) {
+    var c = cur();
+    var where = toAccount() ? 'to your account' : 'in this browser';
+    if (state === 'saving') return 'Saving your latest change…';
+    if (state === 'fail') return 'Not saved: this browser blocks storage here (a private window can do that), so your crafts only last while this page is open.';
+    if (!worth(c)) return 'Crafts save automatically ' + where + '. This one is empty so far.';
+    if (state === 'account') return 'The ' + c.base + ' craft is saved to your account, so it follows you to other devices. Every change saves as you go. Find it again in My crafts.';
+    return 'The ' + c.base + ' craft is saved in this browser. Every change saves as you go. Find it again in My crafts.';
+  }
+  var savedKey = '';
+  function renderSaved() {
+    var b = $('saved');
+    if (!b || !cur()) return;
+    var st = savedState(), text = savedText(st);
+    if (savedKey === st + text) return;
+    savedKey = st + text;
+    b.setAttribute('data-state', st);
+    b.title = text;
+    b.innerHTML = ico(st === 'fail' ? 'u-x' : 'u-check') + '<span class="lbl"><span class="sv-ed">' + (st === 'fail' ? 'Not saved' : 'Saved') + '</span><span class="sv-ing">Saving</span></span>';
   }
   function deleteRemote(id) {
     if (store.mode !== 'db' || store.readOnly || !store.col) return;
@@ -3038,6 +3168,11 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
     var o = outs[i];
     if (!o) return;
     var title = step.title + (opt && opt.key !== 'settle' && opt.key !== 'restart' ? ' · ' + opt.label : '');
+    if (o.astrid) {
+      c.astrid = true; touch(c); renderPlan();
+      toast('Astrid’s Creativity is on for this craft, so it can take a second crafted modifier. The steps now show how.', 6000);
+      return;
+    }
     if (o.edit) {
       pushHist(c, { t: step.title, o: o.label });
       if (step.kind === 'base') c.st = { rarity: 'magic', mods: [], done: {}, skip: (c.st && c.st.skip) || {} };
@@ -3071,9 +3206,19 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
     toast('Undid “' + x.t + '”.');
   }
   function startCopy() {
-    var c = cur();
+    var c = cur(), cat = catOf(c);
     var mods = [];
-    [0, 1].forEach(function (s) { c.targets[s].forEach(function (t) { if (t) mods.push({ id: E.newId(), s: s, mi: t.mi, mark: 'auto' }); }); });
+    [0, 1].forEach(function (s) {
+      c.targets[s].forEach(function (t) {
+        if (!t) return;
+        var m = { id: E.newId(), s: s, mi: t.mi, mark: 'auto' };
+        // An alloy or essence-only target is a crafted mod, a desecration-only one is desecrated, as when picked by hand
+        var o = E.tierOptions(cat, famOf(t.mi)).filter(function (x) { return x.mi === t.mi; })[0];
+        if (o && (o.kind === 'alloy' || o.kind === 'essence')) m.crafted = true;
+        if (o && o.kind === 'lich') m.desec = true;
+        mods.push(m);
+      });
+    });
     var perSide = [0, 1].map(function (s) { return mods.filter(function (m) { return m.s === s; }).length; });
     var doIt = function () {
       c.st = { rarity: (perSide[0] > 1 || perSide[1] > 1) ? 'rare' : mods.length ? 'magic' : 'none', mods: mods, done: {}, skip: (c.st && c.st.skip) || {} };
@@ -3308,13 +3453,13 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
   }
   function renderCraftsBadge() {
     var n = Object.keys(app.crafts).filter(function (id) { return worth(app.crafts[id]); }).length;
-    $('crafts-n').textContent = n ? '(' + n + ')' : '';
+    $('crafts-n').textContent = n ? String(n) : '';
   }
   function storeLine() {
     if (store.mode === 'db' && !store.readOnly) return '<p class="store synced"><i></i>Saved to your account, so it follows you between devices.</p>';
     return '<p class="store"><i></i>Saved in this browser only.</p>';
   }
-  function renderStore() { var el = $('dr-store'); if (el) el.innerHTML = storeLine(); }
+  function renderStore() { var el = $('dr-store'); if (el) el.innerHTML = storeLine(); renderSaved(); }
   function openDrawer() {
     hideToast();
     app.ui.confirmDel = null;
@@ -3338,12 +3483,14 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
     $('drawer').innerHTML = h;
   }
   function newCraft() {
-    var c = blankCraft(cur() ? cur().cls : 'gloves');
+    var prev = cur();
+    var c = blankCraft(prev ? prev.cls : 'gloves');
     app.crafts[c.id] = c; app.curId = c.id;
     touch(c);
     if (!$('drawer').hidden) closeDrawer();
     go('design');
     renderCraftsBadge();
+    toast(!worth(prev) ? 'New craft started.' : 'New craft started. The ' + prev.base + ' craft is ' + (canSave() ? 'saved in My crafts.' : 'still in My crafts until you close this page.'));
   }
 
   /* ---------- toast ---------- */
@@ -3365,6 +3512,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
     var lg = e.target.closest('[data-lg]');
     if (lg) { setLeague(lg.getAttribute('data-lg')); return; }
     if (e.target.closest('#crafts-open')) { openDrawer(); return; }
+    if (e.target.closest('#saved')) { savedKey = ''; renderSaved(); toast(savedText(savedState()), 6500); return; }
     if (e.target.closest('#slot-pick')) { openSlots(); return; }
     if (e.target === $('picker')) { closePicker(); return; }
     if (e.target === $('drawer')) { closeDrawer(); return; }
