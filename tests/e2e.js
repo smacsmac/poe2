@@ -70,6 +70,19 @@ async function addTarget(page, side, i, query, famText) {
     assert.equal(await page.locator('.stale').count(), 0);
     await page.click('[data-act="undo"]');
 
+    // The Plan screen is called Forge. Suggest fills in the magic base the plan starts from.
+    assert.match(await page.locator('.tabs [data-go="plan"]').innerText(), /^Forge/);
+    await page.click('[data-act="rarity"][data-v="magic"]');
+    await page.click('[data-act="suggest"]');
+    assert.match(await page.locator('#toast').innerText(), /Suggested a magic base with Maximum Life and any suffix/);
+    // "Add what's here" lists your design's targets first, the one for that row on top
+    await page.locator('.srow', { hasText: 'Maximum Mana' }).locator('[data-act="have-add"]').click();
+    assert.match(await page.locator('.fam.pin .fam-t').first().innerText(), /maximum Mana/);
+    await page.screenshot({ path: `${OUT}/${scheme}-pins.png` });
+    await page.locator('.fam.pin .fam-main').first().click();
+    assert.equal(await page.locator('.srow', { hasText: 'Maximum Mana' }).locator('.have.st-hit').count(), 1);
+    await page.screenshot({ path: `${OUT}/${scheme}-forge.png`, fullPage: true });
+
     await page.click('.tabs [data-go="ref"]');
     await page.screenshot({ path: `${OUT}/${scheme}-reference.png` });
 

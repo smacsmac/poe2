@@ -49,6 +49,7 @@
   --tip-low:#e8c060;
   --tip-junk:#f08a7a;
   --tip-keep:#93bdf2;
+  --tip-suffix:#7fd0c3;
   --tip-shadow:#000000;
   --art-steel-hi:#6a7080;
   --art-steel:#30343c;
@@ -277,6 +278,11 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
 .tbtn small{display:block;color:var(--tip-muted);font-size:.8rem}
 .cols-h{display:grid;grid-template-columns:minmax(0,.8fr) minmax(0,1.35fr);gap:.5rem;font-family:var(--font-mono);font-size:.62rem;letter-spacing:.14em;text-transform:uppercase;color:var(--tip-muted);padding:0 .1rem}
 .srows{display:grid;gap:.4rem}
+/* Forge: prefixes and suffixes each in their own box, suffixes in their own colour */
+.sbox{--side:var(--tip-magic);display:grid;gap:.45rem;padding:.55rem .55rem .6rem;border:1px solid color-mix(in srgb,var(--side) 38%,var(--tip-edge-2));border-radius:4px;background:color-mix(in srgb,var(--side) 4%,transparent)}
+.sbox.suf{--side:var(--tip-suffix)}
+.sbox .grp{margin-top:0;color:var(--side)}
+.sbox.suf .have:not(.st-junk):not(.empty) .h-text{color:var(--tip-suffix)}
 .srow{display:grid;grid-template-columns:minmax(0,.8fr) minmax(0,1.35fr);gap:.5rem;align-items:stretch}
 .want{border:1px solid var(--tip-edge-2);border-radius:3px;padding:.45rem .55rem;display:grid;align-content:center;gap:.1rem;font-size:.86rem;line-height:1.3;color:var(--tip-text);min-width:0}
 .want .wt{font-family:var(--font-mono);font-size:.68rem;color:var(--tip-muted)}
@@ -438,6 +444,11 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
 .pk-junk{display:flex;align-items:center;gap:.6rem;width:100%;padding:.6rem .5rem;margin-bottom:.2rem;border:1px dashed var(--line-2);border-radius:5px;background:transparent;text-align:left}
 .pk-junk:hover{border-color:var(--junk);color:var(--junk)}
 .pk-none{padding:1.5rem .5rem;color:var(--muted);text-align:center}
+.fam.pin .pin-row{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:.3rem}
+.fam.pin .fam-main{box-shadow:inset 2px 0 0 var(--brass)}
+.pin-more{margin-right:.3rem;padding:.25rem .6rem;border:1px solid var(--line-2);border-radius:999px;background:transparent;color:var(--muted);font-size:.8rem;white-space:nowrap}
+.pin-more:hover{color:var(--fg);border-color:var(--brass-dim)}
+.pin-more[aria-expanded="true"]{border-color:var(--brass);color:var(--fg)}
 
 /* crafts drawer */
 .drawer{position:fixed;inset:0;z-index:50;background:var(--scrim);display:flex;justify-content:flex-end}
@@ -793,7 +804,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
     </a>
     <nav class="tabs" aria-label="Screens">
       <button type="button" class="tab" data-go="design">Design</button>
-      <button type="button" class="tab" data-go="plan">Plan <span class="n" id="tab-step" hidden></span></button>
+      <button type="button" class="tab" data-go="plan">Forge <span class="n" id="tab-step" hidden></span></button>
       <button type="button" class="tab" data-go="ref">Reference</button>
     </nav>
     <div class="bar-tools">
@@ -839,7 +850,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
   <section id="v-plan" class="view" aria-labelledby="p-title" hidden>
     <div class="view-head">
       <div>
-        <p class="eyebrow">Step 2 of 2 · Plan</p>
+        <p class="eyebrow">Step 2 of 2 · Forge</p>
         <h1 id="p-title">Craft it step by step</h1>
       </div>
       <p>What you want sits next to what you have, with the route between them. Tell each step what it gave you and the rest re-plans from there.</p>
@@ -871,7 +882,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
     <section id="r-playbook" class="narrow">
       <div class="sec-head">
         <h2>The playbook</h2>
-        <p>Works for any rare. Cheap, reversible steps come first and expensive, permanent ones come last, so a bad roll early only costs you a base. The Plan screen follows this order for you.</p>
+        <p>Works for any rare. Cheap, reversible steps come first and expensive, permanent ones come last, so a bad roll early only costs you a base. The Forge screen follows this order for you.</p>
       </div>
       <div class="plan-box">
         <h3>Before you spend anything</h3>
@@ -1017,7 +1028,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
 
 <nav class="tabbar" aria-label="Screens">
   <button type="button" data-go="design"><svg aria-hidden="true"><use href="#u-design"/></svg>Design</button>
-  <button type="button" data-go="plan"><svg aria-hidden="true"><use href="#u-plan"/></svg>Plan</button>
+  <button type="button" data-go="plan"><svg aria-hidden="true"><use href="#u-hammer"/></svg>Forge</button>
   <button type="button" data-go="ref"><svg aria-hidden="true"><use href="#u-book"/></svg>Reference</button>
 </nav>
 
@@ -1386,14 +1397,16 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
       cp.extra = only.slice(room);
       return cp;
     }
-    /* A target worth taking from a Greater (or lower) essence at the magic-to-rare step, when a crafted slot is free for it. */
+    /* A target worth taking from a Greater (or lower) essence at the magic-to-rare step. Craft-only targets come
+       first, so it only gets a crafted slot that's still free after them. */
     function essenceBonus(cat, A, st, cp) {
       if (A.craftedUsed || st.rarity !== 'magic') return null;
-      if (cp && A.craftCap - A.craftedCount < 2) return null;
+      var queued = cp ? [cp.t].concat(cp.next.map(function (r) { return r.t; })) : [];
+      if (A.craftCap - A.craftedCount - queued.length < 1) return null;
       var best = null;
       [0, 1].forEach(function (s) {
         A.sides[s].unfilled.forEach(function (t) {
-          if (cp && cp.t === t) return;
+          if (queued.indexOf(t) > -1) return;
           var m = methods(cat, t);
           if (!m.essEarly.length) return;
           var h = hardness(cat, A, t);
@@ -1524,6 +1537,8 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
       var cp = craftedPlan(cat, A, st);
       var needsSacrifice = cp && (cp.via === 'alloy' || cp.via === 'essLate');
       var xSide = needsSacrifice ? 1 - FAMS[cp.t.f].s : -1;
+      /* The essence that will make it rare, if any: its target is guaranteed, so augments don't aim at it. */
+      var eb = cp && cp.via === 'essEarly' ? { t: cp.t, src: cp.src } : essenceBonus(cat, A, st, cp);
       // junk on a side that should hold a target: the base missed
       for (var s = 0; s < 2; s++) {
         var S = A.sides[s];
@@ -1553,7 +1568,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
               project: { type: 'add', mods: [mod] }
             };
           }
-          var aims = S2.unfilled.filter(function (t) { return methods(cat, t).slam && !(cp && cp.t === t); });
+          var aims = S2.unfilled.filter(function (t) { return methods(cat, t).slam && !(cp && cp.t === t) && !(eb && eb.t === t); });
           if (aims.length) {
             var Wg = weights(cat, [s2], 44, A.present, false), Wp = weights(cat, [s2], 70, A.present, false);
             var pg = hitShare(Wg, aims), pp = hitShare(Wp, aims);
@@ -1571,7 +1586,6 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
         }
       }
       // upgrade to rare
-      var eb = cp && cp.via === 'essEarly' ? { t: cp.t, src: cp.src } : essenceBonus(cat, A, st, cp);
       if (eb) {
         var em = { id: newId(), s: FAMS[eb.t.f].s, mi: eb.src.mi, mark: 'auto', crafted: true };
         return {
@@ -1661,43 +1675,30 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
             project: { type: 'craft', remove: S.junkRem[0].id, mods: [newMod] }
           };
         }
-        // no junk yet: make a sacrifice on the other side (keep a slot for the crafted mod)
+        // no junk yet: make a sacrifice for it to delete, on a side that holds nothing worth keeping when there is one
         var X2 = 1 - yc;
-        if (A.sides[X2].open > 0 && A.sides[yc].open > 0) {
-          var aims2 = A.sides[X2].unfilled.filter(function (t) { return methods(cat, t).slam && !(dp && dp.t === t); });
-          var W2 = weights(cat, [X2], 0, A.present, false);
+        var clean = function (x) { return !A.sides[x].mods.some(function (m) { return m.status === 'hit' || m.status === 'keep'; }); };
+        var bothOpen = A.sides[X2].open > 0 && A.sides[yc].open > 0;
+        var sx = bothOpen && clean(X2) ? X2 : (A.sides[yc].open > 0 && clean(yc)) ? yc : bothOpen ? X2 : null;
+        if (sx !== null) {
+          var same = sx === yc;
+          var aims2 = A.sides[sx].unfilled.filter(function (t) { return methods(cat, t).slam && !(dp && dp.t === t); });
+          var W2 = weights(cat, [sx], 0, A.present, false);
           var pHit = hitShare(W2, aims2);
-          var junkMod = { id: newId(), s: X2, mi: null, pseudo: 'any', mark: 'junk' };
+          var junkMod = { id: newId(), s: sx, mi: null, pseudo: 'any', mark: 'junk' };
           var o2 = aims2.map(function (t) { return { label: 'Got ' + tName(t) + ' (keep it)', o: { type: 'add', mods: [targetMod(t)] } }; });
           o2.unshift({ label: 'Got junk (good)', o: { type: 'add', mods: [junkMod] } });
-          o2.push({ label: 'Pick what landed', pick: { s: X2, mark: 'auto' } });
+          o2.push({ label: 'Pick what landed', pick: { s: sx, mark: 'auto' } });
           return {
-            kind: 'sacrifice', side: X2, title: 'Add a ' + SIDE[X2] + ' to sacrifice',
-            how: 'The ' + cp.src.name + ' always deletes a random mod, so give it junk to delete first. Activate ' + omenEx(X2).n + ' and use a plain Exalted Orb. Junk is the result you want here.',
-            mats: [omenEx(X2), { k: 'exalt', n: 'Exalted Orb' }],
+            kind: 'sacrifice', side: sx, title: 'Add a ' + SIDE[sx] + ' to sacrifice',
+            how: 'The ' + cp.src.name + ' always deletes a random mod, so give it junk to delete first' +
+              (same ? ': a junk ' + SIDE[yc] + ', because the ' + SIDE[X2] + ' side ' + (A.sides[X2].open > 0 ? 'holds mods you want to keep' : 'is full') + '. The ' + cp.src.name + ' then takes its place' : '') +
+              '. Activate ' + omenEx(sx).n + ' and use a plain Exalted Orb. Junk is the result you want here.',
+            mats: [omenEx(sx), { k: 'exalt', n: 'Exalted Orb' }],
             odds: { p: 1 - pHit, what: 'to land junk' },
-            note: aims2.length ? 'If it lands ' + list(aims2.map(tName)) + ', keep it and add another sacrifice.' : null,
+            note: aims2.length ? 'If it lands ' + list(aims2.map(tName)) + (same ? ' instead, keep it and tell the planner: it will find another way to fit the ' + cp.src.name + '.' : ', keep it and add another sacrifice.') : null,
             warn: warn, outcomes: o2,
             project: { type: 'add', mods: [junkMod] }
-          };
-        }
-        // the other side can't take it: sacrifice on the crafted side itself while it holds nothing worth keeping
-        var Sy0 = A.sides[yc];
-        if (Sy0.open > 0 && !Sy0.mods.some(function (m) { return m.status === 'hit' || m.status === 'keep'; })) {
-          var aims3 = Sy0.unfilled.filter(function (t) { return methods(cat, t).slam && !(dp && dp.t === t); });
-          var pHit3 = hitShare(weights(cat, [yc], 0, A.present, false), aims3);
-          var junk3 = { id: newId(), s: yc, mi: null, pseudo: 'any', mark: 'junk' };
-          var o3 = aims3.map(function (t) { return { label: 'Got ' + tName(t) + ' (keep it)', o: { type: 'add', mods: [targetMod(t)] } }; });
-          o3.unshift({ label: 'Got junk (good)', o: { type: 'add', mods: [junk3] } });
-          o3.push({ label: 'Pick what landed', pick: { s: yc, mark: 'auto' } });
-          return {
-            kind: 'sacrifice', side: yc, title: 'Add a ' + SIDE[yc] + ' to sacrifice',
-            how: 'The ' + cp.src.name + ' always deletes a random mod, and the ' + SIDE[1 - yc] + ' side is full, so give it a junk ' + SIDE[yc] + ' to delete. Activate ' + omenEx(yc).n + ' and use a plain Exalted Orb. Junk is the result you want here: the ' + cp.src.name + ' then replaces it.',
-            mats: [omenEx(yc), { k: 'exalt', n: 'Exalted Orb' }],
-            odds: { p: 1 - pHit3, what: 'to land junk' },
-            note: aims3.length ? 'If it lands ' + list(aims3.map(tName)) + ' instead, keep it and tell the planner: it will find another way to fit the ' + cp.src.name + '.' : null,
-            warn: warn, outcomes: o3,
-            project: { type: 'add', mods: [junk3] }
           };
         }
         if (A.sides[yc].open < 1) {
@@ -1990,6 +1991,20 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
       return steps;
     }
 
+    /* What to look for on a bought item of this rarity: the first state the plan reaches at that rarity from a fresh
+       base. For magic that's the base it starts from (the rarest targets, or any mod on the side an alloy will clear);
+       for rare, the item right after it turns rare. */
+    function suggest(design, rarity, skip) {
+      var s = { rarity: 'none', mods: [], done: {}, skip: clone(skip || {}) };
+      for (var i = 0; i < 8; i++) {
+        var step = nextStep(design, s);
+        if (!step.project || step.kind === 'done' || step.kind === 'stop' || step.project.type === 'restart') return null;
+        s = apply(s, step.project);
+        if (s.rarity === rarity) return s.mods;
+      }
+      return null;
+    }
+
     function summary(design, st) {
       var cat = catalog(design.base, design.ilvl);
       var A = analyze(cat, design, st);
@@ -2062,7 +2077,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
       MODS: MODS, FAMS: FAMS, CLASS: CLASS, BASE: BASE,
       catalog: catalog, tierOptions: tierOptions, methods: methods, famName: famName, modText: modText,
       analyze: analyze, plan: plan, apply: apply, nextStep: nextStep, summary: summary, slamOddsFor: slamOddsFor,
-      oddsLabel: oddsLabel, price: price, matsCost: matsCost, labelTier: labelTier, newId: newId, SIDE: SIDE, SIDE_CAP: SIDE_CAP, findBases: findBases, socketable: socketable,
+      oddsLabel: oddsLabel, price: price, matsCost: matsCost, labelTier: labelTier, newId: newId, SIDE: SIDE, SIDE_CAP: SIDE_CAP, findBases: findBases, socketable: socketable, suggest: suggest,
       setLeague: setLeague, hardness: function (design, st, t) { var c = catalog(design.base, design.ilvl); return hardness(c, analyze(c, design, st), t); }
     };
   }
@@ -2073,7 +2088,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
 
 </script>
 <script>
-/* Crafting Playbook app: Design -> Plan -> Reference. Vanilla JS over the planner engine. */
+/* Crafting Playbook app: Design -> Forge (the plan, internally "plan") -> Reference. Vanilla JS over the planner engine. */
 (function () {
   'use strict';
   var DATA = window.DATA, PRICES = window.PRICES;
@@ -2392,6 +2407,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
   /* Phones: the slot list opens as a drawer from the left instead of the side rail. */
   function slotsOpen() { return !$('slots').hidden; }
   function openSlots() {
+    hideToast();
     var el = $('slots');
     el.innerHTML = '<div class="drawer-card" role="dialog" aria-modal="true" aria-labelledby="sl-t"><div class="dr-head"><h2 id="sl-t">Choose a slot</h2>' +
       '<button type="button" class="btn small quiet x" data-act="slots-close" aria-label="Close">' + ico('u-x') + '</button></div>' +
@@ -2492,10 +2508,13 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
       }
     }
     r.warn = true;
-    if (m.craftOnly) {
-      var sock = E.socketable(cat.base);
+    var sock = E.socketable(cat.base), cap = c.astrid && sock ? 2 : 1;
+    var craftOnly = c.targets[0].concat(c.targets[1]).filter(function (x) {
+      return x && E.methods(cat, { f: famOf(x.mi), mi: x.mi, lv: MODS[x.mi].l }).craftOnly;
+    }).length;
+    if (m.craftOnly && craftOnly > cap) {
       r.line = 'Only from ' + esc((m.alloy[0] || m.essLate[0] || m.essEarly[0]).name) +
-        (c.astrid && sock ? ', and both crafted slots are already taken' : ', and the one crafted slot is already taken' + (sock ? '. Astrid’s Creativity below allows a second' : ''));
+        (cap > 1 ? ', and both crafted slots are already taken' : ', and the one crafted slot is already taken' + (sock ? '. Astrid’s Creativity below allows a second' : ''));
     } else if (m.desecOnly) r.line = 'Only from desecration, and the one desecrated slot is already taken';
     else if (m.impossible) r.line = 'Not available at item level ' + c.ilvl;
     else r.line = 'No room left for it with the other targets';
@@ -2578,7 +2597,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
       if (warns.length) h += '<div class="warns">' + warns.map(function (w) { return '<p class="warnline">' + w + '</p>'; }).join('') + '</div>';
     }
     var started = !!c.planSt;
-    h += '<button type="button" class="btn primary cta" data-act="to-plan"' + (all.length ? '' : ' disabled') + '>' + ico('u-hammer') + (started ? 'Back to the plan' : 'Craft it') + ico('u-arrow') + '</button>';
+    h += '<button type="button" class="btn primary cta" data-act="to-plan"' + (all.length ? '' : ' disabled') + '>' + ico('u-hammer') + (started ? 'Back to the forge' : 'Craft it') + ico('u-arrow') + '</button>';
     h += '</div>';
     h += '<p class="fine">Odds count every eligible tier the same, because the game data doesn’t publish spawn weights. Treat them as a guide, not a promise.</p>';
     $('d-route').innerHTML = h;
@@ -2803,13 +2822,14 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
     } else {
       h += '<div class="rarity"><span class="vh">Rarity</span><div class="seg" role="group" aria-label="Rarity">' +
         ['none', 'magic', 'rare'].map(function (v) { return '<button type="button" data-act="rarity" data-v="' + v + '" aria-pressed="' + (rar === v) + '">' + { none: 'Normal', magic: 'Magic', rare: 'Rare' }[v] + '</button>'; }).join('') +
-        '</div><button type="button" class="tbtn" data-act="start-copy" style="padding:.3rem .6rem;font-size:.82rem">Copy targets in</button>' +
+        '</div><button type="button" class="tbtn" data-act="suggest" style="padding:.3rem .6rem;font-size:.82rem"' + (rar === 'none' ? ' aria-disabled="true"' : '') + '>Suggest</button>' +
+        '<button type="button" class="tbtn" data-act="start-copy" style="padding:.3rem .6rem;font-size:.82rem">Copy targets in</button>' +
         '<button type="button" class="tbtn" data-act="start-blank" style="padding:.3rem .6rem;font-size:.82rem">Clear item</button></div>';
     }
     h += '<div class="cols-h" aria-hidden="true"><span>Want</span><span>Have</span></div>';
     [0, 1].forEach(function (s) {
       if (!cat.caps[s]) return;
-      h += '<p class="grp">' + (s ? 'Suffixes' : 'Prefixes') + '</p><div class="srows">';
+      h += '<section class="sbox ' + (s ? 'suf' : 'pre') + '" aria-label="' + (s ? 'Suffixes' : 'Prefixes') + '"><p class="grp">' + (s ? 'Suffixes' : 'Prefixes') + '</p><div class="srows">';
       rowsFor(c, s, cat).forEach(function (r) {
         var w;
         if (r.t) {
@@ -2821,7 +2841,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
         } else w = '<div class="want none"><span class="wt">Any</span></div>';
         var hv;
         if (!r.m) {
-          hv = '<div class="have empty"><button type="button" class="h-main" data-act="have-add" data-s="' + s + '"' + (rar === 'none' ? ' aria-disabled="true"' : '') + '><span class="h-text">' + (rar === 'none' ? 'Empty' : '+ Add what’s here') + '</span></button></div>';
+          hv = '<div class="have empty"><button type="button" class="h-main" data-act="have-add" data-s="' + s + '"' + (r.t ? ' data-f="' + famOf(r.t.mi) + '"' : '') + (rar === 'none' ? ' aria-disabled="true"' : '') + '><span class="h-text">' + (rar === 'none' ? 'Empty' : '+ Add what’s here') + '</span></button></div>';
         } else {
           var m = r.m, info = statusInfo(m, r.t);
           var flags = [];
@@ -2838,7 +2858,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
         }
         h += '<div class="srow">' + w + hv + '</div>';
       });
-      h += '</div>';
+      h += '</div></section>';
     });
     var planned = !!c.planSt;
     h += '<div class="forge">';
@@ -3066,6 +3086,34 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
     var doIt = function () { c.st = { rarity: 'none', mods: [], done: {}, skip: (c.st && c.st.skip) || {} }; };
     if (c.st) manualEdit(c, doIt); else { doIt(); touch(c); renderPlan(); }
   }
+  function listAnd(a) { return a.length < 2 ? a.join('') : a.slice(0, -1).join(', ') + ' and ' + a[a.length - 1]; }
+  /* Fill the item with what's worth having on a bought base of the chosen rarity, as the plan sees it. */
+  function suggestItem() {
+    var c = cur();
+    var rar = c.st && c.st.rarity;
+    if (rar !== 'magic' && rar !== 'rare') { toast('Choose Magic or Rare first, then Suggest fills in what to look for.'); return; }
+    var design = designOf(c);
+    var mods = E.suggest(design, rar, c.st.skip);
+    if (!mods) { toast('Nothing to suggest yet. Add your targets on the Design screen first.'); return; }
+    manualEdit(c, function () { c.st.mods = mods; });
+    var parts = mods.map(function (m) {
+      return m.pseudo ? 'any ' + SIDE[m.s] + ' (junk for the crafted mod to delete)' : E.famName(famOf(m.mi)) + (m.crafted ? ' (from an essence)' : '');
+    });
+    var msg = rar === 'magic' ? 'Suggested a magic base with ' + (parts.length ? listAnd(parts) : 'no mods') + '.'
+      : 'Suggested the item as the plan has it right after it turns rare: ' + listAnd(parts) + '.';
+    if (rar === 'magic') {
+      var next = E.nextStep(design, { rarity: 'magic', mods: clone(mods), done: {}, skip: c.st.skip || {} });
+      [0, 1].forEach(function (s) {
+        if (!catOf(c).caps[s] || mods.some(function (m) { return m.s === s; })) return;
+        if (next.kind === 'essence' && next.project.mods[0].s === s) {
+          var en = next.mats[0].n;
+          msg += ' No ' + SIDE[s] + ' needed: ' + (/^[aeiou]/i.test(en) ? 'an ' : 'a ') + en + ' adds ' + E.famName(famOf(next.project.mods[0].mi)) + ' when it turns rare.';
+        }
+      });
+      if (mods.some(function (m) { return !m.pseudo; })) msg += ' The rarest targets go on the base, since they’re the hardest to add later.';
+    }
+    toast(msg, 8000);
+  }
   function setRarity(v) {
     var c = cur();
     manualEdit(c, function () {
@@ -3083,13 +3131,13 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
     });
   }
   function findMod(c, id) { return c.st && c.st.mods.find(function (m) { return m.id === id; }); }
-  function addHave(s) {
+  function addHave(s, f) {
     var c = cur();
     if (!c.st || c.st.rarity === 'none') {
       if (!c.st) c.st = { rarity: 'none', mods: [], done: {}, skip: {} };
     }
     openPicker({
-      mode: 'have', side: s, flags: {}, title: 'What’s on your item?', sub: 'Pick the ' + SIDE[s] + ' your item has.',
+      mode: 'have', side: s, prefer: f, flags: {}, title: 'What’s on your item?', sub: 'Pick the ' + SIDE[s] + ' your item has.',
       onPick: function (mod) {
         manualEdit(c, function () {
           c.st.mods.push(mod);
@@ -3119,6 +3167,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
   /* ---------- picker ---------- */
   function openPicker(p) {
     var c = cur();
+    hideToast();
     p.q = ''; p.cat = 'All'; p.open = null; p.ret = document.activeElement;
     p.flags = p.flags || {};
     app.pk = p;
@@ -3158,18 +3207,51 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
     }
     return !!(c.st && c.st.mods.some(function (m) { return m.id !== p.editing && m.mi !== null && m.mi !== undefined && famOf(m.mi) === F.f; }));
   }
+  function tiersHTML(cat, f, current) {
+    return '<div class="tiers">' + E.tierOptions(cat, f).map(function (o) {
+      var lab = o.kind === 'roll' ? o.label : o.kind === 'essence' ? 'Essence' : o.kind === 'alloy' ? 'Alloy' : 'Desecr.';
+      var subl = o.kind === 'roll' ? 'lvl ' + o.l : '';
+      var src = o.kind === 'roll' ? (o.ess && o.ess.length ? 'Also from ' + o.ess.join(', ') : '') : o.kind === 'essence' ? o.ess.join(', ') : o.kind === 'alloy' ? o.src : 'From ' + o.src + ' (desecration)';
+      return '<button type="button" class="tier" data-act="pk-tier" data-mi="' + o.mi + '" data-kind="' + o.kind + '" aria-pressed="' + (current === o.mi) + '"><span class="tl">' + esc(lab) + (subl ? '<small>' + subl + '</small>' : '') + '</span>' +
+        '<span class="tt">' + esc(dash(MODS[o.mi].x)) + (src ? '<small>' + esc(src) + '</small>' : '') + '</span></button>';
+    }).join('') + '</div>';
+  }
+  /* When telling the planner what's on the item, your design's targets for that side come first, one tap each
+     (the one for the row you came from on top), since that's usually what landed. */
+  function pickPins(c, p) {
+    if (p.mode !== 'have') return [];
+    var onItem = new Set();
+    (c.st ? c.st.mods : []).forEach(function (m) { if (m.id !== p.editing && m.mi !== null && m.mi !== undefined) onItem.add(famOf(m.mi)); });
+    var pins = c.targets[p.side].filter(function (t) { return t && !onItem.has(famOf(t.mi)); });
+    if (p.prefer !== null && p.prefer !== undefined) pins.sort(function (a, b) { return (famOf(b.mi) === p.prefer) - (famOf(a.mi) === p.prefer); });
+    return pins;
+  }
   function renderPickList() {
     var c = cur(), p = app.pk, cat = catOf(c);
     var q = p.q.trim().toLowerCase();
-    var list = cat.sides[p.side].filter(function (F) {
+    function shown(F) {
       if (p.cat !== 'All' && F.c !== p.cat) return false;
       if (!q) return true;
       var hay = (F.name + ' ' + F.t + ' ' + E.tierOptions(cat, F.f).map(function (o) { return MODS[o.mi].x + ' ' + (o.ess || []).join(' ') + ' ' + (o.src || ''); }).join(' ')).toLowerCase();
       return q.split(/\s+/).every(function (w) { return hay.indexOf(w) > -1; });
-    });
+    }
+    var pins = pickPins(c, p).filter(function (t) { var F = cat.byFam.get(famOf(t.mi)); return F && shown(F); });
+    var pinned = new Set(pins.map(function (t) { return famOf(t.mi); }));
+    var list = cat.sides[p.side].filter(function (F) { return !pinned.has(F.f) && shown(F); });
     var h = '';
+    if (pins.length) {
+      h += '<p class="pk-cat">From your design</p>';
+      pins.forEach(function (t) {
+        var f = famOf(t.mi), open = p.open === f, tl = tierLab(cat, t.mi);
+        var o = E.tierOptions(cat, f).find(function (x) { return x.mi === t.mi; }) || { kind: 'roll' };
+        h += '<div class="fam pin' + (open ? ' open' : '') + '"><div class="pin-row"><button type="button" class="fam-main" data-act="pk-tier" data-mi="' + t.mi + '" data-kind="' + o.kind + '">' +
+          '<span class="fam-t">' + esc(dash(MODS[t.mi].x)) + '</span><span class="fam-m">Your target · ' + esc(tl) + (tl.charAt(0) === 'T' ? ' or better' : '') + '</span></button>' +
+          '<button type="button" class="pin-more" data-act="pk-fam" data-f="' + f + '" aria-expanded="' + open + '">Other tier</button></div>' +
+          (open ? tiersHTML(cat, f, p.current) : '') + '</div>';
+      });
+    }
     if (p.mode === 'have') h += '<button type="button" class="pk-junk" data-act="pk-junk">' + ico('u-x') + '<span>Something I don’t want<small class="muted" style="display:block;font-size:.82rem">Any ' + SIDE[p.side] + ' you plan to replace. Fine to leave vague.</small></span></button>';
-    if (!list.length) h += '<p class="pk-none">Nothing matches. Clear the search or pick another category.</p>';
+    if (!list.length && !pins.length) h += '<p class="pk-none">Nothing matches. Clear the search or pick another category.</p>';
     var lastCat = null;
     list.forEach(function (F) {
       if (p.cat === 'All' && F.c !== lastCat) { h += '<p class="pk-cat">' + esc(F.c) + '</p>'; lastCat = F.c; }
@@ -3185,15 +3267,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
       h += '<div class="fam' + (used ? ' used' : '') + (open ? ' open' : '') + '"><button type="button" class="fam-main" data-act="pk-fam" data-f="' + F.f + '"' + (used ? ' aria-disabled="true"' : '') + ' aria-expanded="' + open + '">' +
         '<span class="fam-t">' + esc(dash(MODS[top.mi].x)) + '</span><span class="fam-m">' + (used ? (p.mode === 'design' ? 'Already in another box' : 'Already on the item') : meta) + '</span>' +
         '<span class="fam-b">' + tags.join('') + '</span></button>';
-      if (open) {
-        h += '<div class="tiers">' + opts.map(function (o) {
-          var lab = o.kind === 'roll' ? o.label : o.kind === 'essence' ? 'Essence' : o.kind === 'alloy' ? 'Alloy' : 'Desecr.';
-          var subl = o.kind === 'roll' ? 'lvl ' + o.l : '';
-          var src = o.kind === 'roll' ? (o.ess && o.ess.length ? 'Also from ' + o.ess.join(', ') : '') : o.kind === 'essence' ? o.ess.join(', ') : o.kind === 'alloy' ? o.src : 'From ' + o.src + ' (desecration)';
-          return '<button type="button" class="tier" data-act="pk-tier" data-mi="' + o.mi + '" data-kind="' + o.kind + '" aria-pressed="' + (p.current === o.mi) + '"><span class="tl">' + esc(lab) + (subl ? '<small>' + subl + '</small>' : '') + '</span>' +
-            '<span class="tt">' + esc(dash(MODS[o.mi].x)) + (src ? '<small>' + esc(src) + '</small>' : '') + '</span></button>';
-        }).join('') + '</div>';
-      }
+      if (open) h += tiersHTML(cat, F.f, p.current);
       h += '</div>';
     });
     $('pk-list').innerHTML = h;
@@ -3242,6 +3316,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
   }
   function renderStore() { var el = $('dr-store'); if (el) el.innerHTML = storeLine(); }
   function openDrawer() {
+    hideToast();
     app.ui.confirmDel = null;
     $('drawer').hidden = false;
     renderDrawer();
@@ -3273,13 +3348,14 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
 
   /* ---------- toast ---------- */
   var toastTimer = null;
-  function toast(msg) {
+  function toast(msg, ms) {
     var el = $('toast');
     el.innerHTML = '<span>' + esc(msg) + '</span>';
     el.hidden = false;
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(function () { el.hidden = true; }, 4200);
+    toastTimer = setTimeout(function () { el.hidden = true; }, ms || 4200);
   }
+  function hideToast() { clearTimeout(toastTimer); $('toast').hidden = true; }
 
   /* ---------- events ---------- */
   document.addEventListener('click', function (e) {
@@ -3308,8 +3384,9 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
       case 'go-design': go('design'); break;
       case 'start-blank': startBlank(); break;
       case 'start-copy': startCopy(); break;
+      case 'suggest': suggestItem(); break;
       case 'rarity': setRarity(a.getAttribute('data-v')); break;
-      case 'have-add': if (a.getAttribute('aria-disabled') === 'true') { toast('Set the rarity to Magic or Rare first.'); break; } addHave(s); break;
+      case 'have-add': if (a.getAttribute('aria-disabled') === 'true') { toast('Set the rarity to Magic or Rare first.'); break; } addHave(s, a.hasAttribute('data-f') ? +a.getAttribute('data-f') : null); break;
       case 'have-edit': editHave(a.getAttribute('data-id')); break;
       case 'have-del': (function (id) { manualEdit(c, function () { c.st.mods = c.st.mods.filter(function (m) { return m.id !== id; }); }); })(a.getAttribute('data-id')); break;
       case 'mark': (function (id, v) { manualEdit(c, function () { var m = findMod(c, id); if (m) m.mark = v; }); })(a.getAttribute('data-id'), a.getAttribute('data-v')); break;
@@ -3399,6 +3476,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
   E.setLeague(app.league);
   document.querySelectorAll('[data-lg]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-lg') === app.league)); });
   var h0 = (location.hash || '').replace('#', '');
+  if (h0 === 'forge') h0 = 'plan';
   if (h0 === 'plan' || h0 === 'design' || h0 === 'ref' || h0 === 'reference') app.view = h0 === 'reference' ? 'ref' : h0;
   window.App = { get: function () { return app; }, league: function () { return app.league; }, toast: toast, go: go };
   initFind();

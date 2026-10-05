@@ -1,4 +1,4 @@
-/* Crafting Playbook app: Design -> Plan -> Reference. Vanilla JS over the planner engine. */
+/* Crafting Playbook app: Design -> Forge (the plan, internally "plan") -> Reference. Vanilla JS over the planner engine. */
 (function () {
   'use strict';
   var DATA = window.DATA, PRICES = window.PRICES;
@@ -317,6 +317,7 @@
   /* Phones: the slot list opens as a drawer from the left instead of the side rail. */
   function slotsOpen() { return !$('slots').hidden; }
   function openSlots() {
+    hideToast();
     var el = $('slots');
     el.innerHTML = '<div class="drawer-card" role="dialog" aria-modal="true" aria-labelledby="sl-t"><div class="dr-head"><h2 id="sl-t">Choose a slot</h2>' +
       '<button type="button" class="btn small quiet x" data-act="slots-close" aria-label="Close">' + ico('u-x') + '</button></div>' +
@@ -417,10 +418,13 @@
       }
     }
     r.warn = true;
-    if (m.craftOnly) {
-      var sock = E.socketable(cat.base);
+    var sock = E.socketable(cat.base), cap = c.astrid && sock ? 2 : 1;
+    var craftOnly = c.targets[0].concat(c.targets[1]).filter(function (x) {
+      return x && E.methods(cat, { f: famOf(x.mi), mi: x.mi, lv: MODS[x.mi].l }).craftOnly;
+    }).length;
+    if (m.craftOnly && craftOnly > cap) {
       r.line = 'Only from ' + esc((m.alloy[0] || m.essLate[0] || m.essEarly[0]).name) +
-        (c.astrid && sock ? ', and both crafted slots are already taken' : ', and the one crafted slot is already taken' + (sock ? '. Astrid’s Creativity below allows a second' : ''));
+        (cap > 1 ? ', and both crafted slots are already taken' : ', and the one crafted slot is already taken' + (sock ? '. Astrid’s Creativity below allows a second' : ''));
     } else if (m.desecOnly) r.line = 'Only from desecration, and the one desecrated slot is already taken';
     else if (m.impossible) r.line = 'Not available at item level ' + c.ilvl;
     else r.line = 'No room left for it with the other targets';
@@ -503,7 +507,7 @@
       if (warns.length) h += '<div class="warns">' + warns.map(function (w) { return '<p class="warnline">' + w + '</p>'; }).join('') + '</div>';
     }
     var started = !!c.planSt;
-    h += '<button type="button" class="btn primary cta" data-act="to-plan"' + (all.length ? '' : ' disabled') + '>' + ico('u-hammer') + (started ? 'Back to the plan' : 'Craft it') + ico('u-arrow') + '</button>';
+    h += '<button type="button" class="btn primary cta" data-act="to-plan"' + (all.length ? '' : ' disabled') + '>' + ico('u-hammer') + (started ? 'Back to the forge' : 'Craft it') + ico('u-arrow') + '</button>';
     h += '</div>';
     h += '<p class="fine">Odds count every eligible tier the same, because the game data doesn’t publish spawn weights. Treat them as a guide, not a promise.</p>';
     $('d-route').innerHTML = h;
@@ -728,13 +732,14 @@
     } else {
       h += '<div class="rarity"><span class="vh">Rarity</span><div class="seg" role="group" aria-label="Rarity">' +
         ['none', 'magic', 'rare'].map(function (v) { return '<button type="button" data-act="rarity" data-v="' + v + '" aria-pressed="' + (rar === v) + '">' + { none: 'Normal', magic: 'Magic', rare: 'Rare' }[v] + '</button>'; }).join('') +
-        '</div><button type="button" class="tbtn" data-act="start-copy" style="padding:.3rem .6rem;font-size:.82rem">Copy targets in</button>' +
+        '</div><button type="button" class="tbtn" data-act="suggest" style="padding:.3rem .6rem;font-size:.82rem"' + (rar === 'none' ? ' aria-disabled="true"' : '') + '>Suggest</button>' +
+        '<button type="button" class="tbtn" data-act="start-copy" style="padding:.3rem .6rem;font-size:.82rem">Copy targets in</button>' +
         '<button type="button" class="tbtn" data-act="start-blank" style="padding:.3rem .6rem;font-size:.82rem">Clear item</button></div>';
     }
     h += '<div class="cols-h" aria-hidden="true"><span>Want</span><span>Have</span></div>';
     [0, 1].forEach(function (s) {
       if (!cat.caps[s]) return;
-      h += '<p class="grp">' + (s ? 'Suffixes' : 'Prefixes') + '</p><div class="srows">';
+      h += '<section class="sbox ' + (s ? 'suf' : 'pre') + '" aria-label="' + (s ? 'Suffixes' : 'Prefixes') + '"><p class="grp">' + (s ? 'Suffixes' : 'Prefixes') + '</p><div class="srows">';
       rowsFor(c, s, cat).forEach(function (r) {
         var w;
         if (r.t) {
@@ -746,7 +751,7 @@
         } else w = '<div class="want none"><span class="wt">Any</span></div>';
         var hv;
         if (!r.m) {
-          hv = '<div class="have empty"><button type="button" class="h-main" data-act="have-add" data-s="' + s + '"' + (rar === 'none' ? ' aria-disabled="true"' : '') + '><span class="h-text">' + (rar === 'none' ? 'Empty' : '+ Add what’s here') + '</span></button></div>';
+          hv = '<div class="have empty"><button type="button" class="h-main" data-act="have-add" data-s="' + s + '"' + (r.t ? ' data-f="' + famOf(r.t.mi) + '"' : '') + (rar === 'none' ? ' aria-disabled="true"' : '') + '><span class="h-text">' + (rar === 'none' ? 'Empty' : '+ Add what’s here') + '</span></button></div>';
         } else {
           var m = r.m, info = statusInfo(m, r.t);
           var flags = [];
@@ -763,7 +768,7 @@
         }
         h += '<div class="srow">' + w + hv + '</div>';
       });
-      h += '</div>';
+      h += '</div></section>';
     });
     var planned = !!c.planSt;
     h += '<div class="forge">';
@@ -991,6 +996,34 @@
     var doIt = function () { c.st = { rarity: 'none', mods: [], done: {}, skip: (c.st && c.st.skip) || {} }; };
     if (c.st) manualEdit(c, doIt); else { doIt(); touch(c); renderPlan(); }
   }
+  function listAnd(a) { return a.length < 2 ? a.join('') : a.slice(0, -1).join(', ') + ' and ' + a[a.length - 1]; }
+  /* Fill the item with what's worth having on a bought base of the chosen rarity, as the plan sees it. */
+  function suggestItem() {
+    var c = cur();
+    var rar = c.st && c.st.rarity;
+    if (rar !== 'magic' && rar !== 'rare') { toast('Choose Magic or Rare first, then Suggest fills in what to look for.'); return; }
+    var design = designOf(c);
+    var mods = E.suggest(design, rar, c.st.skip);
+    if (!mods) { toast('Nothing to suggest yet. Add your targets on the Design screen first.'); return; }
+    manualEdit(c, function () { c.st.mods = mods; });
+    var parts = mods.map(function (m) {
+      return m.pseudo ? 'any ' + SIDE[m.s] + ' (junk for the crafted mod to delete)' : E.famName(famOf(m.mi)) + (m.crafted ? ' (from an essence)' : '');
+    });
+    var msg = rar === 'magic' ? 'Suggested a magic base with ' + (parts.length ? listAnd(parts) : 'no mods') + '.'
+      : 'Suggested the item as the plan has it right after it turns rare: ' + listAnd(parts) + '.';
+    if (rar === 'magic') {
+      var next = E.nextStep(design, { rarity: 'magic', mods: clone(mods), done: {}, skip: c.st.skip || {} });
+      [0, 1].forEach(function (s) {
+        if (!catOf(c).caps[s] || mods.some(function (m) { return m.s === s; })) return;
+        if (next.kind === 'essence' && next.project.mods[0].s === s) {
+          var en = next.mats[0].n;
+          msg += ' No ' + SIDE[s] + ' needed: ' + (/^[aeiou]/i.test(en) ? 'an ' : 'a ') + en + ' adds ' + E.famName(famOf(next.project.mods[0].mi)) + ' when it turns rare.';
+        }
+      });
+      if (mods.some(function (m) { return !m.pseudo; })) msg += ' The rarest targets go on the base, since they’re the hardest to add later.';
+    }
+    toast(msg, 8000);
+  }
   function setRarity(v) {
     var c = cur();
     manualEdit(c, function () {
@@ -1008,13 +1041,13 @@
     });
   }
   function findMod(c, id) { return c.st && c.st.mods.find(function (m) { return m.id === id; }); }
-  function addHave(s) {
+  function addHave(s, f) {
     var c = cur();
     if (!c.st || c.st.rarity === 'none') {
       if (!c.st) c.st = { rarity: 'none', mods: [], done: {}, skip: {} };
     }
     openPicker({
-      mode: 'have', side: s, flags: {}, title: 'What’s on your item?', sub: 'Pick the ' + SIDE[s] + ' your item has.',
+      mode: 'have', side: s, prefer: f, flags: {}, title: 'What’s on your item?', sub: 'Pick the ' + SIDE[s] + ' your item has.',
       onPick: function (mod) {
         manualEdit(c, function () {
           c.st.mods.push(mod);
@@ -1044,6 +1077,7 @@
   /* ---------- picker ---------- */
   function openPicker(p) {
     var c = cur();
+    hideToast();
     p.q = ''; p.cat = 'All'; p.open = null; p.ret = document.activeElement;
     p.flags = p.flags || {};
     app.pk = p;
@@ -1083,18 +1117,51 @@
     }
     return !!(c.st && c.st.mods.some(function (m) { return m.id !== p.editing && m.mi !== null && m.mi !== undefined && famOf(m.mi) === F.f; }));
   }
+  function tiersHTML(cat, f, current) {
+    return '<div class="tiers">' + E.tierOptions(cat, f).map(function (o) {
+      var lab = o.kind === 'roll' ? o.label : o.kind === 'essence' ? 'Essence' : o.kind === 'alloy' ? 'Alloy' : 'Desecr.';
+      var subl = o.kind === 'roll' ? 'lvl ' + o.l : '';
+      var src = o.kind === 'roll' ? (o.ess && o.ess.length ? 'Also from ' + o.ess.join(', ') : '') : o.kind === 'essence' ? o.ess.join(', ') : o.kind === 'alloy' ? o.src : 'From ' + o.src + ' (desecration)';
+      return '<button type="button" class="tier" data-act="pk-tier" data-mi="' + o.mi + '" data-kind="' + o.kind + '" aria-pressed="' + (current === o.mi) + '"><span class="tl">' + esc(lab) + (subl ? '<small>' + subl + '</small>' : '') + '</span>' +
+        '<span class="tt">' + esc(dash(MODS[o.mi].x)) + (src ? '<small>' + esc(src) + '</small>' : '') + '</span></button>';
+    }).join('') + '</div>';
+  }
+  /* When telling the planner what's on the item, your design's targets for that side come first, one tap each
+     (the one for the row you came from on top), since that's usually what landed. */
+  function pickPins(c, p) {
+    if (p.mode !== 'have') return [];
+    var onItem = new Set();
+    (c.st ? c.st.mods : []).forEach(function (m) { if (m.id !== p.editing && m.mi !== null && m.mi !== undefined) onItem.add(famOf(m.mi)); });
+    var pins = c.targets[p.side].filter(function (t) { return t && !onItem.has(famOf(t.mi)); });
+    if (p.prefer !== null && p.prefer !== undefined) pins.sort(function (a, b) { return (famOf(b.mi) === p.prefer) - (famOf(a.mi) === p.prefer); });
+    return pins;
+  }
   function renderPickList() {
     var c = cur(), p = app.pk, cat = catOf(c);
     var q = p.q.trim().toLowerCase();
-    var list = cat.sides[p.side].filter(function (F) {
+    function shown(F) {
       if (p.cat !== 'All' && F.c !== p.cat) return false;
       if (!q) return true;
       var hay = (F.name + ' ' + F.t + ' ' + E.tierOptions(cat, F.f).map(function (o) { return MODS[o.mi].x + ' ' + (o.ess || []).join(' ') + ' ' + (o.src || ''); }).join(' ')).toLowerCase();
       return q.split(/\s+/).every(function (w) { return hay.indexOf(w) > -1; });
-    });
+    }
+    var pins = pickPins(c, p).filter(function (t) { var F = cat.byFam.get(famOf(t.mi)); return F && shown(F); });
+    var pinned = new Set(pins.map(function (t) { return famOf(t.mi); }));
+    var list = cat.sides[p.side].filter(function (F) { return !pinned.has(F.f) && shown(F); });
     var h = '';
+    if (pins.length) {
+      h += '<p class="pk-cat">From your design</p>';
+      pins.forEach(function (t) {
+        var f = famOf(t.mi), open = p.open === f, tl = tierLab(cat, t.mi);
+        var o = E.tierOptions(cat, f).find(function (x) { return x.mi === t.mi; }) || { kind: 'roll' };
+        h += '<div class="fam pin' + (open ? ' open' : '') + '"><div class="pin-row"><button type="button" class="fam-main" data-act="pk-tier" data-mi="' + t.mi + '" data-kind="' + o.kind + '">' +
+          '<span class="fam-t">' + esc(dash(MODS[t.mi].x)) + '</span><span class="fam-m">Your target · ' + esc(tl) + (tl.charAt(0) === 'T' ? ' or better' : '') + '</span></button>' +
+          '<button type="button" class="pin-more" data-act="pk-fam" data-f="' + f + '" aria-expanded="' + open + '">Other tier</button></div>' +
+          (open ? tiersHTML(cat, f, p.current) : '') + '</div>';
+      });
+    }
     if (p.mode === 'have') h += '<button type="button" class="pk-junk" data-act="pk-junk">' + ico('u-x') + '<span>Something I don’t want<small class="muted" style="display:block;font-size:.82rem">Any ' + SIDE[p.side] + ' you plan to replace. Fine to leave vague.</small></span></button>';
-    if (!list.length) h += '<p class="pk-none">Nothing matches. Clear the search or pick another category.</p>';
+    if (!list.length && !pins.length) h += '<p class="pk-none">Nothing matches. Clear the search or pick another category.</p>';
     var lastCat = null;
     list.forEach(function (F) {
       if (p.cat === 'All' && F.c !== lastCat) { h += '<p class="pk-cat">' + esc(F.c) + '</p>'; lastCat = F.c; }
@@ -1110,15 +1177,7 @@
       h += '<div class="fam' + (used ? ' used' : '') + (open ? ' open' : '') + '"><button type="button" class="fam-main" data-act="pk-fam" data-f="' + F.f + '"' + (used ? ' aria-disabled="true"' : '') + ' aria-expanded="' + open + '">' +
         '<span class="fam-t">' + esc(dash(MODS[top.mi].x)) + '</span><span class="fam-m">' + (used ? (p.mode === 'design' ? 'Already in another box' : 'Already on the item') : meta) + '</span>' +
         '<span class="fam-b">' + tags.join('') + '</span></button>';
-      if (open) {
-        h += '<div class="tiers">' + opts.map(function (o) {
-          var lab = o.kind === 'roll' ? o.label : o.kind === 'essence' ? 'Essence' : o.kind === 'alloy' ? 'Alloy' : 'Desecr.';
-          var subl = o.kind === 'roll' ? 'lvl ' + o.l : '';
-          var src = o.kind === 'roll' ? (o.ess && o.ess.length ? 'Also from ' + o.ess.join(', ') : '') : o.kind === 'essence' ? o.ess.join(', ') : o.kind === 'alloy' ? o.src : 'From ' + o.src + ' (desecration)';
-          return '<button type="button" class="tier" data-act="pk-tier" data-mi="' + o.mi + '" data-kind="' + o.kind + '" aria-pressed="' + (p.current === o.mi) + '"><span class="tl">' + esc(lab) + (subl ? '<small>' + subl + '</small>' : '') + '</span>' +
-            '<span class="tt">' + esc(dash(MODS[o.mi].x)) + (src ? '<small>' + esc(src) + '</small>' : '') + '</span></button>';
-        }).join('') + '</div>';
-      }
+      if (open) h += tiersHTML(cat, F.f, p.current);
       h += '</div>';
     });
     $('pk-list').innerHTML = h;
@@ -1167,6 +1226,7 @@
   }
   function renderStore() { var el = $('dr-store'); if (el) el.innerHTML = storeLine(); }
   function openDrawer() {
+    hideToast();
     app.ui.confirmDel = null;
     $('drawer').hidden = false;
     renderDrawer();
@@ -1198,13 +1258,14 @@
 
   /* ---------- toast ---------- */
   var toastTimer = null;
-  function toast(msg) {
+  function toast(msg, ms) {
     var el = $('toast');
     el.innerHTML = '<span>' + esc(msg) + '</span>';
     el.hidden = false;
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(function () { el.hidden = true; }, 4200);
+    toastTimer = setTimeout(function () { el.hidden = true; }, ms || 4200);
   }
+  function hideToast() { clearTimeout(toastTimer); $('toast').hidden = true; }
 
   /* ---------- events ---------- */
   document.addEventListener('click', function (e) {
@@ -1233,8 +1294,9 @@
       case 'go-design': go('design'); break;
       case 'start-blank': startBlank(); break;
       case 'start-copy': startCopy(); break;
+      case 'suggest': suggestItem(); break;
       case 'rarity': setRarity(a.getAttribute('data-v')); break;
-      case 'have-add': if (a.getAttribute('aria-disabled') === 'true') { toast('Set the rarity to Magic or Rare first.'); break; } addHave(s); break;
+      case 'have-add': if (a.getAttribute('aria-disabled') === 'true') { toast('Set the rarity to Magic or Rare first.'); break; } addHave(s, a.hasAttribute('data-f') ? +a.getAttribute('data-f') : null); break;
       case 'have-edit': editHave(a.getAttribute('data-id')); break;
       case 'have-del': (function (id) { manualEdit(c, function () { c.st.mods = c.st.mods.filter(function (m) { return m.id !== id; }); }); })(a.getAttribute('data-id')); break;
       case 'mark': (function (id, v) { manualEdit(c, function () { var m = findMod(c, id); if (m) m.mark = v; }); })(a.getAttribute('data-id'), a.getAttribute('data-v')); break;
@@ -1324,6 +1386,7 @@
   E.setLeague(app.league);
   document.querySelectorAll('[data-lg]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-lg') === app.league)); });
   var h0 = (location.hash || '').replace('#', '');
+  if (h0 === 'forge') h0 = 'plan';
   if (h0 === 'plan' || h0 === 'design' || h0 === 'ref' || h0 === 'reference') app.view = h0 === 'reference' ? 'ref' : h0;
   window.App = { get: function () { return app; }, league: function () { return app.league; }, toast: toast, go: go };
   initFind();

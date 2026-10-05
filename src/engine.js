@@ -302,14 +302,16 @@
       cp.extra = only.slice(room);
       return cp;
     }
-    /* A target worth taking from a Greater (or lower) essence at the magic-to-rare step, when a crafted slot is free for it. */
+    /* A target worth taking from a Greater (or lower) essence at the magic-to-rare step. Craft-only targets come
+       first, so it only gets a crafted slot that's still free after them. */
     function essenceBonus(cat, A, st, cp) {
       if (A.craftedUsed || st.rarity !== 'magic') return null;
-      if (cp && A.craftCap - A.craftedCount < 2) return null;
+      var queued = cp ? [cp.t].concat(cp.next.map(function (r) { return r.t; })) : [];
+      if (A.craftCap - A.craftedCount - queued.length < 1) return null;
       var best = null;
       [0, 1].forEach(function (s) {
         A.sides[s].unfilled.forEach(function (t) {
-          if (cp && cp.t === t) return;
+          if (queued.indexOf(t) > -1) return;
           var m = methods(cat, t);
           if (!m.essEarly.length) return;
           var h = hardness(cat, A, t);
@@ -440,6 +442,8 @@
       var cp = craftedPlan(cat, A, st);
       var needsSacrifice = cp && (cp.via === 'alloy' || cp.via === 'essLate');
       var xSide = needsSacrifice ? 1 - FAMS[cp.t.f].s : -1;
+      /* The essence that will make it rare, if any: its target is guaranteed, so augments don't aim at it. */
+      var eb = cp && cp.via === 'essEarly' ? { t: cp.t, src: cp.src } : essenceBonus(cat, A, st, cp);
       // junk on a side that should hold a target: the base missed
       for (var s = 0; s < 2; s++) {
         var S = A.sides[s];
@@ -469,7 +473,7 @@
               project: { type: 'add', mods: [mod] }
             };
           }
-          var aims = S2.unfilled.filter(function (t) { return methods(cat, t).slam && !(cp && cp.t === t); });
+          var aims = S2.unfilled.filter(function (t) { return methods(cat, t).slam && !(cp && cp.t === t) && !(eb && eb.t === t); });
           if (aims.length) {
             var Wg = weights(cat, [s2], 44, A.present, false), Wp = weights(cat, [s2], 70, A.present, false);
             var pg = hitShare(Wg, aims), pp = hitShare(Wp, aims);
@@ -487,7 +491,6 @@
         }
       }
       // upgrade to rare
-      var eb = cp && cp.via === 'essEarly' ? { t: cp.t, src: cp.src } : essenceBonus(cat, A, st, cp);
       if (eb) {
         var em = { id: newId(), s: FAMS[eb.t.f].s, mi: eb.src.mi, mark: 'auto', crafted: true };
         return {
@@ -577,43 +580,30 @@
             project: { type: 'craft', remove: S.junkRem[0].id, mods: [newMod] }
           };
         }
-        // no junk yet: make a sacrifice on the other side (keep a slot for the crafted mod)
+        // no junk yet: make a sacrifice for it to delete, on a side that holds nothing worth keeping when there is one
         var X2 = 1 - yc;
-        if (A.sides[X2].open > 0 && A.sides[yc].open > 0) {
-          var aims2 = A.sides[X2].unfilled.filter(function (t) { return methods(cat, t).slam && !(dp && dp.t === t); });
-          var W2 = weights(cat, [X2], 0, A.present, false);
+        var clean = function (x) { return !A.sides[x].mods.some(function (m) { return m.status === 'hit' || m.status === 'keep'; }); };
+        var bothOpen = A.sides[X2].open > 0 && A.sides[yc].open > 0;
+        var sx = bothOpen && clean(X2) ? X2 : (A.sides[yc].open > 0 && clean(yc)) ? yc : bothOpen ? X2 : null;
+        if (sx !== null) {
+          var same = sx === yc;
+          var aims2 = A.sides[sx].unfilled.filter(function (t) { return methods(cat, t).slam && !(dp && dp.t === t); });
+          var W2 = weights(cat, [sx], 0, A.present, false);
           var pHit = hitShare(W2, aims2);
-          var junkMod = { id: newId(), s: X2, mi: null, pseudo: 'any', mark: 'junk' };
+          var junkMod = { id: newId(), s: sx, mi: null, pseudo: 'any', mark: 'junk' };
           var o2 = aims2.map(function (t) { return { label: 'Got ' + tName(t) + ' (keep it)', o: { type: 'add', mods: [targetMod(t)] } }; });
           o2.unshift({ label: 'Got junk (good)', o: { type: 'add', mods: [junkMod] } });
-          o2.push({ label: 'Pick what landed', pick: { s: X2, mark: 'auto' } });
+          o2.push({ label: 'Pick what landed', pick: { s: sx, mark: 'auto' } });
           return {
-            kind: 'sacrifice', side: X2, title: 'Add a ' + SIDE[X2] + ' to sacrifice',
-            how: 'The ' + cp.src.name + ' always deletes a random mod, so give it junk to delete first. Activate ' + omenEx(X2).n + ' and use a plain Exalted Orb. Junk is the result you want here.',
-            mats: [omenEx(X2), { k: 'exalt', n: 'Exalted Orb' }],
+            kind: 'sacrifice', side: sx, title: 'Add a ' + SIDE[sx] + ' to sacrifice',
+            how: 'The ' + cp.src.name + ' always deletes a random mod, so give it junk to delete first' +
+              (same ? ': a junk ' + SIDE[yc] + ', because the ' + SIDE[X2] + ' side ' + (A.sides[X2].open > 0 ? 'holds mods you want to keep' : 'is full') + '. The ' + cp.src.name + ' then takes its place' : '') +
+              '. Activate ' + omenEx(sx).n + ' and use a plain Exalted Orb. Junk is the result you want here.',
+            mats: [omenEx(sx), { k: 'exalt', n: 'Exalted Orb' }],
             odds: { p: 1 - pHit, what: 'to land junk' },
-            note: aims2.length ? 'If it lands ' + list(aims2.map(tName)) + ', keep it and add another sacrifice.' : null,
+            note: aims2.length ? 'If it lands ' + list(aims2.map(tName)) + (same ? ' instead, keep it and tell the planner: it will find another way to fit the ' + cp.src.name + '.' : ', keep it and add another sacrifice.') : null,
             warn: warn, outcomes: o2,
             project: { type: 'add', mods: [junkMod] }
-          };
-        }
-        // the other side can't take it: sacrifice on the crafted side itself while it holds nothing worth keeping
-        var Sy0 = A.sides[yc];
-        if (Sy0.open > 0 && !Sy0.mods.some(function (m) { return m.status === 'hit' || m.status === 'keep'; })) {
-          var aims3 = Sy0.unfilled.filter(function (t) { return methods(cat, t).slam && !(dp && dp.t === t); });
-          var pHit3 = hitShare(weights(cat, [yc], 0, A.present, false), aims3);
-          var junk3 = { id: newId(), s: yc, mi: null, pseudo: 'any', mark: 'junk' };
-          var o3 = aims3.map(function (t) { return { label: 'Got ' + tName(t) + ' (keep it)', o: { type: 'add', mods: [targetMod(t)] } }; });
-          o3.unshift({ label: 'Got junk (good)', o: { type: 'add', mods: [junk3] } });
-          o3.push({ label: 'Pick what landed', pick: { s: yc, mark: 'auto' } });
-          return {
-            kind: 'sacrifice', side: yc, title: 'Add a ' + SIDE[yc] + ' to sacrifice',
-            how: 'The ' + cp.src.name + ' always deletes a random mod, and the ' + SIDE[1 - yc] + ' side is full, so give it a junk ' + SIDE[yc] + ' to delete. Activate ' + omenEx(yc).n + ' and use a plain Exalted Orb. Junk is the result you want here: the ' + cp.src.name + ' then replaces it.',
-            mats: [omenEx(yc), { k: 'exalt', n: 'Exalted Orb' }],
-            odds: { p: 1 - pHit3, what: 'to land junk' },
-            note: aims3.length ? 'If it lands ' + list(aims3.map(tName)) + ' instead, keep it and tell the planner: it will find another way to fit the ' + cp.src.name + '.' : null,
-            warn: warn, outcomes: o3,
-            project: { type: 'add', mods: [junk3] }
           };
         }
         if (A.sides[yc].open < 1) {
@@ -906,6 +896,20 @@
       return steps;
     }
 
+    /* What to look for on a bought item of this rarity: the first state the plan reaches at that rarity from a fresh
+       base. For magic that's the base it starts from (the rarest targets, or any mod on the side an alloy will clear);
+       for rare, the item right after it turns rare. */
+    function suggest(design, rarity, skip) {
+      var s = { rarity: 'none', mods: [], done: {}, skip: clone(skip || {}) };
+      for (var i = 0; i < 8; i++) {
+        var step = nextStep(design, s);
+        if (!step.project || step.kind === 'done' || step.kind === 'stop' || step.project.type === 'restart') return null;
+        s = apply(s, step.project);
+        if (s.rarity === rarity) return s.mods;
+      }
+      return null;
+    }
+
     function summary(design, st) {
       var cat = catalog(design.base, design.ilvl);
       var A = analyze(cat, design, st);
@@ -978,7 +982,7 @@
       MODS: MODS, FAMS: FAMS, CLASS: CLASS, BASE: BASE,
       catalog: catalog, tierOptions: tierOptions, methods: methods, famName: famName, modText: modText,
       analyze: analyze, plan: plan, apply: apply, nextStep: nextStep, summary: summary, slamOddsFor: slamOddsFor,
-      oddsLabel: oddsLabel, price: price, matsCost: matsCost, labelTier: labelTier, newId: newId, SIDE: SIDE, SIDE_CAP: SIDE_CAP, findBases: findBases, socketable: socketable,
+      oddsLabel: oddsLabel, price: price, matsCost: matsCost, labelTier: labelTier, newId: newId, SIDE: SIDE, SIDE_CAP: SIDE_CAP, findBases: findBases, socketable: socketable, suggest: suggest,
       setLeague: setLeague, hardness: function (design, st, t) { var c = catalog(design.base, design.ilvl); return hardness(c, analyze(c, design, st), t); }
     };
   }

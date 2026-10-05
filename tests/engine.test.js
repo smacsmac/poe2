@@ -177,6 +177,44 @@ test('astrid: an early essence and an alloy share the two crafted slots', () => 
   assert.deepEqual(kinds.slice(0, 4), ['base', 'essence', 'rune', 'craft']);
 });
 
+/* Cryptic Leggings: Movement Speed and Rarity, optionally with Runic Ward (Sovereign Alloy only) and Effect of
+   Socketed Augment Items (Essence of Horror only). */
+function leggings(extra, astrid) {
+  const cat = E.catalog('Cryptic Leggings', 82);
+  const top = (s, re) => { const F = cat.sides[s].find((f) => re.test(f.name)); const o = E.tierOptions(cat, F.f)[0]; return { f: F.f, mi: o.mi, lv: o.l }; };
+  const P = [top(0, /^Movement Speed/)], S = [top(1, /^Rarity of Items/)];
+  if (extra) { P.push(top(0, /^Runic Ward/)); S.push(top(1, /Socketed Augment/)); }
+  return { cls: 'boots', base: 'Cryptic Leggings', ilvl: 82, runeforge: false, league: 'fr', astrid, targets: [P, S] };
+}
+
+test('astrid: craft-only mods get the crafted slots before an essence takes one', () => {
+  const steps = E.plan(leggings(true, true), { rarity: 'none', mods: [] });
+  const kinds = steps.map((s) => s.kind);
+  assert.equal(kinds[kinds.length - 1], 'done', 'no stop for Effect of Socketed Augment Items');
+  assert.ok(!kinds.includes('essence'), 'Rarity is slammed or desecrated, not essenced');
+  const crafts = steps.filter((s) => s.kind === 'craft');
+  assert.deepEqual(crafts.map((s) => s.mats[s.mats.length - 1].n), ['Sovereign Alloy', 'Essence of Horror']);
+  assert.ok(crafts.every((s) => s.odds.p >= 0.995), 'each deletion only hits junk: the second sacrifice goes on the empty side');
+});
+
+test('magic: an augment doesn’t aim at the target an essence adds anyway', () => {
+  const kinds = E.plan(leggings(false, false), { rarity: 'none', mods: [] }).map((s) => s.kind);
+  assert.deepEqual(kinds.slice(0, 2), ['base', 'essence']);
+  assert.ok(!kinds.includes('aug'));
+});
+
+test('suggest: the magic base the plan starts from, and the item when it turns rare', () => {
+  const names = (mods) => mods.map((m) => (m.s ? 'S ' : 'P ') + (m.pseudo ? 'any' : E.famName(E.MODS[m.mi].f)));
+  assert.deepEqual(names(E.suggest(leggings(false, false), 'magic')), ['P Movement Speed'], 'no suffix: the essence adds Rarity');
+  const rare = E.suggest(leggings(false, false), 'rare');
+  assert.deepEqual(names(rare), ['P Movement Speed', 'S Rarity of Items found']);
+  assert.ok(rare[1].crafted, 'the essence mod counts as crafted');
+  assert.deepEqual(names(E.suggest(leggings(true, true), 'magic')), ['P Movement Speed', 'S any'], 'the suffix side is junk for the alloy');
+  const base = E.nextStep(leggings(true, true), { rarity: 'none', mods: [] });
+  assert.deepEqual(names(E.suggest(leggings(true, true), 'magic')), names(base.project.mods), 'same as the plan’s base step');
+  assert.equal(E.suggest({ cls: 'boots', base: 'Cryptic Leggings', ilvl: 82, targets: [[], []] }, 'magic'), null, 'nothing to suggest without targets');
+});
+
 test('astrid: only bases with augment sockets take the rune', () => {
   assert.ok(E.socketable(E.BASE[GLOVES]));
   assert.ok(E.socketable(E.BASE['Grasping Ring']), 'jewellery made for socketed items');
