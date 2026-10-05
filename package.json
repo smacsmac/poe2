@@ -1,0 +1,14 @@
+{
+  "name": "poe2-crafting-playbook",
+  "version": "0.2.0",
+  "private": true,
+  "description": "Design a Path of Exile 2 item, get a step-by-step crafting plan that re-plans as you go, and look up every crafting material.",
+  "scripts": {
+    "build": "node scripts/build.js",
+    "test": "node --test tests/engine.test.js",
+    "e2e": "node tests/e2e.js",
+    "data": "bash scripts/fetch-pob.sh && python3 data/load.py && python3 data/build_data.py && node scripts/build.js",
+    "serve": "python3 -m http.server 8080 --directory docs"
+  },
+  "license": "MIT"
+}

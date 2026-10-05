@@ -1,0 +1,228 @@
+<header class="bar">
+  <div class="bar-in">
+    <a class="brand" href="#design" data-go="design" aria-label="Crafting Playbook, design screen">
+      <span class="brand-mark" aria-hidden="true"></span>
+      <span class="brand-name">Crafting Playbook</span>
+      <span class="brand-sub">PoE2 · 0.5.5</span>
+    </a>
+    <nav class="tabs" aria-label="Screens">
+      <button type="button" class="tab" data-go="design">Design</button>
+      <button type="button" class="tab" data-go="plan">Plan <span class="n" id="tab-step" hidden></span></button>
+      <button type="button" class="tab" data-go="ref">Reference</button>
+    </nav>
+    <div class="bar-tools">
+      <div class="league" role="group" aria-label="Prices from league">
+        <button type="button" data-lg="fr" aria-pressed="true" title="Forbidden Rites prices">FR</button>
+        <button type="button" data-lg="roa" aria-pressed="false" title="Runes of Aldur prices">RoA</button>
+      </div>
+      <button type="button" class="btn small quiet crafts-btn" id="crafts-open" aria-haspopup="dialog"><svg class="ico" aria-hidden="true"><use href="#u-stack"/></svg><span class="lbl">My crafts</span> <span class="mono" id="crafts-n"></span></button>
+    </div>
+  </div>
+</header>
+
+<main>
+  <!-- DESIGN -->
+  <section id="v-design" class="view" aria-labelledby="d-title">
+    <div class="view-head">
+      <div>
+        <p class="eyebrow">Step 1 of 2 · Design</p>
+        <h1 id="d-title">Design the item you want</h1>
+      </div>
+      <p>Pick a slot and base, then fill the boxes with the mods you're after. Each box shows how that mod gets onto the item.</p>
+    </div>
+    <div class="design">
+      <nav class="rail" id="rail" aria-label="Item slot"></nav>
+      <div id="d-item"></div>
+      <aside class="route" id="d-route" aria-label="How it gets made"></aside>
+    </div>
+  </section>
+
+  <!-- PLAN -->
+  <section id="v-plan" class="view" aria-labelledby="p-title" hidden>
+    <div class="view-head">
+      <div>
+        <p class="eyebrow">Step 2 of 2 · Plan</p>
+        <h1 id="p-title">Craft it step by step</h1>
+      </div>
+      <p>What you want sits next to what you have, with the route between them. Tell each step what it gave you and the rest re-plans from there.</p>
+    </div>
+    <div class="plan-grid" id="p-grid">
+      <div class="have-col" id="p-item"></div>
+      <div class="steps-col" id="p-steps"></div>
+    </div>
+  </section>
+
+  <!-- REFERENCE -->
+  <section id="v-ref" class="view ref" aria-labelledby="r-title" hidden>
+    <div class="view-head">
+      <div>
+        <p class="eyebrow">Reference</p>
+        <h1 id="r-title">How crafting works</h1>
+      </div>
+      <p>The general order for any rare, the rules that decide crafts, quick fixes, and every main material with where it comes from and what it costs.</p>
+    </div>
+    <nav class="ref-nav" aria-label="Reference sections">
+      <a href="#r-playbook" data-jump="r-playbook">Playbook</a>
+      <a href="#r-rules" data-jump="r-rules">Rules</a>
+      <a href="#r-fixes" data-jump="r-fixes">Fixes</a>
+      <a href="#r-materials" data-jump="r-materials">Materials</a>
+      <a href="#r-example" data-jump="r-example">Example</a>
+      <a href="#r-data" data-jump="r-data">About the data</a>
+    </nav>
+
+    <section id="r-playbook" class="narrow">
+      <div class="sec-head">
+        <h2>The playbook</h2>
+        <p>Works for any rare. Cheap, reversible steps come first and expensive, permanent ones come last, so a bad roll early only costs you a base. The Plan screen follows this order for you.</p>
+      </div>
+      <div class="plan-box">
+        <h3>Before you spend anything</h3>
+        <ul class="diamonds">
+          <li>List the three prefixes and three suffixes you want. The Design screen shows which side each one is on for your exact base, and what item level its top tier needs.</li>
+          <li>Choose the mod for your one crafted slot. Give it to the mod that's hardest to roll, or that only exists on an essence or alloy.</li>
+          <li>Choose the mod for your one desecration. Save it for the hardest mod left and use it on the last open slot.</li>
+          <li>Loosen targets where you can. Accepting a lower tier or any resist you need, instead of one exact roll, cuts the cost a lot.</li>
+        </ul>
+      </div>
+      <ol class="steps">
+        <li><div class="num" aria-hidden="true"><span>1</span></div><div class="step-body"><h3>Start from a magic base</h3><p>Buy one at the right item level with one prefix and one suffix you want. To make one yourself, Perfect Transmute and Greater Aug a stack of normal bases. There's no Alteration Orb, so every miss costs a base.</p><div class="uses"><button class="use" type="button" data-q="Transmutation">Transmutation ↓</button><button class="use" type="button" data-q="Augmentation">Augmentation ↓</button></div></div></li>
+        <li><div class="num" aria-hidden="true"><span>2</span></div><div class="step-body"><h3>Make it rare</h3><p>If your crafted mod comes from a Lesser, Normal or Greater Essence, use it now. It adds its mod and removes nothing. Otherwise use a Perfect Regal.</p><div class="uses"><button class="use" type="button" data-q="Greater Essences">Greater Essences ↓</button><button class="use" type="button" data-q="Regal">Regal Orb ↓</button></div></div></li>
+        <li><div class="num" aria-hidden="true"><span>3</span></div><div class="step-body"><h3>Lock in the hardest side</h3><p>Slam the side with your hardest targets first, one mod at a time, using a Greater Exalted Orb with a Sinistral or Dextral Exaltation omen. If junk lands here, start over. You've only lost a base and a few orbs.</p><p>Still need an alloy or Perfect Essence? Leave a slot open on the side its mod belongs to.</p><div class="uses"><button class="use" type="button" data-q="Exalted Orb">Exalted Orb ↓</button><button class="use" type="button" data-q="Exaltation">Exaltation omens ↓</button></div></div></li>
+        <li><div class="num" aria-hidden="true"><span>4</span></div><div class="step-body"><h3>Fill the other side</h3><p>Same tools. Junk is acceptable on the side you'll aim your Crystallisation omen at in step 5, because the alloy or Perfect Essence can delete it. The fewer good mods share that side, the safer step 5 is.</p><div class="uses"><button class="use" type="button" data-q="Exaltation">Exaltation omens ↓</button></div></div></li>
+        <li><div class="num" aria-hidden="true"><span>5</span></div><div class="step-body"><h3>Add the crafted mod</h3><p>Skip this if you used an essence in step 2. Activate the Crystallisation omen for the side holding the junk, then use the alloy or Perfect Essence. It deletes a random mod from that side and adds its guaranteed mod. With only junk on that side, the deletion can't hurt you.</p><div class="uses"><button class="use" type="button" data-q="Crystallisation">Crystallisation ↓</button><button class="use" type="button" data-q="Alloy">Alloys ↓</button><button class="use" type="button" data-q="Perfect Essences">Perfect Essences ↓</button></div></div></li>
+        <li><div class="num" aria-hidden="true"><span>6</span></div><div class="step-body"><h3>Pick the last mod</h3><p>Use a bone with the Necromancy omen for the open side, plus Abyssal Echoes for one reroll, then choose one of three at the Well of Souls. If nothing fits, Omen of Light and an Orb of Annulment remove it so you can try again.</p><div class="uses"><button class="use" type="button" data-q="bones">Bones ↓</button><button class="use" type="button" data-q="Necromancy">Necromancy ↓</button><button class="use" type="button" data-q="Echoes">Abyssal Echoes ↓</button><button class="use" type="button" data-q="Omen of Light">Omen of Light ↓</button></div></div></li>
+        <li><div class="num" aria-hidden="true"><span>7</span></div><div class="step-body"><h3>Finish</h3><p>Quality first, then Runeforge any armour you want Runic Ward on, then Divine for the numbers, then sockets and runes. Vaal last, and only if you can live with a brick.</p><div class="uses"><button class="use" type="button" data-q="Quality">Quality ↓</button><button class="use" type="button" data-q="Verisium">Verisium ↓</button><button class="use" type="button" data-q="Divine">Divine Orb ↓</button><button class="use" type="button" data-q="Vaal">Vaal Orb ↓</button></div></div></li>
+      </ol>
+    </section>
+
+    <section id="r-rules" class="mid">
+      <div class="sec-head"><h2>Rules that decide crafts</h2><p>Most bricked items break one of these.</p></div>
+      <ul class="rules">
+        <li><b>One crafted mod, one desecrated mod</b><span>Essences and alloys share a single crafted slot. Desecration has its own single slot.</span></li>
+        <li><b>Activate omens first</b><span>Right-click an omen to turn it on before using the orb. Different omens stack on one orb. Two of the same kind don't.</span></li>
+        <li><b>Adding is cheap, removing isn't</b><span>Targeted removal omens cost 10 to 20 div each. Restart early instead of fixing late.</span></li>
+        <li><b>Greater and Perfect only raise tiers</b><span>They set a minimum mod level for the new mod. They don't make any particular mod more likely.</span></li>
+        <li><b>Whittling reads item level</b><span>It deletes the mod with the lowest required item level, which isn't always the worst mod. Hover the Chaos Orb to see which one is marked.</span></li>
+        <li><b>Alloys and Perfect Essences always delete</b><span>A Crystallisation omen picks the side. The deletion is only certain when that side has one mod you'd lose.</span></li>
+        <li><b>Desecrate into an empty slot</b><span>On a full item, the bone deletes a random mod before adding its own.</span></li>
+        <li><b>Fracture and Vaal are permanent gambles</b><span>Fracture only when every mod is a keeper. Vaal goes last.</span></li>
+      </ul>
+    </section>
+
+    <section id="r-fixes" class="mid">
+      <div class="sec-head"><h2>Quick fixes</h2><p>What to reach for when the item isn't what you want yet.</p></div>
+      <div class="fixes">
+        <div class="hdr">When you want to</div><div class="hdr">Use</div>
+        <div class="want2">Add a mod to a chosen side</div><div class="do">Greater or Perfect <em>Exalted Orb</em> with <em>Sinistral</em> or <em>Dextral Exaltation</em></div>
+        <div class="want2">Add two mods at once</div><div class="do">Also activate <em>Omen of Greater Exaltation</em></div>
+        <div class="want2">Choose a mod from options</div><div class="do"><em>Bone</em> with <em>Necromancy</em> and <em>Abyssal Echoes</em>, then the Well of Souls</div>
+        <div class="want2">Undo a bad desecrated mod</div><div class="do"><em>Omen of Light</em> with an <em>Orb of Annulment</em></div>
+        <div class="want2">Swap a mod for a guaranteed one</div><div class="do"><em>Perfect Essence</em> or <em>Alloy</em> with a <em>Crystallisation</em> omen (uses your crafted slot)</div>
+        <div class="want2">Replace the lowest-level mod</div><div class="do"><em>Omen of Whittling</em> with a <em>Chaos Orb</em>. Add <em>Erasure</em> to keep it to one side. Hover first.</div>
+        <div class="want2">Remove a mod from one side</div><div class="do"><em>Sinistral</em> or <em>Dextral Annulment</em> with an <em>Orb of Annulment</em> (random within that side)</div>
+        <div class="want2">Make that removal certain</div><div class="do"><em>Fracture</em> the other mods on that side first. The fracture itself is random, so save this for valuable items.</div>
+        <div class="want2">Better numbers</div><div class="do"><em>Divine Orb</em>. <em>Omen of Sanctification</em> for a final 78–122% gamble.</div>
+        <div class="want2">Higher tiers on new mods</div><div class="do">The <em>Greater</em> or <em>Perfect</em> version of the orb</div>
+      </div>
+    </section>
+
+    <section id="r-materials">
+      <div class="sec-head"><h2>Materials</h2><p>Sort by any column, filter by where it comes from, or search. The buttons in the playbook jump here with a search filled in. Prices follow the league switch at the top.</p></div>
+      <div class="toolbar">
+        <label class="search"><span class="vh">Search materials</span><input id="q" type="search" placeholder="Search, e.g. Exaltation" autocomplete="off" spellcheck="false"></label>
+        <label class="sortbox" for="sort">Sort
+          <select id="sort">
+            <option value="where">Where it comes from</option>
+            <option value="type">Type</option>
+            <option value="name">Name, A to Z</option>
+            <option value="name-desc">Name, Z to A</option>
+            <option value="cost">Cheapest first</option>
+            <option value="cost-desc">Most expensive first</option>
+          </select>
+        </label>
+      </div>
+      <div class="srcs" id="srcs" role="group" aria-label="Where it comes from"></div>
+      <div class="statusline"><p class="count" id="count" aria-live="polite"></p><button type="button" class="clear" id="clear" hidden>Clear search and filter</button></div>
+      <div class="table-wrap">
+        <table class="ledger" id="ledger">
+          <thead><tr>
+            <th class="col-name" scope="col" data-key="name"><button type="button" data-sort="name">Material<span class="arr" aria-hidden="true"></span></button></th>
+            <th class="col-type" scope="col" data-key="type"><button type="button" data-sort="type">Type<span class="arr" aria-hidden="true"></span></button></th>
+            <th class="col-where" scope="col" data-key="where"><button type="button" data-sort="where">Where<span class="arr" aria-hidden="true"></span></button></th>
+            <th class="col-what" scope="col">What it does</th>
+            <th class="col-notes" scope="col">Notes</th>
+            <th class="col-cost" scope="col" data-key="cost"><button type="button" data-sort="cost">Cost<span class="arr" aria-hidden="true"></span></button></th>
+          </tr></thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+      <p class="fine" style="margin-top:.9rem;max-width:52rem">Costs are poe.ninja averages for the chosen softcore league on October 4–5, 2026. Anything under 0.1 div is shown in exalts, and anything 5 div or more is highlighted. Rows with several versions sort by their cheapest one. Everything here also trades on the in-game Currency Exchange.</p>
+    </section>
+
+    <section id="r-example" class="mid">
+      <div class="sec-head"><h2>Example: life, mana and ward gloves</h2><p>The craft this guide came out of, with where each mod comes from. Top-tier ranges shown.</p></div>
+      <div class="example">
+        <figure class="tip" aria-label="Example item tooltip">
+          <div class="tip-head"><p class="tip-name">Runeforged Blacksteel Gauntlets</p><p class="tip-sub">Item level 82</p></div>
+          <div class="tip-body">
+            <p class="tip-props">Armour <b>36</b> · Evasion <b>33</b> · Runic Ward <b>141</b></p>
+            <p class="tip-props">Requires Level <b>80</b>, <b>55</b> Str, <b>55</b> Dex</p>
+            <div class="tip-rule" aria-hidden="true"><i></i></div>
+            <p class="tip-group">Prefixes</p>
+            <ul class="tip-mods">
+              <li><span class="mod">+(120–149) to maximum Life</span><span class="how2">magic base</span></li>
+              <li><span class="mod">+(105–124) to maximum Mana</span><span class="how2">Exalt + Sinistral Exaltation</span></li>
+              <li><span class="mod">(31–40)% increased Runic Ward</span><span class="how2">Sovereign Alloy · crafted slot</span></li>
+            </ul>
+            <p class="tip-group">Suffixes</p>
+            <ul class="tip-mods">
+              <li><span class="mod">+(41–45)% to Lightning Resistance</span><span class="how2">magic base</span></li>
+              <li><span class="mod">+(41–45)% to Cold Resistance</span><span class="how2">Exalt + Dextral Exaltation</span></li>
+              <li><span class="mod">(30–34)% increased Critical Damage Bonus</span><span class="how2">desecration pick</span></li>
+            </ul>
+          </div>
+        </figure>
+        <div class="why">
+          <h3>Why this order</h3>
+          <ul class="diamonds">
+            <li>Life and mana went first. Mana was the long shot among the prefixes, so it was rolled while a restart still only cost a base.</li>
+            <li>Runic Ward on gloves only comes from the Sovereign Alloy, so it took the crafted slot. Its random deletion was aimed at the suffix side while that side held only junk.</li>
+            <li>Two junk suffixes before the alloy was fine. The third suffix slot stayed empty, so the alloy was certain to delete junk.</li>
+            <li>The hardest suffix was saved for the desecration, where it's picked from three options instead of rolled.</li>
+            <li>Runeforging came last, once the mods were settled, so no Verisium went into a base that might have been binned.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section id="r-data" class="mid">
+      <div class="sec-head"><h2>About the data</h2><p>Where the numbers in this tool come from, and how far to trust them.</p></div>
+      <ul class="rules">
+        <li><b>Mods, tiers and bases</b><span>Path of Building's PoE2 game data (dev branch, October 1, 2026): every base, which mods can roll on it, each tier's values and level, essences, alloys and desecrated (lich) mods.</span></li>
+        <li><b>Prices</b><span>poe.ninja averages for Forbidden Rites and Runes of Aldur, October 4–5, 2026. Switch league at the top. Prices move daily, so check before a big buy.</span></li>
+        <li><b>Odds are rough</b><span>The game data doesn't publish spawn weights, so every eligible tier counts the same. Real odds favour common mods and low tiers, so treat a "1 in 20" as "about that, often worse for top tiers".</span></li>
+        <li><b>Check in game</b><span>Hover the orb and the Well of Souls options before you commit. The game's tooltip always wins over this tool.</span></li>
+      </ul>
+    </section>
+
+    <footer>
+      <p>Mechanics follow patch 0.5.5 and community references.</p>
+      <div class="links">
+        <a href="https://poe2db.tw/us/" target="_blank" rel="noopener">poe2db: mod pools and tiers by base</a>
+        <a href="https://www.craftofexile.com/?game=poe2" target="_blank" rel="noopener">Craft of Exile: simulate a craft</a>
+        <a href="https://poe.ninja/poe2/economy" target="_blank" rel="noopener">poe.ninja: live prices</a>
+        <a href="https://github.com/PathOfBuildingCommunity/PathOfBuilding-PoE2" target="_blank" rel="noopener">Path of Building PoE2: game data</a>
+      </div>
+    </footer>
+  </section>
+</main>
+
+<nav class="tabbar" aria-label="Screens">
+  <button type="button" data-go="design"><svg aria-hidden="true"><use href="#u-design"/></svg>Design</button>
+  <button type="button" data-go="plan"><svg aria-hidden="true"><use href="#u-plan"/></svg>Plan</button>
+  <button type="button" data-go="ref"><svg aria-hidden="true"><use href="#u-book"/></svg>Reference</button>
+</nav>
+
+<div class="modal" id="picker" hidden></div>
+<div class="drawer" id="drawer" hidden></div>
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
