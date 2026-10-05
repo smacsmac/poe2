@@ -126,6 +126,7 @@ svg.ico{width:1.25em;height:1.25em;flex:none;stroke-width:2.6;vertical-align:-.2
 .league-wrap{display:flex;align-items:center;gap:.5rem;flex:none}
 .league-lbl{font-family:var(--font-mono);font-size:.64rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
 .league button{white-space:nowrap}
+.league .lg-s{display:none}
 .league-row{display:none;align-items:center;justify-content:flex-end;gap:.6rem;margin:0 0 1rem}
 .saved-btn .ico{color:var(--hit)}
 .saved-btn .lbl{display:inline-grid;justify-items:center}
@@ -620,9 +621,10 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
   #crafts-n{position:absolute;top:-.5rem;right:-.5rem;min-width:1.1rem;height:1.1rem;padding:0 .28rem;border-radius:.55rem;background:var(--brass);color:var(--brass-ink);font-size:.64rem;font-weight:700;line-height:1.1rem;text-align:center}
   #crafts-n:empty{display:none}
   #crafts-n:not(:empty)::before,#crafts-n:not(:empty)::after{content:none}
-  .league-row{justify-content:stretch;margin-top:-.35rem}
-  .league-row .league{flex:1}
-  .league-row .league button{flex:1;padding-block:.5rem}
+  .league-row{margin:-.35rem 0 .75rem}
+  .league-row .league button{padding:.4rem .8rem}
+  .league .lg-l{display:none}
+  .league .lg-s{display:inline}
   .find{max-width:none}
   .rail{display:none}
   .slot-pick{display:flex}

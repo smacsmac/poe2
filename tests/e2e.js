@@ -158,6 +158,7 @@ async function addTarget(page, side, i, query, famText) {
   const [sw, w] = await p.evaluate(() => [document.documentElement.scrollWidth, window.innerWidth]);
   assert.ok(sw <= w, 'no sideways scroll on a phone');
   assert.ok(await p.locator('.league-row').isVisible(), 'league switch under the header on a phone');
+  assert.deepEqual(await p.locator('.league-row [data-lg]').allInnerTexts(), ['FR', 'RoA'], 'short league names on a phone');
   assert.equal(await p.locator('#saved').innerText(), 'Saved');
   await p.screenshot({ path: `${OUT}/phone-plan.png`, fullPage: true });
   await p.click('.tabbar [data-go="design"]');
