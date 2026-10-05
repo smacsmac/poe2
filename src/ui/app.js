@@ -20,7 +20,7 @@
     ['Martial weapons', ['bow', 'crossbow', 'spear', 'mace1', 'mace2', 'qstaff', 'talisman']]
   ];
   var DEFAULT_BASE = { gloves: 'Blacksteel Gauntlets', helmet: 'Gladiatorial Helm', body: 'Thane Mail', boots: 'Blacksteel Sabatons', shield: 'Golden Targe', amulet: 'Stellar Amulet', ring: 'Prismatic Ring', belt: 'Heavy Belt' };
-  var KIND = { base: 'Base', aug: 'Augment', regal: 'Regal', essence: 'Essence', slam: 'Exalt', sacrifice: 'Exalt', craft: 'Crafted mod', desec: 'Desecration', remove: 'Fix', fixMagic: 'Fix', finish: 'Finish', stop: 'Stuck', done: 'Done' };
+  var KIND = { base: 'Base', aug: 'Augment', regal: 'Regal', essence: 'Essence', slam: 'Exalt', sacrifice: 'Exalt', craft: 'Crafted mod', rune: 'Rune', desec: 'Desecration', remove: 'Fix', fixMagic: 'Fix', finish: 'Finish', stop: 'Stuck', done: 'Done' };
   var DEV = Math.random().toString(36).slice(2, 9);
   var LS = 'poe2-crafting-playbook-app-v2';
 
@@ -69,7 +69,7 @@
   }
   function blankCraft(cls, base) {
     cls = cls || 'gloves';
-    var c = { id: newId(), cls: cls, base: base || defaultBase(cls), ilvl: 82, runeforge: cls === 'gloves', targets: [[], []], st: null, planSt: null, hist: [], stale: false, at: Date.now(), dev: DEV, editing: false };
+    var c = { id: newId(), cls: cls, base: base || defaultBase(cls), ilvl: 82, runeforge: cls === 'gloves', astrid: false, targets: [[], []], st: null, planSt: null, hist: [], stale: false, at: Date.now(), dev: DEV, editing: false };
     fitTargets(c);
     return c;
   }
@@ -86,7 +86,7 @@
   }
   function designOf(c) {
     return {
-      cls: c.cls, base: c.base, ilvl: c.ilvl, runeforge: !!c.runeforge, league: app.league,
+      cls: c.cls, base: c.base, ilvl: c.ilvl, runeforge: !!c.runeforge, astrid: !!c.astrid, league: app.league,
       targets: c.targets.map(function (side) {
         return side.map(function (t) { return t ? { f: famOf(t.mi), mi: t.mi, lv: MODS[t.mi].l } : null; });
       })
@@ -140,7 +140,7 @@
   }
   function packCraft(c) {
     return JSON.parse(JSON.stringify({
-      v: 2, id: c.id, cls: c.cls, base: c.base, ilvl: c.ilvl, rf: !!c.runeforge,
+      v: 2, id: c.id, cls: c.cls, base: c.base, ilvl: c.ilvl, rf: !!c.runeforge, as: c.astrid ? 1 : undefined,
       t: c.targets.map(function (side) { return side.map(function (t) { return t ? { k: DATA.ids[t.mi] } : null; }); }),
       st: packSt(c.st), ps: packSt(c.planSt), sl: !!c.stale,
       h: c.hist.slice(-30).map(function (h) { return { t: h.t, o: h.o, e: h.e ? 1 : 0, st: packSt(h.st), ps: packSt(h.ps), sl: !!h.sl }; }),
@@ -151,7 +151,7 @@
     if (!o || !o.cls || !CLS[o.cls] || !BASES[o.cls]) return null;
     var base = (BASES[o.cls].some(function (b) { return b.n === o.base; })) ? o.base : defaultBase(o.cls);
     var c = {
-      id: o.id, cls: o.cls, base: base, ilvl: Math.max(1, Math.min(100, o.ilvl || 82)), runeforge: !!o.rf,
+      id: o.id, cls: o.cls, base: base, ilvl: Math.max(1, Math.min(100, o.ilvl || 82)), runeforge: !!o.rf, astrid: !!o.as,
       targets: [0, 1].map(function (s) { return ((o.t || [])[s] || []).map(function (t) { return t && IDX[t.k] !== undefined ? { mi: IDX[t.k] } : null; }); }),
       st: unpackSt(o.st), planSt: unpackSt(o.ps), stale: !!o.sl,
       hist: (o.h || []).map(function (h) { return { t: h.t, o: h.o, e: !!h.e, st: unpackSt(h.st), ps: unpackSt(h.ps), sl: !!h.sl }; }),
@@ -417,8 +417,11 @@
       }
     }
     r.warn = true;
-    if (m.craftOnly) r.line = 'Only from ' + esc((m.alloy[0] || m.essLate[0] || m.essEarly[0]).name) + ', and the one crafted slot is already taken';
-    else if (m.desecOnly) r.line = 'Only from desecration, and the one desecrated slot is already taken';
+    if (m.craftOnly) {
+      var sock = E.socketable(cat.base);
+      r.line = 'Only from ' + esc((m.alloy[0] || m.essLate[0] || m.essEarly[0]).name) +
+        (c.astrid && sock ? ', and both crafted slots are already taken' : ', and the one crafted slot is already taken' + (sock ? '. Astrid’s Creativity below allows a second' : ''));
+    } else if (m.desecOnly) r.line = 'Only from desecration, and the one desecrated slot is already taken';
     else if (m.impossible) r.line = 'Not available at item level ' + c.ilvl;
     else r.line = 'No room left for it with the other targets';
     return r;
@@ -466,6 +469,11 @@
       h += '<label class="rf-toggle"><input type="checkbox" id="d-rf"' + (c.runeforge ? ' checked' : '') + '><span>Runeforge it at the end' +
         '<small>' + (b.rf ? 'Adds Runic Ward' + (b.rf.Ward ? ' (' + b.rf.Ward + ' base)' : '') + ' at the Verisium Anvil and trades some base defences for it. Needed for increased Runic Ward to do much.' : 'Changes the weapon’s base damage at the Verisium Anvil.') + '</small></span></label>';
     }
+    if (E.socketable(b)) {
+      h += '<label class="rf-toggle"><input type="checkbox" id="d-astrid"' + (c.astrid ? ' checked' : '') + '><span>Use Astrid’s Creativity' +
+        '<small>A rune that lets the item hold a second crafted modifier, like two alloys or an essence and an alloy. The plan sockets it, with an Artificer’s Orb if there’s no free socket, right before the second one goes on. About ' +
+        esc(fmt(E.price('Astrid\'s Creativity', app.league))) + '.</small></span></label>';
+    }
     h += '</div></article>';
     $('d-item').innerHTML = h;
     renderRoute(c, cat, rmap);
@@ -477,18 +485,20 @@
     if (!all.length) h += '<ul class="rlist"><li><span class="empty">Add mods to the boxes and their routes show up here.</span></li></ul>';
     else {
       h += '<ul class="rlist">';
-      var warns = [], crafted = null, desec = null;
+      var warns = [], crafted = [], desec = null;
       all.forEach(function (t) {
         var r = routeFor(c, cat, rmap, t);
         var name = E.famName(famOf(t.mi));
         var odds = r.odds === 'certain' ? 'certain' : r.odds === 'pick' ? 'your pick' : r.odds === 'base' ? 'on base' : r.odds;
-        if (r.kind === 'craft' || r.kind === 'essence') crafted = name;
+        if (r.kind === 'craft' || r.kind === 'essence') crafted.push(name);
         if (r.kind === 'desec') desec = name;
         h += '<li><span class="r-n">' + esc(name) + '</span><span class="r-o">' + esc(odds || '—') + '</span><span class="r-h">' + r.line + '</span></li>';
         if (r.warn) warns.push(esc(name) + ': ' + r.line.replace(/<[^>]+>/g, ''));
       });
       h += '</ul>';
-      h += '<div class="slots2"><div class="slot2' + (crafted ? '' : ' free') + '"><span>Crafted slot</span><b>' + (crafted ? esc(crafted) : 'Free') + '</b></div>' +
+      var cap = c.astrid && E.socketable(cat.base) ? 2 : 1;
+      var craftTxt = crafted.length ? crafted.map(esc).join('<br>') + (cap > crafted.length ? '<small>1 free</small>' : '') : (cap > 1 ? 'Both free' : 'Free');
+      h += '<div class="slots2"><div class="slot2' + (crafted.length ? '' : ' free') + '"><span>Crafted slot' + (cap > 1 ? 's' : '') + '</span><b>' + craftTxt + '</b></div>' +
         '<div class="slot2' + (desec ? '' : ' free') + '"><span>Desecration</span><b>' + (desec ? esc(desec) : 'Free') + '</b></div></div>';
       if (warns.length) h += '<div class="warns">' + warns.map(function (w) { return '<p class="warnline">' + w + '</p>'; }).join('') + '</div>';
     }
@@ -510,7 +520,7 @@
     var c = cur();
     if (c.cls === cls) return;
     if (targetCount(c) || c.st) startCraftFor(cls, base);
-    else { c.cls = cls; c.base = base || defaultBase(cls); c.runeforge = cls === 'gloves'; c.targets = [[], []]; fitTargets(c); touch(c); }
+    else { c.cls = cls; c.base = base || defaultBase(cls); c.runeforge = cls === 'gloves'; c.astrid = false; c.targets = [[], []]; fitTargets(c); touch(c); }
     renderDesign(); refreshBadges();
   }
   /* A base picked from the search. Another slot works like clicking that slot. The same slot changes this design's
@@ -1271,6 +1281,11 @@
       c.ilvl = v; revalidate(c, 'item level ' + v); touch(c); renderDesign(); return;
     }
     if (t.id === 'd-rf') { c.runeforge = t.checked; if (c.planSt) c.stale = true; touch(c); return; }
+    if (t.id === 'd-astrid') {
+      c.astrid = t.checked; if (c.planSt) c.stale = true; touch(c); renderDesign();
+      var cb = $('d-astrid'); if (cb) cb.focus({ preventScroll: true });
+      return;
+    }
     if (t.getAttribute('data-act') === 'd-tier') {
       var s = +t.getAttribute('data-s'), i = +t.getAttribute('data-i');
       c.targets[s][i] = { mi: +t.value };

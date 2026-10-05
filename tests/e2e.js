@@ -41,6 +41,12 @@ async function addTarget(page, side, i, query, famText) {
     assert.equal(await page.locator('#d-item .box:not(.empty)').count(), 6);
     await page.screenshot({ path: `${OUT}/${scheme}-design.png`, fullPage: true });
 
+    // Astrid's Creativity opens a second crafted slot; untick it again for the rest of the walk-through
+    await page.check('#d-astrid');
+    assert.match(await page.locator('.slot2').first().innerText(), /crafted slots[\s\S]*1 free/i);
+    await page.uncheck('#d-astrid');
+    assert.doesNotMatch(await page.locator('.slot2').first().innerText(), /crafted slots/i);
+
     // Plan from an item in progress: life + mana, two junk suffixes
     await page.click('[data-act="to-plan"]');
     await page.click('[data-act="start-copy"]');

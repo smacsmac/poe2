@@ -245,6 +245,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
 .slot2 span{font-family:var(--font-mono);font-size:.64rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
 .slot2 b{font-weight:500;font-size:.92rem;line-height:1.3;overflow-wrap:anywhere}
 .slot2.free b{color:var(--muted);font-weight:400}
+.slot2 b small{display:block;color:var(--muted);font-weight:400;font-size:.82rem}
 .warns{display:grid;gap:.45rem;margin-top:.8rem}
 .warnline{font-size:.88rem;color:var(--junk);display:flex;gap:.45rem;align-items:flex-start;line-height:1.4}
 .warnline::before{content:"";width:6px;height:6px;flex:none;margin-top:.45rem;background:currentColor;transform:rotate(45deg)}
@@ -876,7 +877,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
         <h3>Before you spend anything</h3>
         <ul class="diamonds">
           <li>List the three prefixes and three suffixes you want. The Design screen shows which side each one is on for your exact base, and what item level its top tier needs.</li>
-          <li>Choose the mod for your one crafted slot. Give it to the mod that's hardest to roll, or that only exists on an essence or alloy.</li>
+          <li>Choose the mod for your one crafted slot. Give it to the mod that's hardest to roll, or that only exists on an essence or alloy. Astrid's Creativity, a rune, opens a second crafted slot on gear that takes sockets.</li>
           <li>Choose the mod for your one desecration. Save it for the hardest mod left and use it on the last open slot.</li>
           <li>Loosen targets where you can. Accepting a lower tier or any resist you need, instead of one exact roll, cuts the cost a lot.</li>
         </ul>
@@ -895,7 +896,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
     <section id="r-rules" class="mid">
       <div class="sec-head"><h2>Rules that decide crafts</h2><p>Most bricked items break one of these.</p></div>
       <ul class="rules">
-        <li><b>One crafted mod, one desecrated mod</b><span>Essences and alloys share a single crafted slot. Desecration has its own single slot.</span></li>
+        <li><b>One crafted mod, one desecrated mod</b><span>Essences and alloys share a single crafted slot. Astrid's Creativity in a socket allows a second, so socket it before that second one. Desecration has its own single slot.</span></li>
         <li><b>Activate omens first</b><span>Right-click an omen to turn it on before using the orb. Different omens stack on one orb. Two of the same kind don't.</span></li>
         <li><b>Adding is cheap, removing isn't</b><span>Targeted removal omens cost 10 to 20 div each. Restart early instead of fixing late.</span></li>
         <li><b>Greater and Perfect only raise tiers</b><span>They set a minimum mod level for the new mod. They don't make any particular mod more likely.</span></li>
@@ -1071,7 +1072,8 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
       'Sovereign Alloy': [0.2195, 0.3333], 'Runic Alloy': [0.1923, 0.172], 'Swift Alloy': [0.02949, 0.01845], 'Mystic Alloy': [0.09361, 0.1636],
       'Prismatic Alloy': [0.01004, 0.09073], 'Adaptive Alloy': [0.2387, 0.8636], 'Protective Alloy': [0.01828, 0.8571], 'Expansive Alloy': [0.1063, 0.01977],
       'Cyclonic Alloy': [0.05763, 0.1511], 'Celestial Alloy': [0.5336, 1.64], 'Transcendent Alloy': [0.2833, 0.04174],
-      "The Runebinder's Alloy": [0.403, 2.0], "The Runefather's Alloy": [0.008429, 0.4]
+      "The Runebinder's Alloy": [0.403, 2.0], "The Runefather's Alloy": [0.008429, 0.4],
+      "Astrid's Creativity": [3.48, 2.35]
     }
   };
   root.PRICES = PRICES;
@@ -1283,6 +1285,10 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
       return { sum: sum, known: known };
     }
 
+    /* Augment sockets: armour, weapons and off-hands except quivers, plus the few jewellery bases made for socketed items. */
+    var SOCKET_CLS = /^(helmet|body|gloves|boots|shield|buckler|focus|wand|staff|sceptre|bow|crossbow|spear|mace1|mace2|qstaff|talisman)$/;
+    function socketable(b) { return !!b && (SOCKET_CLS.test(b.c) || /Socketed Items/.test(b.im || '')); }
+
     /* ---------- state analysis ---------- */
     function targetsOf(design, st) {
       var skip = (st && st.skip) || {};
@@ -1320,9 +1326,12 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
         S.removable = S.mods.filter(function (m) { return !m.fract; });
         S.junkRem = S.junk.filter(function (m) { return !m.fract; });
       });
+      /* One crafted modifier per item; Astrid's Creativity in a socket allows a second. */
+      var crafted = st.mods.filter(function (m) { return m.crafted; }).length;
+      var craftCap = design.astrid && socketable(cat.base) ? 2 : 1;
       return {
         T: T, sides: sides, present: present,
-        craftedUsed: st.mods.some(function (m) { return m.crafted; }),
+        craftedCount: crafted, craftCap: craftCap, craftedUsed: crafted >= craftCap,
         desecUsed: st.mods.some(function (m) { return m.desec; }),
         hits: sides[0].hits.length + sides[1].hits.length
       };
@@ -1350,27 +1359,41 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
       return hitShare(W, [t]);
     }
 
-    /* The crafted-slot plan: which unfilled target (if any) needs the essence/alloy slot. */
+    function craftRoute(cat, t, st) {
+      var m = methods(cat, t);
+      if (st.rarity !== 'rare' && m.essEarly.length) return { t: t, via: 'essEarly', src: m.essEarly[0] };
+      if (m.alloy.length) return { t: t, via: 'alloy', src: m.alloy[0] };
+      if (m.essLate.length) return { t: t, via: 'essLate', src: m.essLate[0] };
+      if (m.essEarly.length) return { t: t, via: 'essEarlyLost', src: m.essEarly[0] };
+      return null;
+    }
+    /* The crafted-slot plan: the unfilled craft-only target to work on now, `next` for the one after it when the item
+       has room for two crafted modifiers, and `extra` for the ones that can't fit. */
     function craftedPlan(cat, A, st) {
       if (A.craftedUsed) return null;
       var unfilled = A.sides[0].unfilled.concat(A.sides[1].unfilled);
       var only = unfilled.filter(function (t) { return methods(cat, t).craftOnly; });
-      if (only.length) {
-        var t = only[0], m = methods(cat, t);
-        if (st.rarity !== 'rare' && m.essEarly.length) return { t: t, via: 'essEarly', src: m.essEarly[0], extra: only.slice(1) };
-        if (m.alloy.length) return { t: t, via: 'alloy', src: m.alloy[0], extra: only.slice(1) };
-        if (m.essLate.length) return { t: t, via: 'essLate', src: m.essLate[0], extra: only.slice(1) };
-        if (m.essEarly.length) return { t: t, via: 'essEarlyLost', src: m.essEarly[0], extra: only.slice(1) };
+      if (!only.length) return null;
+      var room = A.craftCap - A.craftedCount;
+      /* With room for two, an early essence goes first: it needs the item still magic. */
+      if (room > 1 && st.rarity !== 'rare') {
+        var early = only.filter(function (t) { return methods(cat, t).essEarly.length; })[0];
+        if (early) only = [early].concat(only.filter(function (t) { return t !== early; }));
       }
-      return null;
+      var cp = craftRoute(cat, only[0], st);
+      if (!cp) return null;
+      cp.next = only.slice(1, room).map(function (t) { return craftRoute(cat, t, { rarity: 'rare' }); });
+      cp.extra = only.slice(room);
+      return cp;
     }
-    /* A target worth taking from a Greater (or lower) essence at the magic-to-rare step. */
-    function essenceBonus(cat, A, st) {
+    /* A target worth taking from a Greater (or lower) essence at the magic-to-rare step, when a crafted slot is free for it. */
+    function essenceBonus(cat, A, st, cp) {
       if (A.craftedUsed || st.rarity !== 'magic') return null;
+      if (cp && A.craftCap - A.craftedCount < 2) return null;
       var best = null;
       [0, 1].forEach(function (s) {
-        if (A.sides[s].open < 1 && st.rarity === 'magic') { /* magic: side full, but rare upgrade allows more */ }
         A.sides[s].unfilled.forEach(function (t) {
+          if (cp && cp.t === t) return;
           var m = methods(cat, t);
           if (!m.essEarly.length) return;
           var h = hardness(cat, A, t);
@@ -1417,8 +1440,21 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
       }
       if (!allUnfilled.length) return finishStep(design, st, A, cat);
       if (st.rarity === 'none') return baseStep(design, st, A, cat);
-      if (st.rarity === 'magic') return magicStep(design, st, A, cat);
-      return rareStep(design, st, A, cat);
+      var step = st.rarity === 'magic' ? magicStep(design, st, A, cat) : rareStep(design, st, A, cat);
+      /* A second crafted modifier needs Astrid's Creativity socketed first, so it goes in right before that step. */
+      if ((step.kind === 'craft' || step.kind === 'essence') && A.craftCap > 1 && A.craftedCount >= 1 && !(st.done && st.done.astrid)) return runeStep(step);
+      return step;
+    }
+
+    function runeStep(then) {
+      return {
+        kind: 'rune', key: 'astrid', title: 'Socket Astrid’s Creativity',
+        how: 'The next step adds a second crafted modifier, and the item only takes one unless Astrid’s Creativity is socketed. If it has no empty augment socket, add one with an Artificer’s Orb, then socket the rune. It can’t be taken out again, which is why it waits until now.',
+        mats: [{ k: 'artificer', n: 'Artificer’s Orb', opt: true }, { k: 'Astrid\'s Creativity', n: 'Astrid’s Creativity' }],
+        note: 'Next: ' + then.title.charAt(0).toLowerCase() + then.title.slice(1) + '.',
+        outcomes: [{ label: 'Done', o: { type: 'finish', key: 'astrid' } }],
+        project: { type: 'finish', key: 'astrid' }
+      };
     }
 
     function needIlvl(design, cat) {
@@ -1434,18 +1470,8 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
       var picks = [null, null], sacrifice = null;
       var needsSacrifice = cp && (cp.via === 'alloy' || cp.via === 'essLate');
       var xSide = needsSacrifice ? 1 - FAMS[cp.t.f].s : -1;
-      var essB = !cp ? (function () {
-        var best = null;
-        [0, 1].forEach(function (s) {
-          A.sides[s].unfilled.forEach(function (t) {
-            var m = methods(cat, t);
-            if (!m.essEarly.length) return;
-            var h = hardness(cat, A, t);
-            if (!best || h < best.h) best = { t: t, h: h };
-          });
-        });
-        return best;
-      })() : null;
+      /* The target an essence will add at the magic-to-rare step stays off the base. */
+      var essB = cp && cp.via === 'essEarly' ? null : essenceBonus(cat, A, { rarity: 'magic' }, cp);
       [0, 1].forEach(function (s) {
         if (s === xSide) { sacrifice = s; return; }
         var cands = A.sides[s].unfilled.filter(function (t) {
@@ -1545,12 +1571,13 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
         }
       }
       // upgrade to rare
-      var eb = !needsSacrifice ? (cp && cp.via === 'essEarly' ? { t: cp.t, src: cp.src } : essenceBonus(cat, A, st)) : null;
+      var eb = cp && cp.via === 'essEarly' ? { t: cp.t, src: cp.src } : essenceBonus(cat, A, st, cp);
       if (eb) {
         var em = { id: newId(), s: FAMS[eb.t.f].s, mi: eb.src.mi, mark: 'auto', crafted: true };
         return {
           kind: 'essence', title: 'Make it rare with an essence',
-          how: 'Use ' + an(eb.src.name) + ' on the magic item. It turns rare and adds ' + MODS[eb.src.mi].x + ' for certain. This uses your one crafted modifier.',
+          how: 'Use ' + an(eb.src.name) + ' on the magic item. It turns rare and adds ' + MODS[eb.src.mi].x + ' for certain. ' +
+            (A.craftCap > 1 ? 'This is the first of your two crafted modifiers.' : 'This uses your one crafted modifier.'),
           mats: [{ k: eb.src.name, n: eb.src.name }],
           odds: { p: 1, what: 'guaranteed' },
           outcomes: [{ label: 'Done', o: { type: 'rare', mods: [em] } }],
@@ -1583,7 +1610,10 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
       var cp = craftedPlan(cat, A, st);
       var dp = desecPlan(cat, A, cp);
       var warn = [];
-      if (cp && cp.extra && cp.extra.length) warn.push('Only one crafted modifier fits on an item, so ' + list(cp.extra.map(tName)) + ' can’t also be added.');
+      if (cp && cp.extra && cp.extra.length) {
+        warn.push((A.craftCap > 1 ? 'Two crafted modifiers fit with Astrid’s Creativity' : 'Only one crafted modifier fits on an item') + ', so ' + list(cp.extra.map(tName)) + ' can’t also be added.' +
+          (A.craftCap < 2 && socketable(cat.base) ? ' Astrid’s Creativity, a rune, allows a second one.' : ''));
+      }
       if (cp && cp.via === 'essEarlyLost') warn.push(tName(cp.t) + ' at this tier only comes from a ' + cp.src.name + ', which needs a magic item. Start a new base to get it.');
 
       // 0) a removal will be needed later anyway: if starting over is the cheaper fix, say so before spending more
@@ -1651,6 +1681,25 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
             project: { type: 'add', mods: [junkMod] }
           };
         }
+        // the other side can't take it: sacrifice on the crafted side itself while it holds nothing worth keeping
+        var Sy0 = A.sides[yc];
+        if (Sy0.open > 0 && !Sy0.mods.some(function (m) { return m.status === 'hit' || m.status === 'keep'; })) {
+          var aims3 = Sy0.unfilled.filter(function (t) { return methods(cat, t).slam && !(dp && dp.t === t); });
+          var pHit3 = hitShare(weights(cat, [yc], 0, A.present, false), aims3);
+          var junk3 = { id: newId(), s: yc, mi: null, pseudo: 'any', mark: 'junk' };
+          var o3 = aims3.map(function (t) { return { label: 'Got ' + tName(t) + ' (keep it)', o: { type: 'add', mods: [targetMod(t)] } }; });
+          o3.unshift({ label: 'Got junk (good)', o: { type: 'add', mods: [junk3] } });
+          o3.push({ label: 'Pick what landed', pick: { s: yc, mark: 'auto' } });
+          return {
+            kind: 'sacrifice', side: yc, title: 'Add a ' + SIDE[yc] + ' to sacrifice',
+            how: 'The ' + cp.src.name + ' always deletes a random mod, and the ' + SIDE[1 - yc] + ' side is full, so give it a junk ' + SIDE[yc] + ' to delete. Activate ' + omenEx(yc).n + ' and use a plain Exalted Orb. Junk is the result you want here: the ' + cp.src.name + ' then replaces it.',
+            mats: [omenEx(yc), { k: 'exalt', n: 'Exalted Orb' }],
+            odds: { p: 1 - pHit3, what: 'to land junk' },
+            note: aims3.length ? 'If it lands ' + list(aims3.map(tName)) + ' instead, keep it and tell the planner: it will find another way to fit the ' + cp.src.name + '.' : null,
+            warn: warn, outcomes: o3,
+            project: { type: 'add', mods: [junk3] }
+          };
+        }
         if (A.sides[yc].open < 1) {
           // crafted side full: the in-place craft must delete something on that side
           var Sy = A.sides[yc];
@@ -1682,7 +1731,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
         var S = A.sides[s];
         var reserve = 0;
         if (dp && FAMS[dp.t.f].s === s) reserve += 1;
-        if (cp && FAMS[cp.t.f].s === s && (cp.via === 'alloy' || cp.via === 'essLate')) reserve += 1;
+        if (cp) [cp].concat(cp.next).forEach(function (r) { if (r && FAMS[r.t.f].s === s && (r.via === 'alloy' || r.via === 'essLate')) reserve += 1; });
         var aims = S.unfilled.filter(function (t) { return methods(cat, t).slam && !(cp && cp.t === t) && !(dp && dp.t === t); });
         var slots = S.open - reserve;
         var W = weights(cat, [s], 35, A.present, false);
@@ -1898,8 +1947,8 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
         return { kind: 'finish', key: 'divine', title: 'Divine low rolls (optional)', how: 'A Divine Orb rerolls every value within its tier. Only worth it if several rolls are near the bottom of their range. Omen of Sanctification turns it into a one-time 78–122% gamble that locks the item.',
           mats: [{ k: 'divine', n: 'Divine Orb', opt: true }], outcomes: [{ label: 'Done', o: { type: 'finish', key: 'divine' } }, { label: 'Skip', o: { type: 'finish', key: 'divine' } }], project: { type: 'finish', key: 'divine' } };
       }
-      if (!done.sockets) {
-        return { kind: 'finish', key: 'sockets', title: 'Sockets and runes', how: 'Add sockets with Artificer’s Orbs and fill them with runes or soul cores. Socketing is permanent; a new rune destroys the old one.',
+      if (!done.sockets && socketable(cat.base)) {
+        return { kind: 'finish', key: 'sockets', title: 'Sockets and runes', how: (done.astrid ? 'Astrid’s Creativity already fills one socket, so leave that one alone. ' : '') + 'Add sockets with Artificer’s Orbs and fill them with runes or soul cores. Socketing is permanent; a new rune destroys the old one.',
           mats: [{ k: 'artificer', n: 'Artificer’s Orb', opt: true }], outcomes: [{ label: 'Done', o: { type: 'finish', key: 'sockets' } }, { label: 'Skip', o: { type: 'finish', key: 'sockets' } }], project: { type: 'finish', key: 'sockets' } };
       }
       return { kind: 'done', title: 'Finished', how: 'Every target is on the item. A Vaal Orb is the only thing left, and it can brick the item, so only use one on a copy you can afford to lose.', mats: [], outcomes: [] };
@@ -2013,7 +2062,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
       MODS: MODS, FAMS: FAMS, CLASS: CLASS, BASE: BASE,
       catalog: catalog, tierOptions: tierOptions, methods: methods, famName: famName, modText: modText,
       analyze: analyze, plan: plan, apply: apply, nextStep: nextStep, summary: summary, slamOddsFor: slamOddsFor,
-      oddsLabel: oddsLabel, price: price, matsCost: matsCost, labelTier: labelTier, newId: newId, SIDE: SIDE, SIDE_CAP: SIDE_CAP, findBases: findBases,
+      oddsLabel: oddsLabel, price: price, matsCost: matsCost, labelTier: labelTier, newId: newId, SIDE: SIDE, SIDE_CAP: SIDE_CAP, findBases: findBases, socketable: socketable,
       setLeague: setLeague, hardness: function (design, st, t) { var c = catalog(design.base, design.ilvl); return hardness(c, analyze(c, design, st), t); }
     };
   }
@@ -2046,7 +2095,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
     ['Martial weapons', ['bow', 'crossbow', 'spear', 'mace1', 'mace2', 'qstaff', 'talisman']]
   ];
   var DEFAULT_BASE = { gloves: 'Blacksteel Gauntlets', helmet: 'Gladiatorial Helm', body: 'Thane Mail', boots: 'Blacksteel Sabatons', shield: 'Golden Targe', amulet: 'Stellar Amulet', ring: 'Prismatic Ring', belt: 'Heavy Belt' };
-  var KIND = { base: 'Base', aug: 'Augment', regal: 'Regal', essence: 'Essence', slam: 'Exalt', sacrifice: 'Exalt', craft: 'Crafted mod', desec: 'Desecration', remove: 'Fix', fixMagic: 'Fix', finish: 'Finish', stop: 'Stuck', done: 'Done' };
+  var KIND = { base: 'Base', aug: 'Augment', regal: 'Regal', essence: 'Essence', slam: 'Exalt', sacrifice: 'Exalt', craft: 'Crafted mod', rune: 'Rune', desec: 'Desecration', remove: 'Fix', fixMagic: 'Fix', finish: 'Finish', stop: 'Stuck', done: 'Done' };
   var DEV = Math.random().toString(36).slice(2, 9);
   var LS = 'poe2-crafting-playbook-app-v2';
 
@@ -2095,7 +2144,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
   }
   function blankCraft(cls, base) {
     cls = cls || 'gloves';
-    var c = { id: newId(), cls: cls, base: base || defaultBase(cls), ilvl: 82, runeforge: cls === 'gloves', targets: [[], []], st: null, planSt: null, hist: [], stale: false, at: Date.now(), dev: DEV, editing: false };
+    var c = { id: newId(), cls: cls, base: base || defaultBase(cls), ilvl: 82, runeforge: cls === 'gloves', astrid: false, targets: [[], []], st: null, planSt: null, hist: [], stale: false, at: Date.now(), dev: DEV, editing: false };
     fitTargets(c);
     return c;
   }
@@ -2112,7 +2161,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
   }
   function designOf(c) {
     return {
-      cls: c.cls, base: c.base, ilvl: c.ilvl, runeforge: !!c.runeforge, league: app.league,
+      cls: c.cls, base: c.base, ilvl: c.ilvl, runeforge: !!c.runeforge, astrid: !!c.astrid, league: app.league,
       targets: c.targets.map(function (side) {
         return side.map(function (t) { return t ? { f: famOf(t.mi), mi: t.mi, lv: MODS[t.mi].l } : null; });
       })
@@ -2166,7 +2215,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
   }
   function packCraft(c) {
     return JSON.parse(JSON.stringify({
-      v: 2, id: c.id, cls: c.cls, base: c.base, ilvl: c.ilvl, rf: !!c.runeforge,
+      v: 2, id: c.id, cls: c.cls, base: c.base, ilvl: c.ilvl, rf: !!c.runeforge, as: c.astrid ? 1 : undefined,
       t: c.targets.map(function (side) { return side.map(function (t) { return t ? { k: DATA.ids[t.mi] } : null; }); }),
       st: packSt(c.st), ps: packSt(c.planSt), sl: !!c.stale,
       h: c.hist.slice(-30).map(function (h) { return { t: h.t, o: h.o, e: h.e ? 1 : 0, st: packSt(h.st), ps: packSt(h.ps), sl: !!h.sl }; }),
@@ -2177,7 +2226,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
     if (!o || !o.cls || !CLS[o.cls] || !BASES[o.cls]) return null;
     var base = (BASES[o.cls].some(function (b) { return b.n === o.base; })) ? o.base : defaultBase(o.cls);
     var c = {
-      id: o.id, cls: o.cls, base: base, ilvl: Math.max(1, Math.min(100, o.ilvl || 82)), runeforge: !!o.rf,
+      id: o.id, cls: o.cls, base: base, ilvl: Math.max(1, Math.min(100, o.ilvl || 82)), runeforge: !!o.rf, astrid: !!o.as,
       targets: [0, 1].map(function (s) { return ((o.t || [])[s] || []).map(function (t) { return t && IDX[t.k] !== undefined ? { mi: IDX[t.k] } : null; }); }),
       st: unpackSt(o.st), planSt: unpackSt(o.ps), stale: !!o.sl,
       hist: (o.h || []).map(function (h) { return { t: h.t, o: h.o, e: !!h.e, st: unpackSt(h.st), ps: unpackSt(h.ps), sl: !!h.sl }; }),
@@ -2443,8 +2492,11 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
       }
     }
     r.warn = true;
-    if (m.craftOnly) r.line = 'Only from ' + esc((m.alloy[0] || m.essLate[0] || m.essEarly[0]).name) + ', and the one crafted slot is already taken';
-    else if (m.desecOnly) r.line = 'Only from desecration, and the one desecrated slot is already taken';
+    if (m.craftOnly) {
+      var sock = E.socketable(cat.base);
+      r.line = 'Only from ' + esc((m.alloy[0] || m.essLate[0] || m.essEarly[0]).name) +
+        (c.astrid && sock ? ', and both crafted slots are already taken' : ', and the one crafted slot is already taken' + (sock ? '. Astrid’s Creativity below allows a second' : ''));
+    } else if (m.desecOnly) r.line = 'Only from desecration, and the one desecrated slot is already taken';
     else if (m.impossible) r.line = 'Not available at item level ' + c.ilvl;
     else r.line = 'No room left for it with the other targets';
     return r;
@@ -2492,6 +2544,11 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
       h += '<label class="rf-toggle"><input type="checkbox" id="d-rf"' + (c.runeforge ? ' checked' : '') + '><span>Runeforge it at the end' +
         '<small>' + (b.rf ? 'Adds Runic Ward' + (b.rf.Ward ? ' (' + b.rf.Ward + ' base)' : '') + ' at the Verisium Anvil and trades some base defences for it. Needed for increased Runic Ward to do much.' : 'Changes the weapon’s base damage at the Verisium Anvil.') + '</small></span></label>';
     }
+    if (E.socketable(b)) {
+      h += '<label class="rf-toggle"><input type="checkbox" id="d-astrid"' + (c.astrid ? ' checked' : '') + '><span>Use Astrid’s Creativity' +
+        '<small>A rune that lets the item hold a second crafted modifier, like two alloys or an essence and an alloy. The plan sockets it, with an Artificer’s Orb if there’s no free socket, right before the second one goes on. About ' +
+        esc(fmt(E.price('Astrid\'s Creativity', app.league))) + '.</small></span></label>';
+    }
     h += '</div></article>';
     $('d-item').innerHTML = h;
     renderRoute(c, cat, rmap);
@@ -2503,18 +2560,20 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
     if (!all.length) h += '<ul class="rlist"><li><span class="empty">Add mods to the boxes and their routes show up here.</span></li></ul>';
     else {
       h += '<ul class="rlist">';
-      var warns = [], crafted = null, desec = null;
+      var warns = [], crafted = [], desec = null;
       all.forEach(function (t) {
         var r = routeFor(c, cat, rmap, t);
         var name = E.famName(famOf(t.mi));
         var odds = r.odds === 'certain' ? 'certain' : r.odds === 'pick' ? 'your pick' : r.odds === 'base' ? 'on base' : r.odds;
-        if (r.kind === 'craft' || r.kind === 'essence') crafted = name;
+        if (r.kind === 'craft' || r.kind === 'essence') crafted.push(name);
         if (r.kind === 'desec') desec = name;
         h += '<li><span class="r-n">' + esc(name) + '</span><span class="r-o">' + esc(odds || '—') + '</span><span class="r-h">' + r.line + '</span></li>';
         if (r.warn) warns.push(esc(name) + ': ' + r.line.replace(/<[^>]+>/g, ''));
       });
       h += '</ul>';
-      h += '<div class="slots2"><div class="slot2' + (crafted ? '' : ' free') + '"><span>Crafted slot</span><b>' + (crafted ? esc(crafted) : 'Free') + '</b></div>' +
+      var cap = c.astrid && E.socketable(cat.base) ? 2 : 1;
+      var craftTxt = crafted.length ? crafted.map(esc).join('<br>') + (cap > crafted.length ? '<small>1 free</small>' : '') : (cap > 1 ? 'Both free' : 'Free');
+      h += '<div class="slots2"><div class="slot2' + (crafted.length ? '' : ' free') + '"><span>Crafted slot' + (cap > 1 ? 's' : '') + '</span><b>' + craftTxt + '</b></div>' +
         '<div class="slot2' + (desec ? '' : ' free') + '"><span>Desecration</span><b>' + (desec ? esc(desec) : 'Free') + '</b></div></div>';
       if (warns.length) h += '<div class="warns">' + warns.map(function (w) { return '<p class="warnline">' + w + '</p>'; }).join('') + '</div>';
     }
@@ -2536,7 +2595,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
     var c = cur();
     if (c.cls === cls) return;
     if (targetCount(c) || c.st) startCraftFor(cls, base);
-    else { c.cls = cls; c.base = base || defaultBase(cls); c.runeforge = cls === 'gloves'; c.targets = [[], []]; fitTargets(c); touch(c); }
+    else { c.cls = cls; c.base = base || defaultBase(cls); c.runeforge = cls === 'gloves'; c.astrid = false; c.targets = [[], []]; fitTargets(c); touch(c); }
     renderDesign(); refreshBadges();
   }
   /* A base picked from the search. Another slot works like clicking that slot. The same slot changes this design's
@@ -3297,6 +3356,11 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
       c.ilvl = v; revalidate(c, 'item level ' + v); touch(c); renderDesign(); return;
     }
     if (t.id === 'd-rf') { c.runeforge = t.checked; if (c.planSt) c.stale = true; touch(c); return; }
+    if (t.id === 'd-astrid') {
+      c.astrid = t.checked; if (c.planSt) c.stale = true; touch(c); renderDesign();
+      var cb = $('d-astrid'); if (cb) cb.focus({ preventScroll: true });
+      return;
+    }
     if (t.getAttribute('data-act') === 'd-tier') {
       var s = +t.getAttribute('data-s'), i = +t.getAttribute('data-i');
       c.targets[s][i] = { mi: +t.value };
@@ -3406,6 +3470,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
 
     { n: 'Verisium', t: 'Material', w: 'Runes of Aldur', what: 'Runeforges armour at the Verisium Anvil, adding Runic Ward.', notes: 'Above item level 55 it trades some Armour, Evasion or Energy Shield for the ward. The Anvil previews the result. Blacksteel Gauntlets take 355.', p: { per: V('verisium'), qty: 355 } },
     { n: 'Runic Alloys', t: 'Alloy', w: 'Runes of Aldur', what: 'Thirteen kinds. Each removes a random mod and adds an alloy-only crafted mod that depends on the item slot.', notes: 'Counts as your crafted mod. A Crystallisation omen picks the side. The Design screen shows which alloy gives what on your base.', p: { range: range(ALLOYS) } },
+    { n: 'Astrid’s Creativity', t: 'Socketable', w: 'Runes of Aldur', what: 'A rune: the item can have one more crafted modifier, so two essence or alloy mods instead of one.', notes: 'Goes in an augment socket (add one with an Artificer’s Orb), so not on most jewellery or quivers. Socket it before the second crafted mod. It can’t be taken out again. Comes from rune recipes at Verisium Remnants.', p: { v: V('Astrid\'s Creativity') } },
     { n: 'Sovereign Alloy', t: 'Alloy', w: 'Runes of Aldur', what: 'Armour: (31–40)% increased Runic Ward at item level 65+, (24–30)% below. Weapons: socketed augment effect. Jewellery: larger explicit resistance rolls.', notes: 'The armour mod only scales that piece’s own Runic Ward, so Runeforge it.', p: { v: V('Sovereign Alloy') } },
 
     { n: 'Catalysts', t: 'Catalyst', w: 'Breach', what: 'Add quality to rings and amulets that boosts mods with a matching tag. New ones in 0.5 also work on jewels.', notes: 'Only from the Genesis Tree in 0.5. Refined versions cost more.', p: { lines: [['Flesh (life)', 0.00844, 0.01832], ['Skittering (speed)', 0.3681, 0.2789], ['Sibilant (caster)', 0.6532, 0.3214]] } },

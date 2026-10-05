@@ -201,6 +201,10 @@
       return { sum: sum, known: known };
     }
 
+    /* Augment sockets: armour, weapons and off-hands except quivers, plus the few jewellery bases made for socketed items. */
+    var SOCKET_CLS = /^(helmet|body|gloves|boots|shield|buckler|focus|wand|staff|sceptre|bow|crossbow|spear|mace1|mace2|qstaff|talisman)$/;
+    function socketable(b) { return !!b && (SOCKET_CLS.test(b.c) || /Socketed Items/.test(b.im || '')); }
+
     /* ---------- state analysis ---------- */
     function targetsOf(design, st) {
       var skip = (st && st.skip) || {};
@@ -238,9 +242,12 @@
         S.removable = S.mods.filter(function (m) { return !m.fract; });
         S.junkRem = S.junk.filter(function (m) { return !m.fract; });
       });
+      /* One crafted modifier per item; Astrid's Creativity in a socket allows a second. */
+      var crafted = st.mods.filter(function (m) { return m.crafted; }).length;
+      var craftCap = design.astrid && socketable(cat.base) ? 2 : 1;
       return {
         T: T, sides: sides, present: present,
-        craftedUsed: st.mods.some(function (m) { return m.crafted; }),
+        craftedCount: crafted, craftCap: craftCap, craftedUsed: crafted >= craftCap,
         desecUsed: st.mods.some(function (m) { return m.desec; }),
         hits: sides[0].hits.length + sides[1].hits.length
       };
@@ -268,27 +275,41 @@
       return hitShare(W, [t]);
     }
 
-    /* The crafted-slot plan: which unfilled target (if any) needs the essence/alloy slot. */
+    function craftRoute(cat, t, st) {
+      var m = methods(cat, t);
+      if (st.rarity !== 'rare' && m.essEarly.length) return { t: t, via: 'essEarly', src: m.essEarly[0] };
+      if (m.alloy.length) return { t: t, via: 'alloy', src: m.alloy[0] };
+      if (m.essLate.length) return { t: t, via: 'essLate', src: m.essLate[0] };
+      if (m.essEarly.length) return { t: t, via: 'essEarlyLost', src: m.essEarly[0] };
+      return null;
+    }
+    /* The crafted-slot plan: the unfilled craft-only target to work on now, `next` for the one after it when the item
+       has room for two crafted modifiers, and `extra` for the ones that can't fit. */
     function craftedPlan(cat, A, st) {
       if (A.craftedUsed) return null;
       var unfilled = A.sides[0].unfilled.concat(A.sides[1].unfilled);
       var only = unfilled.filter(function (t) { return methods(cat, t).craftOnly; });
-      if (only.length) {
-        var t = only[0], m = methods(cat, t);
-        if (st.rarity !== 'rare' && m.essEarly.length) return { t: t, via: 'essEarly', src: m.essEarly[0], extra: only.slice(1) };
-        if (m.alloy.length) return { t: t, via: 'alloy', src: m.alloy[0], extra: only.slice(1) };
-        if (m.essLate.length) return { t: t, via: 'essLate', src: m.essLate[0], extra: only.slice(1) };
-        if (m.essEarly.length) return { t: t, via: 'essEarlyLost', src: m.essEarly[0], extra: only.slice(1) };
+      if (!only.length) return null;
+      var room = A.craftCap - A.craftedCount;
+      /* With room for two, an early essence goes first: it needs the item still magic. */
+      if (room > 1 && st.rarity !== 'rare') {
+        var early = only.filter(function (t) { return methods(cat, t).essEarly.length; })[0];
+        if (early) only = [early].concat(only.filter(function (t) { return t !== early; }));
       }
-      return null;
+      var cp = craftRoute(cat, only[0], st);
+      if (!cp) return null;
+      cp.next = only.slice(1, room).map(function (t) { return craftRoute(cat, t, { rarity: 'rare' }); });
+      cp.extra = only.slice(room);
+      return cp;
     }
-    /* A target worth taking from a Greater (or lower) essence at the magic-to-rare step. */
-    function essenceBonus(cat, A, st) {
+    /* A target worth taking from a Greater (or lower) essence at the magic-to-rare step, when a crafted slot is free for it. */
+    function essenceBonus(cat, A, st, cp) {
       if (A.craftedUsed || st.rarity !== 'magic') return null;
+      if (cp && A.craftCap - A.craftedCount < 2) return null;
       var best = null;
       [0, 1].forEach(function (s) {
-        if (A.sides[s].open < 1 && st.rarity === 'magic') { /* magic: side full, but rare upgrade allows more */ }
         A.sides[s].unfilled.forEach(function (t) {
+          if (cp && cp.t === t) return;
           var m = methods(cat, t);
           if (!m.essEarly.length) return;
           var h = hardness(cat, A, t);
@@ -335,8 +356,21 @@
       }
       if (!allUnfilled.length) return finishStep(design, st, A, cat);
       if (st.rarity === 'none') return baseStep(design, st, A, cat);
-      if (st.rarity === 'magic') return magicStep(design, st, A, cat);
-      return rareStep(design, st, A, cat);
+      var step = st.rarity === 'magic' ? magicStep(design, st, A, cat) : rareStep(design, st, A, cat);
+      /* A second crafted modifier needs Astrid's Creativity socketed first, so it goes in right before that step. */
+      if ((step.kind === 'craft' || step.kind === 'essence') && A.craftCap > 1 && A.craftedCount >= 1 && !(st.done && st.done.astrid)) return runeStep(step);
+      return step;
+    }
+
+    function runeStep(then) {
+      return {
+        kind: 'rune', key: 'astrid', title: 'Socket Astrid’s Creativity',
+        how: 'The next step adds a second crafted modifier, and the item only takes one unless Astrid’s Creativity is socketed. If it has no empty augment socket, add one with an Artificer’s Orb, then socket the rune. It can’t be taken out again, which is why it waits until now.',
+        mats: [{ k: 'artificer', n: 'Artificer’s Orb', opt: true }, { k: 'Astrid\'s Creativity', n: 'Astrid’s Creativity' }],
+        note: 'Next: ' + then.title.charAt(0).toLowerCase() + then.title.slice(1) + '.',
+        outcomes: [{ label: 'Done', o: { type: 'finish', key: 'astrid' } }],
+        project: { type: 'finish', key: 'astrid' }
+      };
     }
 
     function needIlvl(design, cat) {
@@ -352,18 +386,8 @@
       var picks = [null, null], sacrifice = null;
       var needsSacrifice = cp && (cp.via === 'alloy' || cp.via === 'essLate');
       var xSide = needsSacrifice ? 1 - FAMS[cp.t.f].s : -1;
-      var essB = !cp ? (function () {
-        var best = null;
-        [0, 1].forEach(function (s) {
-          A.sides[s].unfilled.forEach(function (t) {
-            var m = methods(cat, t);
-            if (!m.essEarly.length) return;
-            var h = hardness(cat, A, t);
-            if (!best || h < best.h) best = { t: t, h: h };
-          });
-        });
-        return best;
-      })() : null;
+      /* The target an essence will add at the magic-to-rare step stays off the base. */
+      var essB = cp && cp.via === 'essEarly' ? null : essenceBonus(cat, A, { rarity: 'magic' }, cp);
       [0, 1].forEach(function (s) {
         if (s === xSide) { sacrifice = s; return; }
         var cands = A.sides[s].unfilled.filter(function (t) {
@@ -463,12 +487,13 @@
         }
       }
       // upgrade to rare
-      var eb = !needsSacrifice ? (cp && cp.via === 'essEarly' ? { t: cp.t, src: cp.src } : essenceBonus(cat, A, st)) : null;
+      var eb = cp && cp.via === 'essEarly' ? { t: cp.t, src: cp.src } : essenceBonus(cat, A, st, cp);
       if (eb) {
         var em = { id: newId(), s: FAMS[eb.t.f].s, mi: eb.src.mi, mark: 'auto', crafted: true };
         return {
           kind: 'essence', title: 'Make it rare with an essence',
-          how: 'Use ' + an(eb.src.name) + ' on the magic item. It turns rare and adds ' + MODS[eb.src.mi].x + ' for certain. This uses your one crafted modifier.',
+          how: 'Use ' + an(eb.src.name) + ' on the magic item. It turns rare and adds ' + MODS[eb.src.mi].x + ' for certain. ' +
+            (A.craftCap > 1 ? 'This is the first of your two crafted modifiers.' : 'This uses your one crafted modifier.'),
           mats: [{ k: eb.src.name, n: eb.src.name }],
           odds: { p: 1, what: 'guaranteed' },
           outcomes: [{ label: 'Done', o: { type: 'rare', mods: [em] } }],
@@ -501,7 +526,10 @@
       var cp = craftedPlan(cat, A, st);
       var dp = desecPlan(cat, A, cp);
       var warn = [];
-      if (cp && cp.extra && cp.extra.length) warn.push('Only one crafted modifier fits on an item, so ' + list(cp.extra.map(tName)) + ' can’t also be added.');
+      if (cp && cp.extra && cp.extra.length) {
+        warn.push((A.craftCap > 1 ? 'Two crafted modifiers fit with Astrid’s Creativity' : 'Only one crafted modifier fits on an item') + ', so ' + list(cp.extra.map(tName)) + ' can’t also be added.' +
+          (A.craftCap < 2 && socketable(cat.base) ? ' Astrid’s Creativity, a rune, allows a second one.' : ''));
+      }
       if (cp && cp.via === 'essEarlyLost') warn.push(tName(cp.t) + ' at this tier only comes from a ' + cp.src.name + ', which needs a magic item. Start a new base to get it.');
 
       // 0) a removal will be needed later anyway: if starting over is the cheaper fix, say so before spending more
@@ -569,6 +597,25 @@
             project: { type: 'add', mods: [junkMod] }
           };
         }
+        // the other side can't take it: sacrifice on the crafted side itself while it holds nothing worth keeping
+        var Sy0 = A.sides[yc];
+        if (Sy0.open > 0 && !Sy0.mods.some(function (m) { return m.status === 'hit' || m.status === 'keep'; })) {
+          var aims3 = Sy0.unfilled.filter(function (t) { return methods(cat, t).slam && !(dp && dp.t === t); });
+          var pHit3 = hitShare(weights(cat, [yc], 0, A.present, false), aims3);
+          var junk3 = { id: newId(), s: yc, mi: null, pseudo: 'any', mark: 'junk' };
+          var o3 = aims3.map(function (t) { return { label: 'Got ' + tName(t) + ' (keep it)', o: { type: 'add', mods: [targetMod(t)] } }; });
+          o3.unshift({ label: 'Got junk (good)', o: { type: 'add', mods: [junk3] } });
+          o3.push({ label: 'Pick what landed', pick: { s: yc, mark: 'auto' } });
+          return {
+            kind: 'sacrifice', side: yc, title: 'Add a ' + SIDE[yc] + ' to sacrifice',
+            how: 'The ' + cp.src.name + ' always deletes a random mod, and the ' + SIDE[1 - yc] + ' side is full, so give it a junk ' + SIDE[yc] + ' to delete. Activate ' + omenEx(yc).n + ' and use a plain Exalted Orb. Junk is the result you want here: the ' + cp.src.name + ' then replaces it.',
+            mats: [omenEx(yc), { k: 'exalt', n: 'Exalted Orb' }],
+            odds: { p: 1 - pHit3, what: 'to land junk' },
+            note: aims3.length ? 'If it lands ' + list(aims3.map(tName)) + ' instead, keep it and tell the planner: it will find another way to fit the ' + cp.src.name + '.' : null,
+            warn: warn, outcomes: o3,
+            project: { type: 'add', mods: [junk3] }
+          };
+        }
         if (A.sides[yc].open < 1) {
           // crafted side full: the in-place craft must delete something on that side
           var Sy = A.sides[yc];
@@ -600,7 +647,7 @@
         var S = A.sides[s];
         var reserve = 0;
         if (dp && FAMS[dp.t.f].s === s) reserve += 1;
-        if (cp && FAMS[cp.t.f].s === s && (cp.via === 'alloy' || cp.via === 'essLate')) reserve += 1;
+        if (cp) [cp].concat(cp.next).forEach(function (r) { if (r && FAMS[r.t.f].s === s && (r.via === 'alloy' || r.via === 'essLate')) reserve += 1; });
         var aims = S.unfilled.filter(function (t) { return methods(cat, t).slam && !(cp && cp.t === t) && !(dp && dp.t === t); });
         var slots = S.open - reserve;
         var W = weights(cat, [s], 35, A.present, false);
@@ -816,8 +863,8 @@
         return { kind: 'finish', key: 'divine', title: 'Divine low rolls (optional)', how: 'A Divine Orb rerolls every value within its tier. Only worth it if several rolls are near the bottom of their range. Omen of Sanctification turns it into a one-time 78–122% gamble that locks the item.',
           mats: [{ k: 'divine', n: 'Divine Orb', opt: true }], outcomes: [{ label: 'Done', o: { type: 'finish', key: 'divine' } }, { label: 'Skip', o: { type: 'finish', key: 'divine' } }], project: { type: 'finish', key: 'divine' } };
       }
-      if (!done.sockets) {
-        return { kind: 'finish', key: 'sockets', title: 'Sockets and runes', how: 'Add sockets with Artificer’s Orbs and fill them with runes or soul cores. Socketing is permanent; a new rune destroys the old one.',
+      if (!done.sockets && socketable(cat.base)) {
+        return { kind: 'finish', key: 'sockets', title: 'Sockets and runes', how: (done.astrid ? 'Astrid’s Creativity already fills one socket, so leave that one alone. ' : '') + 'Add sockets with Artificer’s Orbs and fill them with runes or soul cores. Socketing is permanent; a new rune destroys the old one.',
           mats: [{ k: 'artificer', n: 'Artificer’s Orb', opt: true }], outcomes: [{ label: 'Done', o: { type: 'finish', key: 'sockets' } }, { label: 'Skip', o: { type: 'finish', key: 'sockets' } }], project: { type: 'finish', key: 'sockets' } };
       }
       return { kind: 'done', title: 'Finished', how: 'Every target is on the item. A Vaal Orb is the only thing left, and it can brick the item, so only use one on a copy you can afford to lose.', mats: [], outcomes: [] };
@@ -931,7 +978,7 @@
       MODS: MODS, FAMS: FAMS, CLASS: CLASS, BASE: BASE,
       catalog: catalog, tierOptions: tierOptions, methods: methods, famName: famName, modText: modText,
       analyze: analyze, plan: plan, apply: apply, nextStep: nextStep, summary: summary, slamOddsFor: slamOddsFor,
-      oddsLabel: oddsLabel, price: price, matsCost: matsCost, labelTier: labelTier, newId: newId, SIDE: SIDE, SIDE_CAP: SIDE_CAP, findBases: findBases,
+      oddsLabel: oddsLabel, price: price, matsCost: matsCost, labelTier: labelTier, newId: newId, SIDE: SIDE, SIDE_CAP: SIDE_CAP, findBases: findBases, socketable: socketable,
       setLeague: setLeague, hardness: function (design, st, t) { var c = catalog(design.base, design.ilvl); return hardness(c, analyze(c, design, st), t); }
     };
   }

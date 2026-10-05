@@ -239,6 +239,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
 .slot2 span{font-family:var(--font-mono);font-size:.64rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
 .slot2 b{font-weight:500;font-size:.92rem;line-height:1.3;overflow-wrap:anywhere}
 .slot2.free b{color:var(--muted);font-weight:400}
+.slot2 b small{display:block;color:var(--muted);font-weight:400;font-size:.82rem}
 .warns{display:grid;gap:.45rem;margin-top:.8rem}
 .warnline{font-size:.88rem;color:var(--junk);display:flex;gap:.45rem;align-items:flex-start;line-height:1.4}
 .warnline::before{content:"";width:6px;height:6px;flex:none;margin-top:.45rem;background:currentColor;transform:rotate(45deg)}

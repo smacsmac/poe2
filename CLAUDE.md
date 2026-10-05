@@ -59,11 +59,12 @@ Eligibility follows PoB: the first `weightKey` that matches the base's tags deci
 - `tierOptions(cat, fam)`, `methods(cat, target)` (slam / essence / alloy / lich routes), `analyze(cat, design, st)` (sets `m.status` = hit | low | junk | keep on the item's mods).
 - `nextStep(design, st)`, `plan(design, st)` (current step plus a projected happy path, max 16 steps, stops after a restart), `apply(st, outcome)`.
 - `setLeague('fr'|'roa')`, `price(key, league)`, `oddsLabel(p)`.
+- `socketable(base)`: armour, weapons and off-hands except quivers, plus Grasping Ring, Corona Amulet and Stalking Belt (bases made for socketed items). Only these can take Astrid's Creativity.
 - `findBases(q, {cls, limit})` -> `{words, total, list:[{b, score, imp, on}]}` for the Design search. Every word has to match: a word start in the name ranks best, then the slot, defence type or attribute (aliases such as chest, es, armor, str/dex/int), then the middle of a name, then an implicit (`imp` is the line that matched). Ties go to `cls`, then the higher level base. `on[i]` says where word i matched so the UI highlights only that.
 
 Shapes:
 
-- `design = {cls, base, ilvl, runeforge, league, targets:[[{f, mi, lv}|null...], [...]]}`
+- `design = {cls, base, ilvl, runeforge, astrid, league, targets:[[{f, mi, lv}|null...], [...]]}`
 - `st = {rarity:'none'|'magic'|'rare', mods:[{id, s, mi|null, mark:'auto'|'keep'|'junk', crafted?, desec?, fract?, pseudo?:'any'|'junk', est?}], done:{}, skip:{famIdx:true}}`
 - A step: `{kind, title, how, mats:[{k, n, q?, opt?}], odds?:{p, what, alt?}, note?, warn?, spec?, options?, recommended?, outcomes:[{label, o}|{label, pick}|{label, edit}], project}`
 
@@ -74,7 +75,7 @@ Removal advice: options get `cost` (per try) and `exp` (rough average spend). Wi
 ## Game rules encoded (patch 0.5.5)
 
 - 3 prefixes + 3 suffixes on rares (implicits can change this), 1+1 on magic.
-- One crafted mod (essence or alloy) and one desecrated mod per item.
+- One crafted mod (essence or alloy) and one desecrated mod per item. Astrid's Creativity (a rune, needs an augment socket) allows a second crafted mod: with `design.astrid` the crafted cap is 2, an early essence can share with an alloy, and a `rune` step (Artificer's Orb + the rune, sets `done.astrid`) comes right before the second crafted mod, so the rune is only spent once the cheap, risky steps are behind you.
 - Floors: Greater Exalt/Regal/Chaos mod level 35, Perfect 50. Greater Transmute/Aug 44, Perfect 70. A floor never removes a family's top tier.
 - Alloys and Perfect/corrupted essences always delete a random mod. Crystallisation omens pick the side.
 - Desecration: bone + Necromancy omen for the side, Abyssal Echoes for one reroll, pick 1 of 3 at the Well of Souls. Ancient bones: mod level 40+. Lich omens only on weapons and jewellery.
@@ -86,7 +87,7 @@ Removal advice: options get `cost` (per try) and `exp` (rough average spend). Wi
 - Colours are tokens in `:root` (dark first) with light overrides under `prefers-color-scheme: light` and `[data-theme="light"]`. The item tooltip (`--tip-*`) stays dark in both themes on purpose. Never put a literal colour in a component rule.
 - Must work at 400px wide with no sideways scroll; the phone layout uses a bottom tab bar, and its slot list is a drawer from the left (the "All slots" button) instead of the side rail. Tablets keep the rail as a sideways strip.
 - `localStorage` reads and writes stay in try/catch. Key: `poe2-crafting-playbook-app-v2` (crafts, current id, league, view) and `poe2-crafting-playbook-v1` (ledger sort/filter).
-- `window.claude` only exists inside claude.ai. With `claude.use('user')` and `claude.use('db')` crafts sync to `data/users/<uid>/<craftId>` (doc format `v: 2`, see `packCraft` in app.js). Without it (standalone page, friends without write access) everything falls back to localStorage. Never let the app depend on `window.claude`.
+- `window.claude` only exists inside claude.ai. With `claude.use('user')` and `claude.use('db')` crafts sync to `data/users/<uid>/<craftId>` (doc format `v: 2`, see `packCraft` in app.js; `as: 1` marks Astrid's Creativity). Without it (standalone page, friends without write access) everything falls back to localStorage. Never let the app depend on `window.claude`.
 - `alert`/`confirm`/`prompt` don't work in artifacts. Confirmations are inline buttons.
 
 ## Publishing
@@ -97,7 +98,7 @@ Removal advice: options get `cost` (per try) and `exp` (rough average spend). Wi
 ## Refreshing data
 
 - Game data: `npm run data`. Check `git diff --stat data/data.json` and run the tests.
-- Prices: edit `src/prices.js` (divines per item, `[FR, RoA]`, plus `exPerDiv` and `date`). Keys used by the engine: `trans gtrans ptrans aug gaug paug regal gregal pregal exalt gexalt pexalt chaos gchaos pchaos annul divine fracture`, omen keys `o_*`, and item names for bones, essences and alloys. `ref.js` reads the same table.
+- Prices: edit `src/prices.js` (divines per item, `[FR, RoA]`, plus `exPerDiv` and `date`). Keys used by the engine: `trans gtrans ptrans aug gaug paug regal gregal pregal exalt gexalt pexalt chaos gchaos pchaos annul divine fracture`, omen keys `o_*`, and item names for bones, essences, alloys and Astrid's Creativity. `ref.js` reads the same table.
 
 ## Ideas not built yet
 

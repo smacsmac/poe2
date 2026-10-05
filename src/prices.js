@@ -42,7 +42,8 @@
       'Sovereign Alloy': [0.2195, 0.3333], 'Runic Alloy': [0.1923, 0.172], 'Swift Alloy': [0.02949, 0.01845], 'Mystic Alloy': [0.09361, 0.1636],
       'Prismatic Alloy': [0.01004, 0.09073], 'Adaptive Alloy': [0.2387, 0.8636], 'Protective Alloy': [0.01828, 0.8571], 'Expansive Alloy': [0.1063, 0.01977],
       'Cyclonic Alloy': [0.05763, 0.1511], 'Celestial Alloy': [0.5336, 1.64], 'Transcendent Alloy': [0.2833, 0.04174],
-      "The Runebinder's Alloy": [0.403, 2.0], "The Runefather's Alloy": [0.008429, 0.4]
+      "The Runebinder's Alloy": [0.403, 2.0], "The Runefather's Alloy": [0.008429, 0.4],
+      "Astrid's Creativity": [3.48, 2.35]
     }
   };
   root.PRICES = PRICES;

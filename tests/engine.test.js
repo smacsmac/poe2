@@ -131,6 +131,64 @@ test('odds labels', () => {
   assert.equal(E.oddsLabel(0), 'not possible here');
 });
 
+/* Gloves with two alloy-only targets: Runic Ward (prefix) and Cast Speed (suffix). */
+function twoAlloyGloves(astrid) {
+  const cat = E.catalog(GLOVES, 82);
+  return {
+    cls: 'gloves', base: GLOVES, ilvl: 82, runeforge: true, league: 'fr', astrid,
+    targets: [
+      [tgt(cat, 0, '+# to maximum Life', 'T1'), tgt(cat, 0, '+# to maximum Mana', 'T2'), tgt(cat, 0, '#% increased Runic Ward', 'Alloy')],
+      [tgt(cat, 1, '+#% to Lightning Resistance', 'T2'), tgt(cat, 1, '+#% to Cold Resistance', 'T2'), tgt(cat, 1, '#% increased Cast Speed', 'Alloy')]
+    ]
+  };
+}
+
+test('astrid: without the rune, a second alloy-only mod has no route and the plan says why', () => {
+  const steps = E.plan(twoAlloyGloves(false), { rarity: 'none', mods: [] });
+  assert.equal(steps[steps.length - 1].kind, 'stop');
+  const warned = steps.find((s) => (s.warn || []).some((w) => /Only one crafted modifier/.test(w)));
+  assert.ok(warned, 'warns about the one crafted slot');
+  assert.ok(warned.warn.some((w) => /Astrid’s Creativity/.test(w)), 'and points at Astrid’s Creativity');
+  assert.ok(!steps.some((s) => s.kind === 'rune'));
+});
+
+test('astrid: both alloys go on, with the rune socketed right before the second', () => {
+  const steps = E.plan(twoAlloyGloves(true), { rarity: 'none', mods: [] });
+  const kinds = steps.map((s) => s.kind);
+  assert.equal(kinds[kinds.length - 1], 'done');
+  const crafts = steps.filter((s) => s.kind === 'craft');
+  assert.deepEqual(crafts.map((s) => s.mats[s.mats.length - 1].n), ['Sovereign Alloy', 'Swift Alloy']);
+  const r = kinds.indexOf('rune');
+  assert.ok(r > kinds.indexOf('craft'), 'the rune waits until after the first crafted mod');
+  assert.equal(steps[r + 1], crafts[1], 'and goes in right before the second');
+  assert.deepEqual(steps[r].mats.map((m) => m.k), ['artificer', "Astrid's Creativity"]);
+  assert.ok(crafts.every((s) => s.odds.p >= 0.995), 'each alloy deletes only junk');
+});
+
+test('astrid: an early essence and an alloy share the two crafted slots', () => {
+  const cat = E.catalog(GLOVES, 82);
+  const design = (astrid) => ({
+    cls: 'gloves', base: GLOVES, ilvl: 82, runeforge: false, league: 'fr', astrid,
+    targets: [[tgt(cat, 0, '+# to maximum Life', 'T1'), tgt(cat, 0, '+# to maximum Mana', 'T3'), tgt(cat, 0, '#% increased Runic Ward', 'Alloy')],
+      [tgt(cat, 1, '+#% to Lightning Resistance', 'T2'), tgt(cat, 1, '+#% to Cold Resistance', 'T2')]]
+  });
+  assert.equal(E.plan(design(false), { rarity: 'none', mods: [] })[1].kind, 'regal', 'one crafted slot: the alloy has it');
+  const kinds = E.plan(design(true), { rarity: 'none', mods: [] }).map((s) => s.kind);
+  assert.deepEqual(kinds.slice(0, 4), ['base', 'essence', 'rune', 'craft']);
+});
+
+test('astrid: only bases with augment sockets take the rune', () => {
+  assert.ok(E.socketable(E.BASE[GLOVES]));
+  assert.ok(E.socketable(E.BASE['Grasping Ring']), 'jewellery made for socketed items');
+  assert.ok(!E.socketable(E.BASE['Prismatic Ring']));
+  assert.ok(!E.socketable(DATA.bases.find((b) => b.c === 'quiver')));
+  const cat = E.catalog('Prismatic Ring', 82);
+  const plain = { cls: 'ring', base: 'Prismatic Ring', ilvl: 82, league: 'fr', targets: [[tgt(cat, 0, '+# to maximum Life')], [tgt(cat, 1, '+#% to Cold Resistance')]] };
+  const titles = (d) => E.plan(d, { rarity: 'none', mods: [] }).map((s) => s.title);
+  assert.deepEqual(titles(Object.assign({ astrid: true }, plain)), titles(plain), 'ticking it on a ring changes nothing');
+  assert.ok(!titles(plain).includes('Sockets and runes'), 'no socket step on a ring');
+});
+
 test('find a base: a full name finds it in any slot', () => {
   const r = E.findBases('cryptic leggings');
   assert.equal(r.total, 1);
