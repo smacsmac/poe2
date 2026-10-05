@@ -28,10 +28,21 @@
         <p class="eyebrow">Step 1 of 2 · Design</p>
         <h1 id="d-title">Design the item you want</h1>
       </div>
-      <p>Pick a slot and base, then fill the boxes with the mods you're after. Each box shows how that mod gets onto the item.</p>
+      <p>Pick a slot and base, or find any base by name, then fill the boxes with the mods you're after. Each box shows how that mod gets onto the item.</p>
     </div>
     <div class="design">
-      <nav class="rail" id="rail" aria-label="Item slot"></nav>
+      <div class="side">
+        <div class="find" id="find">
+          <svg class="ico" aria-hidden="true"><use href="#u-search"/></svg>
+          <input id="find-q" type="search" role="combobox" aria-label="Find a base in any slot" aria-autocomplete="list" aria-expanded="false" aria-controls="find-list" placeholder="Find a base" autocomplete="off" autocapitalize="off" spellcheck="false">
+          <div class="find-pop" id="find-pop" hidden>
+            <ul class="find-list" id="find-list" role="listbox" aria-label="Matching bases"></ul>
+            <p class="find-foot" id="find-foot"></p>
+          </div>
+          <p class="vh" id="find-status" role="status"></p>
+        </div>
+        <nav class="rail" id="rail" aria-label="Item slot"></nav>
+      </div>
       <div id="d-item"></div>
       <aside class="route" id="d-route" aria-label="How it gets made"></aside>
     </div>

@@ -67,9 +67,9 @@
     if (name && list.some(function (b) { return b.n === name; })) return name;
     return list.slice().sort(function (a, b) { return b.lv - a.lv; })[0].n;
   }
-  function blankCraft(cls) {
+  function blankCraft(cls, base) {
     cls = cls || 'gloves';
-    var c = { id: newId(), cls: cls, base: defaultBase(cls), ilvl: 82, runeforge: cls === 'gloves', targets: [[], []], st: null, planSt: null, hist: [], stale: false, at: Date.now(), dev: DEV, editing: false };
+    var c = { id: newId(), cls: cls, base: base || defaultBase(cls), ilvl: 82, runeforge: cls === 'gloves', targets: [[], []], st: null, planSt: null, hist: [], stale: false, at: Date.now(), dev: DEV, editing: false };
     fitTargets(c);
     return c;
   }
@@ -261,6 +261,7 @@
   /* ---------- navigation ---------- */
   function go(view, opts) {
     app.view = view;
+    if (view !== 'design') closeFind(false);
     ['design', 'plan', 'ref'].forEach(function (v) { $('v-' + v).hidden = v !== view; });
     document.querySelectorAll('[data-go]').forEach(function (b) {
       if (b.classList.contains('brand')) return;
@@ -472,19 +473,150 @@
     $('d-route').innerHTML = h;
   }
 
-  function changeClass(cls) {
+  function startCraftFor(cls, base) {
+    var prevCls = cur().cls;
+    var n = blankCraft(cls, base);
+    app.crafts[n.id] = n; app.curId = n.id;
+    toast('Started a new craft for ' + (base || CLS[cls].n) + '. ' + slotNoun(prevCls) + ' saved in My crafts.');
+    touch(n);
+  }
+  function changeClass(cls, base) {
     var c = cur();
     if (c.cls === cls) return;
-    if (targetCount(c) || c.st) {
-      var prevCls = c.cls;
-      var n = blankCraft(cls);
-      app.crafts[n.id] = n; app.curId = n.id;
-      toast('Started a new craft for ' + CLS[cls].n + '. ' + slotNoun(prevCls) + ' saved in My crafts.');
-      touch(n);
-    } else {
-      c.cls = cls; c.base = defaultBase(cls); c.runeforge = cls === 'gloves'; c.targets = [[], []]; fitTargets(c); touch(c);
-    }
+    if (targetCount(c) || c.st) startCraftFor(cls, base);
+    else { c.cls = cls; c.base = base || defaultBase(cls); c.runeforge = cls === 'gloves'; c.targets = [[], []]; fitTargets(c); touch(c); }
     renderDesign(); refreshBadges();
+  }
+  /* A base picked from the search. Another slot works like clicking that slot. The same slot changes this design's
+     base, unless the item is already under way, which starts a new craft so the one in progress stays as it is. */
+  function useBase(name) {
+    var c = cur(), b = E.BASE[name];
+    if (!b || name === c.base) return;
+    if (b.c !== c.cls) changeClass(b.c, name);
+    else if (c.st) { startCraftFor(b.c, name); renderDesign(); refreshBadges(); }
+    else { c.base = name; revalidate(c, name); touch(c); renderDesign(); }
+    revealSlot();
+  }
+  /* Scroll the slot list (a sideways strip on narrow screens) so the chosen slot is in view on screen. */
+  function revealSlot() {
+    var rail = $('rail'), el = rail.querySelector('[aria-pressed="true"]');
+    if (!el) return;
+    var r = rail.getBoundingClientRect(), s = el.getBoundingClientRect();
+    var top = Math.max(r.top, 0), bottom = Math.min(r.bottom, window.innerHeight);
+    if (s.left < r.left) rail.scrollLeft -= r.left - s.left + 8; else if (s.right > r.right) rail.scrollLeft += s.right - r.right + 8;
+    if (s.top < top) rail.scrollTop -= top - s.top + 8; else if (s.bottom > bottom) rail.scrollTop += s.bottom - bottom + 8;
+  }
+
+  /* ---------- design: find a base in any slot ---------- */
+  var find = { res: [], act: 0 };
+  /* Marks the query words in text, normalised like E.findBases (case, apostrophes, punctuation). Word starts
+     only, unless mid is set and the word has no word-start match. */
+  function hiText(text, words, mid) {
+    text = String(text);
+    var low = '', at = [], on = [];
+    for (var i = 0; i < text.length; i++) {
+      var ch = text.charAt(i).toLowerCase();
+      if (ch === '\'' || ch === '’') continue;
+      if (/[a-z0-9]/.test(ch)) { low += ch; at.push(i); } else if (low && low.charAt(low.length - 1) !== ' ') { low += ' '; at.push(i); }
+    }
+    words.forEach(function (w) {
+      var hit = -1;
+      for (var j = low.indexOf(w); j > -1; j = low.indexOf(w, j + 1)) {
+        if (j === 0 || low.charAt(j - 1) === ' ') { hit = j; break; }
+        if (mid && hit < 0) hit = j;
+      }
+      if (hit > -1) for (var k = at[hit]; k <= at[hit + w.length - 1]; k++) on[k] = true;
+    });
+    var h = '', open = false;
+    for (var m = 0; m < text.length; m++) {
+      if (!!on[m] !== open) { h += open ? '</mark>' : '<mark>'; open = !open; }
+      h += esc(text.charAt(m));
+    }
+    return h + (open ? '</mark>' : '');
+  }
+  function findOpen() { return !$('find-pop').hidden; }
+  function renderFind() {
+    var inp = $('find-q');
+    var q = inp.value.trim();
+    if (!q) { closeFind(false); return; }
+    var c = cur();
+    var r = E.findBases(q, { cls: c.cls, limit: 50 });
+    find.res = r.list; find.act = 0;
+    var h = '';
+    r.list.forEach(function (x, i) {
+      var b = x.b;
+      var w = function (kinds) { return r.words.filter(function (_, j) { return kinds.indexOf(x.on[j]) > -1; }); };
+      var meta = [hiText(CLS[b.c].n, w('k'))];
+      if (b.sub) meta.push(hiText(b.sub, w('t')));
+      meta.push('Level ' + b.lv);
+      h += '<li class="fo' + (i === 0 ? ' on' : '') + '" id="fo-' + i + '" role="option" aria-selected="' + (i === 0) + '" data-act="find-pick" data-i="' + i + '">' +
+        '<svg aria-hidden="true"><use href="#i-' + b.c + '"/></svg><span class="fo-n">' + hiText(b.n, w('nm'), true) + '</span>' +
+        (b.n === c.base ? '<span class="rec">Current</span>' : '') +
+        '<span class="fo-m">' + meta.join(' · ') + '</span>' +
+        (x.imp ? '<span class="fo-i">' + hiText(dash(x.imp), w('i')) + '</span>' : '') + '</li>';
+    });
+    var list = $('find-list');
+    list.innerHTML = h;
+    list.scrollTop = 0;
+    var foot = '';
+    if (!r.total) foot = 'No base matches “' + esc(q) + '”. Try part of a name, a slot or a defence, like <b>cryptic</b> or <b>evasion boots</b>.';
+    else if (r.total > r.list.length) foot = 'Showing ' + r.list.length + ' of ' + r.total + '. Keep typing to narrow it down.';
+    $('find-foot').innerHTML = foot;
+    $('find-pop').hidden = false;
+    inp.setAttribute('aria-expanded', String(r.list.length > 0));
+    inp.removeAttribute('aria-activedescendant');
+    $('find-status').textContent = r.total ? plural(r.total, 'base') + ' found' : 'No base found';
+  }
+  function setFindAct(i, kb) {
+    var list = $('find-list');
+    find.act = i;
+    list.querySelectorAll('.fo').forEach(function (el, j) { el.classList.toggle('on', j === i); el.setAttribute('aria-selected', String(j === i)); });
+    var o = list.children[i];
+    if (!o || !kb) return;
+    $('find-q').setAttribute('aria-activedescendant', o.id);
+    if (o.offsetTop < list.scrollTop) list.scrollTop = o.offsetTop - 4;
+    else if (o.offsetTop + o.offsetHeight > list.scrollTop + list.clientHeight) list.scrollTop = o.offsetTop + o.offsetHeight - list.clientHeight + 4;
+  }
+  function closeFind(clear) {
+    var inp = $('find-q');
+    if (clear) inp.value = '';
+    $('find-pop').hidden = true;
+    find.res = [];
+    inp.setAttribute('aria-expanded', 'false');
+    inp.removeAttribute('aria-activedescendant');
+  }
+  function pickFound(i) {
+    var x = find.res[i];
+    if (!x) return;
+    closeFind(true);
+    $('find-status').textContent = '';
+    if (window.matchMedia('(pointer: coarse)').matches) $('find-q').blur();
+    useBase(x.b.n);
+  }
+  function initFind() {
+    var inp = $('find-q'), list = $('find-list');
+    inp.addEventListener('input', renderFind);
+    inp.addEventListener('focus', function () { if (inp.value.trim()) renderFind(); });
+    inp.addEventListener('click', function () { if (!findOpen() && inp.value.trim()) renderFind(); });
+    inp.addEventListener('blur', function () { closeFind(false); });
+    inp.addEventListener('keydown', function (e) {
+      var n = find.res.length;
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        if (!findOpen()) { renderFind(); return; }
+        if (n) setFindAct((find.act + (e.key === 'ArrowDown' ? 1 : -1) + n) % n, true);
+      } else if (e.key === 'Enter') {
+        if (findOpen() && n) { e.preventDefault(); pickFound(find.act); }
+      } else if (e.key === 'Escape') {
+        if (findOpen()) { e.preventDefault(); e.stopPropagation(); closeFind(false); } else if (inp.value) { e.preventDefault(); inp.value = ''; }
+      }
+    });
+    /* Keep focus in the box while the list is used with a mouse or finger. */
+    $('find-pop').addEventListener('mousedown', function (e) { e.preventDefault(); });
+    list.addEventListener('mousemove', function (e) {
+      var o = e.target.closest('.fo');
+      if (o && +o.getAttribute('data-i') !== find.act) setFindAct(+o.getAttribute('data-i'), false);
+    });
   }
   /* Keep targets valid after a base or item level change: same family, best tier still at or under the old level. */
   function revalidate(c, why) {
@@ -1040,6 +1172,7 @@
 
   /* ---------- events ---------- */
   document.addEventListener('click', function (e) {
+    if (findOpen() && !e.target.closest('#find')) closeFind(false);
     var g = e.target.closest('[data-go]');
     if (g) { e.preventDefault(); go(g.getAttribute('data-go')); return; }
     var lg = e.target.closest('[data-lg]');
@@ -1054,6 +1187,7 @@
     var s = +a.getAttribute('data-s'), i = +a.getAttribute('data-i');
     switch (act) {
       case 'cls': changeClass(a.getAttribute('data-cls')); break;
+      case 'find-pick': pickFound(i); break;
       case 'd-pick': openPicker({ mode: 'design', side: s, i: i, current: c.targets[s][i] ? c.targets[s][i].mi : null }); break;
       case 'd-clear': c.targets[s][i] = null; if (c.planSt) c.stale = true; touch(c); renderDesign(); break;
       case 'to-plan': go('plan'); break;
@@ -1147,6 +1281,7 @@
   var h0 = (location.hash || '').replace('#', '');
   if (h0 === 'plan' || h0 === 'design' || h0 === 'ref' || h0 === 'reference') app.view = h0 === 'reference' ? 'ref' : h0;
   window.App = { get: function () { return app; }, league: function () { return app.league; }, toast: toast, go: go };
+  initFind();
   go(app.view, { keepScroll: true });
   renderAll();
   initDb();

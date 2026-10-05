@@ -872,11 +872,66 @@
       return { greater: hitShare(W, [t]), perfect: hitShare(Wp, [t]), m: methods(cat, t) };
     }
 
+    /* ---------- finding a base: by name, slot, defence type or implicit ---------- */
+    var SLOT_ALIAS = { body: 'chest', mace1: '1h', mace2: '2h', staff: 'staves', qstaff: 'quarterstaves', sceptre: 'scepter', focus: 'foci' };
+    function norm(s) { return String(s || '').toLowerCase().replace(/['’]/g, '').replace(/[^a-z0-9]+/g, ' ').trim(); }
+    function atWordStart(hay, w) {
+      for (var i = hay.indexOf(w); i > -1; i = hay.indexOf(w, i + 1)) if (i === 0 || hay.charAt(i - 1) === ' ') return true;
+      return false;
+    }
+    var findIdx = null;
+    function findIndex() {
+      if (findIdx) return findIdx;
+      findIdx = DATA.bases.map(function (b) {
+        var slot = CLASS[b.c].n, sub = b.sub || '', rq = b.rq || [];
+        var im = (b.im || '').split('\n').filter(function (l) { return l && l.indexOf('{variant') !== 0; });
+        return {
+          b: b, n: norm(b.n), im: im, imn: im.map(norm),
+          k: norm(slot + ' ' + slot + 's ' + (SLOT_ALIAS[b.c] || '')),
+          t: norm([sub, /Armour/.test(sub) ? 'armor' : '', /Energy Shield/.test(sub) ? 'es' : '', rq[0] ? 'str' : '', rq[1] ? 'dex' : '', rq[2] ? 'int' : ''].join(' '))
+        };
+      });
+      return findIdx;
+    }
+    /* Every word has to match somewhere. Best is the start of a word in the name, then the slot, defence type or
+       attribute, then anywhere in the name, then an implicit. Ties go to opts.cls, then the higher level base.
+       Each hit says where each word matched (on[i]: n name, k slot, t defence/attribute, m mid-name, i implicit). */
+    function findBases(q, opts) {
+      opts = opts || {};
+      var words = norm(q).split(' ').filter(Boolean);
+      var out = { words: words, total: 0, list: [] };
+      if (!words.length) return out;
+      var phrase = words.join(' ');
+      var hits = [];
+      findIndex().forEach(function (x) {
+        var score = 0, imp = null, on = [];
+        for (var i = 0; i < words.length; i++) {
+          var w = words[i];
+          if (atWordStart(x.n, w)) { on.push('n'); continue; }
+          if (atWordStart(x.k, w)) { score += 1; on.push('k'); continue; }
+          if (atWordStart(x.t, w)) { score += 1; on.push('t'); continue; }
+          if (x.n.indexOf(w) > -1) { score += 2; on.push('m'); continue; }
+          var j = x.imn.findIndex(function (l) { return atWordStart(l, w); });
+          if (j < 0) return;
+          score += 3; on.push('i');
+          if (imp === null) imp = x.im[j];
+        }
+        if (x.n === phrase) score -= 2; else if (x.n.indexOf(phrase) === 0) score -= 1;
+        hits.push({ b: x.b, score: score, imp: imp, on: on });
+      });
+      hits.sort(function (a, b) {
+        return a.score - b.score || (b.b.c === opts.cls) - (a.b.c === opts.cls) || b.b.lv - a.b.lv || a.b.n.localeCompare(b.b.n);
+      });
+      out.total = hits.length;
+      out.list = hits.slice(0, opts.limit || 50);
+      return out;
+    }
+
     return {
       MODS: MODS, FAMS: FAMS, CLASS: CLASS, BASE: BASE,
       catalog: catalog, tierOptions: tierOptions, methods: methods, famName: famName, modText: modText,
       analyze: analyze, plan: plan, apply: apply, nextStep: nextStep, summary: summary, slamOddsFor: slamOddsFor,
-      oddsLabel: oddsLabel, price: price, matsCost: matsCost, labelTier: labelTier, newId: newId, SIDE: SIDE, SIDE_CAP: SIDE_CAP,
+      oddsLabel: oddsLabel, price: price, matsCost: matsCost, labelTier: labelTier, newId: newId, SIDE: SIDE, SIDE_CAP: SIDE_CAP, findBases: findBases,
       setLeague: setLeague, hardness: function (design, st, t) { var c = catalog(design.base, design.ilvl); return hardness(c, analyze(c, design, st), t); }
     };
   }

@@ -131,6 +131,52 @@ test('odds labels', () => {
   assert.equal(E.oddsLabel(0), 'not possible here');
 });
 
+test('find a base: a full name finds it in any slot', () => {
+  const r = E.findBases('cryptic leggings');
+  assert.equal(r.total, 1);
+  assert.equal(r.list[0].b.n, 'Cryptic Leggings');
+  assert.equal(r.list[0].b.c, 'boots');
+  assert.equal(E.findBases('  CRYPTIC   leg ').list[0].b.n, 'Cryptic Leggings', 'case, spaces and partial words');
+});
+
+test('find a base: ties go to the current slot, then the higher level base', () => {
+  const names = (cls) => E.findBases('cryptic', { cls }).list.map((x) => x.b.n);
+  assert.deepEqual(names('boots'), ['Cryptic Leggings', 'Cryptic Crown', 'Cryptic Helm']);
+  assert.deepEqual(names('helmet'), ['Cryptic Crown', 'Cryptic Helm', 'Cryptic Leggings']);
+});
+
+test('find a base: slot and defence words narrow it down', () => {
+  const r = E.findBases('evasion boots', { limit: 999 });
+  const want = DATA.bases.filter((b) => b.c === 'boots' && /Evasion/.test(b.sub)).length;
+  assert.equal(r.total, want);
+  assert.ok(r.list.every((x) => x.b.c === 'boots' && /Evasion/.test(x.b.sub)));
+  assert.ok(E.findBases('chest', { limit: 999 }).list.every((x) => x.b.c === 'body'), 'chest means body armour');
+  assert.ok(E.findBases('es gloves', { limit: 999 }).list.every((x) => /Energy Shield/.test(x.b.sub)), 'es means energy shield');
+  assert.deepEqual(E.findBases('cryptic boots').list[0].on, ['n', 'k'], 'says where each word matched');
+});
+
+test('find a base: name matches rank above slot, mid-word and implicit matches', () => {
+  const r = E.findBases('ring', { limit: 999 });
+  assert.equal(r.list[0].b.n, 'Ring', 'exact name first');
+  const at = (n) => r.list.findIndex((x) => x.b.n === n);
+  assert.ok(at('Dusk Ring') < at('Abyssal Signet'), 'name beats slot');
+  assert.ok(at('Abyssal Signet') < at('Soldiering Sabatons'), 'slot beats the middle of a word');
+  const s = E.findBases('spirit').list.find((x) => x.b.n === 'Solar Amulet');
+  assert.ok(s, 'implicits are searched');
+  assert.match(s.imp, /Spirit/, 'and the matching implicit line comes back');
+  assert.ok(!E.findBases('spirit').list.some((x) => x.b.n === 'Lament Amulet'), 'skill variants are not searched');
+});
+
+test('find a base: apostrophes, limits and empty queries', () => {
+  assert.equal(E.findBases("runefathers").list[0].b.n, "Runefather's Grasping Mail");
+  assert.equal(E.findBases("scout's vest").list[0].b.n, "Scout's Vest");
+  assert.equal(E.findBases('a', { limit: 5 }).list.length, 5);
+  assert.ok(E.findBases('a', { limit: 5 }).total > 5);
+  assert.equal(E.findBases('').total, 0);
+  assert.equal(E.findBases(' - ').total, 0);
+  assert.equal(E.findBases('zzzqqq').total, 0);
+});
+
 test('stable mod ids exist for every mod', () => {
   assert.equal(DATA.ids.length, DATA.mods.length);
   assert.equal(new Set(DATA.ids).size, DATA.ids.length);

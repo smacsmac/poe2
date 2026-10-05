@@ -2,7 +2,7 @@
 
 A single-page web app for Path of Exile 2 (patch 0.5.5) crafting. Three screens:
 
-- **Design**: pick a slot, base and item level, then fill prefix/suffix boxes with target mods (minimum tier per box). Each box shows how the mod gets onto the item.
+- **Design**: pick a slot, base and item level, then fill prefix/suffix boxes with target mods (minimum tier per box). Each box shows how the mod gets onto the item. The "Find a base" search above the slots finds any base in any slot and switches to it (like clicking that slot: a craft with targets or progress is kept in My crafts and a new one starts).
 - **Plan**: "Want" vs "Have" per slot, plus a step timeline. The current step is highlighted with materials, prices and odds; the user records what happened and the plan re-plans. Hand edits make the plan stale until "Reforge from here".
 - **Reference**: the playbook text, crafting rules, quick fixes and a sortable materials/price ledger.
 
@@ -25,7 +25,7 @@ Always run `npm run build && npm test` after changes. Run `npm run e2e` after UI
 ```
 src/engine.js        planner engine: pure functions over the game data, no DOM (works in node and the browser)
 src/prices.js        poe.ninja price snapshot in divines, [Forbidden Rites, Runes of Aldur]
-src/ui/app.js        the app: state, storage, Design, Plan, picker, crafts drawer
+src/ui/app.js        the app: state, storage, Design (with the base search), Plan, picker, crafts drawer
 src/ui/ref.js        Reference screen's materials ledger
 src/ui/app.css       all styles (theme tokens at the top)
 src/ui/markup.html   static page skeleton, including the Reference screen's text
@@ -59,6 +59,7 @@ Eligibility follows PoB: the first `weightKey` that matches the base's tags deci
 - `tierOptions(cat, fam)`, `methods(cat, target)` (slam / essence / alloy / lich routes), `analyze(cat, design, st)` (sets `m.status` = hit | low | junk | keep on the item's mods).
 - `nextStep(design, st)`, `plan(design, st)` (current step plus a projected happy path, max 16 steps, stops after a restart), `apply(st, outcome)`.
 - `setLeague('fr'|'roa')`, `price(key, league)`, `oddsLabel(p)`.
+- `findBases(q, {cls, limit})` -> `{words, total, list:[{b, score, imp, on}]}` for the Design search. Every word has to match: a word start in the name ranks best, then the slot, defence type or attribute (aliases such as chest, es, armor, str/dex/int), then the middle of a name, then an implicit (`imp` is the line that matched). Ties go to `cls`, then the higher level base. `on[i]` says where word i matched so the UI highlights only that.
 
 Shapes:
 

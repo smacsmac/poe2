@@ -66,6 +66,26 @@ async function addTarget(page, side, i, query, famText) {
 
     await page.click('.tabs [data-go="ref"]');
     await page.screenshot({ path: `${OUT}/${scheme}-reference.png` });
+
+    // Find a base in any slot. The gloves craft has progress, so picking boots starts a new craft.
+    await page.click('.tabs [data-go="design"]');
+    await page.fill('#find-q', 'cryptic');
+    assert.deepEqual(await page.locator('.fo .fo-n').allTextContents(), ['Cryptic Crown', 'Cryptic Leggings', 'Cryptic Helm']);
+    await page.screenshot({ path: `${OUT}/${scheme}-find.png` });
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('Enter');
+    assert.equal(await page.locator('.bp-name').textContent(), 'Cryptic Leggings');
+    assert.equal(await page.locator('.slot[aria-pressed="true"]').getAttribute('data-cls'), 'boots');
+    assert.match(await page.locator('#toast').textContent(), /new craft for Cryptic Leggings/);
+    // The new boots craft is empty, so a ring switches it in place. Clicking a result works too.
+    await page.fill('#find-q', 'prismatic');
+    await page.locator('.fo', { hasText: 'Prismatic Ring' }).click();
+    assert.equal(await page.locator('.bp-name').textContent(), 'Prismatic Ring');
+    assert.equal(await page.inputValue('#find-q'), '');
+    await page.fill('#find-q', 'zzz');
+    assert.match(await page.locator('#find-foot').textContent(), /No base matches/);
+    await page.keyboard.press('Escape');
+    assert.ok(await page.locator('#find-pop').isHidden());
     await ctx.close();
   }
 
@@ -81,6 +101,13 @@ async function addTarget(page, side, i, query, famText) {
   const [sw, w] = await p.evaluate(() => [document.documentElement.scrollWidth, window.innerWidth]);
   assert.ok(sw <= w, 'no sideways scroll on a phone');
   await p.screenshot({ path: `${OUT}/phone-plan.png`, fullPage: true });
+  await p.click('.tabbar [data-go="design"]');
+  await p.fill('#find-q', 'cryptic leg');
+  await p.screenshot({ path: `${OUT}/phone-find.png` });
+  await p.locator('.fo').first().tap();
+  assert.equal(await p.locator('.bp-name').textContent(), 'Cryptic Leggings');
+  const [sw2, w2] = await p.evaluate(() => [document.documentElement.scrollWidth, window.innerWidth]);
+  assert.ok(sw2 <= w2, 'no sideways scroll on a phone after a search');
 
   await browser.close();
   if (errors.length) { console.error(errors.join('\n')); process.exit(1); }
