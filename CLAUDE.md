@@ -84,7 +84,7 @@ Removal advice: options get `cost` (per try) and `exp` (rough average spend). Wi
 
 - One self-contained file. External scripts only from cdnjs/jsdelivr/unpkg; stylesheets only Google Fonts. **No external images** (the CSP blocks them), so art is inline SVG. The gloves hero (`HERO_GLOVES` in app.js) is hand-drawn.
 - Colours are tokens in `:root` (dark first) with light overrides under `prefers-color-scheme: light` and `[data-theme="light"]`. The item tooltip (`--tip-*`) stays dark in both themes on purpose. Never put a literal colour in a component rule.
-- Must work at 400px wide with no sideways scroll; the phone layout uses a bottom tab bar.
+- Must work at 400px wide with no sideways scroll; the phone layout uses a bottom tab bar, and its slot list is a drawer from the left (the "All slots" button) instead of the side rail. Tablets keep the rail as a sideways strip.
 - `localStorage` reads and writes stay in try/catch. Key: `poe2-crafting-playbook-app-v2` (crafts, current id, league, view) and `poe2-crafting-playbook-v1` (ledger sort/filter).
 - `window.claude` only exists inside claude.ai. With `claude.use('user')` and `claude.use('db')` crafts sync to `data/users/<uid>/<craftId>` (doc format `v: 2`, see `packCraft` in app.js). Without it (standalone page, friends without write access) everything falls back to localStorage. Never let the app depend on `window.claude`.
 - `alert`/`confirm`/`prompt` don't work in artifacts. Confirmations are inline buttons.

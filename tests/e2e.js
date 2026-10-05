@@ -108,6 +108,17 @@ async function addTarget(page, side, i, query, famText) {
   assert.equal(await p.locator('.bp-name').textContent(), 'Cryptic Leggings');
   const [sw2, w2] = await p.evaluate(() => [document.documentElement.scrollWidth, window.innerWidth]);
   assert.ok(sw2 <= w2, 'no sideways scroll on a phone after a search');
+  // On a phone the slot list is a drawer from the left instead of the side rail
+  assert.ok(await p.locator('#rail').isHidden(), 'no slot rail on a phone');
+  await p.tap('#slot-pick');
+  await p.waitForSelector('#slots:not([hidden])');
+  assert.equal(await p.locator('#slots .slot').count(), await p.evaluate(() => window.DATA.classes.length));
+  await p.locator('#slots .drawer-card').evaluate((el) => Promise.all(el.getAnimations().map((a) => a.finished)));
+  await p.screenshot({ path: `${OUT}/phone-slots.png` });
+  await p.locator('#slots [data-cls="ring"]').tap();
+  await p.waitForSelector('#slots', { state: 'hidden' });
+  assert.equal(await p.locator('.bp-name').textContent(), 'Prismatic Ring');
+  assert.match(await p.locator('#slot-pick').textContent(), /Ring/);
 
   await browser.close();
   if (errors.length) { console.error(errors.join('\n')); process.exit(1); }

@@ -296,8 +296,7 @@
   }
 
   /* ---------- design ---------- */
-  function renderRail() {
-    var c = cur();
+  function railHTML(c) {
     var h = '';
     GROUPS.forEach(function (g) {
       h += '<p class="rail-h">' + g[0] + '</p>';
@@ -306,7 +305,34 @@
           '<svg aria-hidden="true"><use href="#i-' + id + '"/></svg><span>' + esc(CLS[id].n) + '</span></button>';
       });
     });
-    $('rail').innerHTML = h;
+    return h;
+  }
+  function renderRail() {
+    var c = cur();
+    $('rail').innerHTML = railHTML(c);
+    $('slot-pick').innerHTML = '<svg aria-hidden="true"><use href="#i-' + c.cls + '"/></svg><span class="sp-n"><span class="vh">Item slot: </span>' + esc(CLS[c.cls].n) + '</span>' +
+      '<span class="sp-all">All slots' + ico('u-chev') + '</span>';
+    if (slotsOpen()) $('sl-list').innerHTML = railHTML(c);
+  }
+  /* Phones: the slot list opens as a drawer from the left instead of the side rail. */
+  function slotsOpen() { return !$('slots').hidden; }
+  function openSlots() {
+    var el = $('slots');
+    el.innerHTML = '<div class="drawer-card" role="dialog" aria-modal="true" aria-labelledby="sl-t"><div class="dr-head"><h2 id="sl-t">Choose a slot</h2>' +
+      '<button type="button" class="btn small quiet x" data-act="slots-close" aria-label="Close">' + ico('u-x') + '</button></div>' +
+      '<div class="sl-list" id="sl-list">' + railHTML(cur()) + '</div></div>';
+    el.hidden = false;
+    $('slot-pick').setAttribute('aria-expanded', 'true');
+    var on = el.querySelector('.slot[aria-pressed="true"]');
+    if (on) on.focus();
+  }
+  function closeSlots() {
+    var el = $('slots');
+    if (el.hidden) return;
+    el.hidden = true; el.innerHTML = '';
+    var b = $('slot-pick');
+    b.setAttribute('aria-expanded', 'false');
+    b.focus({ preventScroll: true });
   }
   function baseProps(b) {
     var parts = [];
@@ -1178,15 +1204,18 @@
     var lg = e.target.closest('[data-lg]');
     if (lg) { setLeague(lg.getAttribute('data-lg')); return; }
     if (e.target.closest('#crafts-open')) { openDrawer(); return; }
+    if (e.target.closest('#slot-pick')) { openSlots(); return; }
     if (e.target === $('picker')) { closePicker(); return; }
     if (e.target === $('drawer')) { closeDrawer(); return; }
+    if (e.target === $('slots')) { closeSlots(); return; }
     var a = e.target.closest('[data-act]');
     if (!a) return;
     var act = a.getAttribute('data-act');
     var c = cur();
     var s = +a.getAttribute('data-s'), i = +a.getAttribute('data-i');
     switch (act) {
-      case 'cls': changeClass(a.getAttribute('data-cls')); break;
+      case 'cls': changeClass(a.getAttribute('data-cls')); closeSlots(); break;
+      case 'slots-close': closeSlots(); break;
       case 'find-pick': pickFound(i); break;
       case 'd-pick': openPicker({ mode: 'design', side: s, i: i, current: c.targets[s][i] ? c.targets[s][i].mi : null }); break;
       case 'd-clear': c.targets[s][i] = null; if (c.planSt) c.stale = true; touch(c); renderDesign(); break;
@@ -1252,6 +1281,7 @@
   document.addEventListener('keydown', function (e) {
     if (e.key !== 'Escape') return;
     if (app.pk) { closePicker(); e.preventDefault(); return; }
+    if (slotsOpen()) { closeSlots(); e.preventDefault(); return; }
     if (!$('drawer').hidden) { closeDrawer(); e.preventDefault(); }
   });
   function setLeague(lg) {

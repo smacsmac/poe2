@@ -142,6 +142,11 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
 .slot:hover svg{color:var(--fg)}
 .slot[aria-pressed="true"]{background:var(--surface);border-color:var(--brass-dim)}
 .slot[aria-pressed="true"] svg{color:var(--brass)}
+/* phones: the current slot, opening the slot drawer */
+.slot-pick{display:none;align-items:center;gap:.65rem;width:100%;padding:.5rem .75rem .5rem .55rem;border:1px solid var(--brass-dim);border-radius:5px;background:var(--surface);color:var(--fg);text-align:left;font-size:1rem}
+.slot-pick>svg{width:26px;height:26px;flex:none;color:var(--brass);stroke-width:2.4}
+.slot-pick .sp-n{font-weight:500;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.slot-pick .sp-all{margin-left:auto;display:inline-flex;align-items:center;gap:.3rem;font-family:var(--font-mono);font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);white-space:nowrap}
 
 /* find a base in any slot */
 .find{position:relative}
@@ -434,6 +439,15 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
 .dr-head h2{font-size:1.25rem}
 .dr-head .x{margin-left:auto}
 .dr-list{overflow:auto;padding:.5rem .7rem;display:grid;align-content:start;gap:.35rem}
+.drawer{animation:scrim-in .18s ease-out}
+.drawer-card{animation:slide-r .2s ease-out}
+.drawer.left{justify-content:flex-start}
+.drawer.left .drawer-card{width:min(19rem,86vw);border-left:0;border-right:1px solid var(--line-2);animation-name:slide-l}
+.sl-list{overflow:auto;overscroll-behavior:contain;padding:.8rem .7rem 1rem;display:grid;align-content:start;gap:.15rem}
+.sl-list .slot{padding:.55rem .6rem}
+@keyframes scrim-in{from{background-color:transparent}}
+@keyframes slide-r{from{transform:translateX(100%)}}
+@keyframes slide-l{from{transform:translateX(-100%)}}
 .craft{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:.1rem .7rem;align-items:center;padding:.6rem .6rem;border:1px solid var(--line);border-radius:6px}
 .craft.cur{border-color:var(--brass);background:var(--brass-wash)}
 .craft>svg{width:30px;height:30px;color:var(--brass);stroke-width:2.2;grid-row:span 2}
@@ -544,9 +558,10 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
   .side{grid-column:1/-1;position:relative;top:auto;max-height:none;grid-template-rows:none;gap:.75rem}
   .find{max-width:28rem}
   .rail{display:flex;gap:.35rem;overflow-x:auto;padding:0 0 .4rem;scrollbar-width:thin}
-  .rail-h{display:none}
-  .slot{width:auto;flex:none;border-color:var(--line);padding:.35rem .65rem .35rem .45rem;font-size:.92rem;white-space:nowrap}
-  .slot svg{width:22px;height:22px}
+  .rail .rail-h{display:none}
+  .rail .slot{width:auto;flex:none;padding:.35rem .65rem .35rem .45rem;font-size:.92rem;white-space:nowrap}
+  .rail .slot:not([aria-pressed="true"]){border-color:var(--line)}
+  .rail .slot svg{width:22px;height:22px}
 }
 @media (max-width:980px){
   .plan-grid{grid-template-columns:minmax(0,1fr)}
@@ -564,6 +579,8 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
   .brand-name{font-size:1.08rem}
   .crafts-btn .lbl{display:none}
   .find{max-width:none}
+  .rail{display:none}
+  .slot-pick{display:flex}
   .tabbar{display:grid;grid-template-columns:repeat(3,1fr);position:fixed;left:0;right:0;bottom:0;z-index:40;background:var(--surface);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px)}
   .tabbar button{display:grid;justify-items:center;gap:.15rem;padding:.55rem 0 .5rem;border:0;background:none;color:var(--muted);font-family:var(--font-display);font-weight:500;font-size:.88rem}
   .tabbar button svg{width:22px;height:22px;stroke-width:2.4}
