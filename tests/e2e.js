@@ -68,9 +68,18 @@ async function addTarget(page, side, i, query, famText) {
     await page.uncheck('#d-astrid');
     assert.doesNotMatch(await page.locator('.slot2').first().innerText(), /crafted slots/i);
 
-    // Plan from an item in progress: life + mana, two junk suffixes
+    // The Forge opens on two setup steps (what you have, what's on it), then the live plan from step 3
     await page.click('[data-act="to-plan"]');
-    await page.click('[data-act="start-copy"]');
+    assert.deepEqual(await page.locator('#p-steps .st.setup h4').allInnerTexts(), ['What do you have?', 'What’s on it?']);
+    assert.match(await page.locator('.st.now .card-k').textContent(), /Now · step 3/);
+    assert.match(await page.locator('.card h3').textContent(), /Get a magic base/);
+    assert.equal(await page.locator('[data-act="forge"]').count(), 0, 'no Forge ahead button: the plan is live');
+    await page.screenshot({ path: `${OUT}/${scheme}-setup.png`, fullPage: true });
+
+    // An item in progress, set up from the steps: Rare, Copy targets in, then remove what it doesn't have
+    await page.click('#p-steps [data-act="rarity"][data-v="rare"]');
+    assert.equal(await page.getAttribute('#p-item .seg [data-v="rare"]', 'aria-pressed'), 'true', 'the item card follows step 1');
+    await page.click('#p-steps [data-act="start-copy"]');
     for (const name of ['Runic Ward', 'Lightning Resistance', 'Cold Resistance', 'Critical Damage Bonus']) {
       await page.locator('.srow', { hasText: name }).first().locator('[data-act="have-del"]').click();
     }
@@ -78,10 +87,13 @@ async function addTarget(page, side, i, query, famText) {
       await page.locator('.have.empty [data-act="have-add"][data-s="1"]').first().click();
       await page.click('.pk-junk');
     }
-    await page.click('.forge [data-act="forge"]');
-    assert.match(await page.locator('.card h3').textContent(), /Sovereign Alloy/);
+    assert.match(await page.locator('.now-on').innerText(), /On it now: Maximum Life, Maximum Mana, a junk suffix and a junk suffix\./);
+    assert.match(await page.locator('.card h3').textContent(), /Sovereign Alloy/, 'the steps follow each change');
     await page.click('.card [data-act="out"][data-i="0"]');
     assert.match(await page.locator('.card h3').textContent(), /Make room/);
+    assert.match(await page.locator('.st.now .card-k').textContent(), /Now · step 4/);
+    assert.equal(await page.locator('.st.setup-done').count(), 2, 'once a step is recorded, the setup shows as done');
+    assert.equal(await page.locator('#tab-step').textContent(), '4');
     await page.screenshot({ path: `${OUT}/${scheme}-plan.png`, fullPage: true });
 
     // From the Forge, the copy has the item, the steps so far and the next one; Design copies the same text
@@ -89,25 +101,31 @@ async function addTarget(page, side, i, query, famText) {
     const forgeText = await page.evaluate(() => window.__copied);
     assert.match(forgeText, /WHERE I AM NOW\nRare item\.\nPrefixes \(3 of 3\):\n- \+\(\d+–\d+\) to maximum Life: on target, T1/);
     assert.match(forgeText, /\(31–40\)% increased Runic Ward: on target, crafted \(alloy\)/);
-    assert.match(forgeText, /STEPS DONE\n- I edited the item by hand\n1\. Add Runic Ward with the Sovereign Alloy: /);
-    assert.match(forgeText, /NEXT STEP \(step 2\)\nMake room on the suffix side/);
+    assert.match(forgeText, /STEPS DONE\n1–2\. Started from a rare Blacksteel Gauntlets with Maximum Life, Maximum Mana, a junk suffix and a junk suffix\.\n3\. Add Runic Ward with the Sovereign Alloy: /);
+    assert.match(forgeText, /NEXT STEP \(step 4\)\nMake room on the suffix side/);
     assert.match(forgeText, /Ways to do it:\n- .+\(suggested\)/);
     await page.click('.tabs [data-go="design"]');
     await page.click('#d-route [data-act="copy-craft"]');
     assert.equal(await page.evaluate(() => window.__copied), forgeText, 'both pages copy the same text');
     await page.click('.tabs [data-go="plan"]');
 
-    // Hand edit makes the plan stale until Reforge
+    // A hand edit re-plans at once and shows as one "Edited the item" line; Undo next to Clear item takes it back
     await page.locator('.have:not(.empty) [data-act="have-del"]').last().click();
-    assert.equal(await page.locator('.stale').count(), 1);
-    await page.click('.stale [data-act="forge"]');
-    assert.equal(await page.locator('.stale').count(), 0);
-    await page.click('[data-act="undo"]');
+    assert.doesNotMatch(await page.locator('.card h3').textContent(), /Make room/);
+    assert.match(await page.locator('.st.done.edit').innerText(), /Edited the item[\s\S]*Removed a junk suffix/);
+    assert.equal(await page.getAttribute('#p-item [data-act="undo"]', 'title'), 'Undo: Removed a junk suffix');
+    await page.click('#p-item [data-act="undo"]');
+    assert.match(await page.locator('#toast').innerText(), /Undid “Removed a junk suffix”/);
+    assert.match(await page.locator('.card h3').textContent(), /Make room/);
+    assert.equal(await page.locator('.st.done.edit').count(), 0);
+    // A change that changes nothing adds no undo step
+    await page.click('#p-item [data-act="rarity"][data-v="rare"]');
+    assert.equal(await page.getAttribute('#p-item [data-act="undo"]', 'title'), 'Undo: Add Runic Ward with the Sovereign Alloy');
 
     // The Plan screen is called Forge. Suggest fills in the magic base the plan starts from: a hard target on each side.
     assert.match(await page.locator('.tabs [data-go="plan"]').innerText(), /^Forge/);
-    await page.click('[data-act="rarity"][data-v="magic"]');
-    await page.click('[data-act="suggest"]');
+    await page.click('#p-item [data-act="rarity"][data-v="magic"]');
+    await page.click('#p-item [data-act="suggest"]');
     assert.match(await page.locator('#toast').innerText(), /Suggested a magic base with Maximum Life and Cold Resistance\. The rarest targets go on the base/);
     // "Add what's here" lists your design's targets first, the one for that row on top
     await page.locator('.srow', { hasText: 'Maximum Mana' }).locator('[data-act="have-add"]').click();
@@ -162,9 +180,8 @@ async function addTarget(page, side, i, query, famText) {
   await addTarget(q, 1, 0, 'rarity', 'Rarity of Items');
   await addTarget(q, 1, 1, 'socketed augment', 'Socketed Augment');
   await q.click('[data-act="to-plan"]');
-  await q.click('[data-act="start-copy"]');
+  await q.click('#p-item [data-act="start-copy"]');
   await q.locator('.srow', { hasText: 'Socketed Augment' }).locator('[data-act="have-del"]').click();
-  await q.click('.forge [data-act="forge"]');
   assert.match(await q.locator('.card h3').textContent(), /Use Astrid’s Creativity for Effect of Socketed Augment Items/);
   await q.screenshot({ path: `${OUT}/dark-astrid.png`, fullPage: true });
   await q.click('.card [data-act="out"][data-i="0"]');
@@ -173,7 +190,7 @@ async function addTarget(page, side, i, query, famText) {
   await q.click('.steps-tools [data-act="copy-craft"]');
   await q.waitForSelector('#copybox:not([hidden])');
   assert.match(await q.inputValue('#cb-text'), /I plan to use Astrid’s Creativity so it can hold two crafted mods\./);
-  assert.match(await q.inputValue('#cb-text'), /\nNEXT STEP \(step 1\)\n.+\n[\s\S]*\d+\. Socket Astrid’s Creativity: Artificer’s Orb, Astrid’s Creativity/);
+  assert.match(await q.inputValue('#cb-text'), /\nNEXT STEP \(step 3\)\n.+\n[\s\S]*\d+\. Socket Astrid’s Creativity: Artificer’s Orb, Astrid’s Creativity/);
   await q.screenshot({ path: `${OUT}/dark-copybox.png` });
   await q.keyboard.press('Escape');
   assert.ok(await q.locator('#copybox').isHidden());
@@ -193,8 +210,12 @@ async function addTarget(page, side, i, query, famText) {
   await p.goto(URL);
   await addTarget(p, 0, 0, 'maximum life', 'to maximum Life');
   await p.click('[data-act="to-plan"]');
-  await p.click('[data-act="start-blank"]');
-  await p.click('.forge [data-act="forge"]');
+  // On a phone the steps come first, with the setup steps' buttons at the top
+  assert.ok(await p.locator('#p-steps .pick3').isVisible());
+  await p.locator('#p-steps [data-act="rarity"][data-v="magic"]').tap();
+  await p.locator('#p-steps [data-act="suggest"]').tap();
+  assert.match(await p.locator('.now-on').innerText(), /On it now: Maximum Life/);
+  assert.ok(await p.locator('#p-steps .to-item').isVisible(), 'a jump to the item card on a phone');
   const [sw, w] = await p.evaluate(() => [document.documentElement.scrollWidth, window.innerWidth]);
   assert.ok(sw <= w, 'no sideways scroll on a phone');
   assert.ok(await p.locator('.league-row').isVisible(), 'league switch under the header on a phone');

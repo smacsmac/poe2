@@ -287,12 +287,13 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
 .seg button[aria-pressed="true"]{background:var(--tip-edge);color:var(--tip-text)}
 .seg button[aria-pressed="true"][data-v="magic"]{color:#dfe1ff}
 .seg button[aria-pressed="true"][data-v="rare"]{color:var(--tip-rare)}
-.startbar{display:grid;gap:.5rem;padding:.8rem;border:1px dashed var(--tip-edge);border-radius:3px;background:var(--tip-slot)}
-.startbar p{font-size:.92rem;color:var(--tip-text)}
-.startbar .row{display:flex;flex-wrap:wrap;gap:.5rem}
 .tbtn{background:var(--tip-head);border:1px solid var(--tip-edge);color:var(--tip-text);border-radius:4px;padding:.45rem .7rem;font-size:.9rem;text-align:left}
 .tbtn:hover{border-color:var(--tip-rare)}
 .tbtn small{display:block;color:var(--tip-muted);font-size:.8rem}
+.tbtn.sm{padding:.3rem .6rem;font-size:.82rem;display:inline-flex;align-items:center;gap:.3rem}
+.tbtn.sm .ico{width:1.05em;height:1.05em;stroke-width:2.6}
+.tbtn[aria-disabled="true"]{opacity:.45;cursor:default}
+.tbtn[aria-disabled="true"]:hover{border-color:var(--tip-edge)}
 .cols-h{display:grid;grid-template-columns:minmax(0,.8fr) minmax(0,1.35fr);gap:.5rem;font-family:var(--font-mono);font-size:.62rem;letter-spacing:.14em;text-transform:uppercase;color:var(--tip-muted);padding:0 .1rem}
 .srows{display:grid;gap:.4rem}
 /* Forge: prefixes and suffixes each in their own box, suffixes in their own colour */
@@ -329,14 +330,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
 .kd button[aria-pressed="true"][data-v="junk"]{background:color-mix(in srgb,var(--tip-junk) 20%,transparent);color:var(--tip-junk)}
 .h-x{background:none;border:0;color:var(--tip-muted);padding:.1rem .25rem;line-height:1}
 .h-x:hover{color:var(--tip-junk)}
-.forge{display:grid;gap:.45rem;margin-top:.35rem}
-.forge .btn{width:100%;padding:.75rem 1rem;font-size:1.05rem}
-.forge .btn.quiet{background:transparent;border-color:var(--tip-edge);color:var(--tip-text)}
-.forge .btn.quiet:hover{border-color:var(--tip-rare)}
-.forge .btn.primary{background:var(--tip-rare);border-color:var(--tip-rare);color:var(--tip-bg)}
-.forge .btn.pulse{animation:pulse 1.6s ease-in-out infinite}
-.forge .hint{font-size:.85rem;color:var(--tip-muted);text-align:center}
-@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(242,226,125,.0)}50%{box-shadow:0 0 0 6px rgba(242,226,125,.18)}}
+.live-hint{font-size:.85rem;color:var(--tip-muted);text-align:center;margin-top:.35rem}
 .item.flash{animation:flash 1.2s ease-out}
 @keyframes flash{0%{box-shadow:0 0 0 3px var(--tip-rare)}100%{box-shadow:0 0 0 0 transparent}}
 .legend{display:flex;flex-wrap:wrap;gap:.3rem .9rem;font-family:var(--font-mono);font-size:.66rem;color:var(--muted)}
@@ -349,7 +343,6 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
 .steps-head h2{font-size:1.45rem}
 .steps-head .meta{font-family:var(--font-mono);font-size:.76rem;color:var(--muted)}
 .steps-tools{display:flex;gap:.45rem;flex-wrap:wrap}
-.stale{display:flex;gap:.75rem;align-items:center;justify-content:space-between;flex-wrap:wrap;padding:.7rem .9rem;border:1px solid var(--brass);background:var(--brass-wash);border-radius:6px;font-size:.95rem}
 .timeline{list-style:none;margin:0;padding:0;position:relative}
 .timeline::before{content:"";position:absolute;left:17px;top:10px;bottom:10px;width:1px;background:var(--line-2)}
 .st{position:relative;display:grid;grid-template-columns:36px minmax(0,1fr);gap:.9rem;padding:.45rem 0}
@@ -364,7 +357,6 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
 .st.now .st-n{width:26px;height:26px;margin:.85rem 0 0 5px;background:var(--brass);border-color:var(--brass)}
 .st.now .st-n span{color:var(--brass-ink);font-weight:700;font-size:.74rem}
 .card{background:var(--surface);border:1px solid var(--brass);border-radius:7px;padding:1rem 1.15rem 1.1rem;box-shadow:0 0 0 4px var(--brass-wash);display:grid;gap:.75rem}
-.card.dim{opacity:.5;filter:saturate(.6)}
 .card-k{display:flex;justify-content:space-between;align-items:center;gap:.6rem;flex-wrap:wrap}
 .card h3{font-size:1.35rem}
 .how{font-size:1.02rem;line-height:1.55}
@@ -411,6 +403,22 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
 .st.next .ml{font-family:var(--font-mono);font-size:.72rem;margin-top:.25rem;color:var(--faint)}
 .st.next .more{display:none;background:none;border:0;padding:0;color:var(--muted);font-size:.8rem;text-decoration:underline;text-underline-offset:.2em;margin-top:.15rem}
 .st.next:hover h4{opacity:1}
+.st.setup .st-n{border-color:var(--brass-dim)}
+.st.setup .st-n span{color:var(--brass)}
+.st.setup .st-b{padding:.4rem 0 .45rem}
+.st.setup h4{font-family:var(--font-display);font-size:1.12rem;font-weight:700;color:var(--fg);margin:0;line-height:1.25}
+.st.setup .sm{font-size:.92rem;line-height:1.45;color:var(--muted);margin:.15rem 0 .6rem}
+.st.setup .sm b{color:var(--fg);font-weight:600}
+.pick3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.4rem}
+.pick3 button{display:grid;align-content:start;gap:.1rem;text-align:left;padding:.5rem .65rem;border:1px solid var(--line-2);border-radius:5px;background:var(--surface);color:var(--fg);font-size:.95rem}
+.pick3 button:hover{border-color:var(--brass-dim)}
+.pick3 button b{font-weight:700}
+.pick3 small{color:var(--muted);font-size:.78rem;line-height:1.3}
+.pick3 button[aria-pressed="true"]{border-color:var(--brass);background:var(--brass-wash);box-shadow:inset 0 0 0 1px var(--brass)}
+.setup-row{display:flex;flex-wrap:wrap;gap:.45rem}
+.to-item{display:none}
+.to-item .ico{width:1em;height:1em}
+.now-on{font-size:.88rem;color:var(--muted);margin-top:.55rem}
 .done-toggle{background:none;border:0;padding:.3rem 0;color:var(--muted);font-size:.9rem;display:flex;align-items:center;gap:.4rem}
 .done-toggle:hover{color:var(--fg)}
 .empty-steps{border:1px dashed var(--line-2);border-radius:7px;padding:1.4rem 1.2rem;display:grid;gap:.5rem;color:var(--muted);text-align:center;justify-items:center}
@@ -607,6 +615,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
   .plan-grid{grid-template-columns:minmax(0,1fr)}
   .have-col{position:static}
   .plan-grid.started .steps-col{order:-1}
+  .to-item{display:inline-flex}
 }
 @media (max-width:860px){
   .crafts-btn .lbl{display:none}

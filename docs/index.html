@@ -293,12 +293,13 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
 .seg button[aria-pressed="true"]{background:var(--tip-edge);color:var(--tip-text)}
 .seg button[aria-pressed="true"][data-v="magic"]{color:#dfe1ff}
 .seg button[aria-pressed="true"][data-v="rare"]{color:var(--tip-rare)}
-.startbar{display:grid;gap:.5rem;padding:.8rem;border:1px dashed var(--tip-edge);border-radius:3px;background:var(--tip-slot)}
-.startbar p{font-size:.92rem;color:var(--tip-text)}
-.startbar .row{display:flex;flex-wrap:wrap;gap:.5rem}
 .tbtn{background:var(--tip-head);border:1px solid var(--tip-edge);color:var(--tip-text);border-radius:4px;padding:.45rem .7rem;font-size:.9rem;text-align:left}
 .tbtn:hover{border-color:var(--tip-rare)}
 .tbtn small{display:block;color:var(--tip-muted);font-size:.8rem}
+.tbtn.sm{padding:.3rem .6rem;font-size:.82rem;display:inline-flex;align-items:center;gap:.3rem}
+.tbtn.sm .ico{width:1.05em;height:1.05em;stroke-width:2.6}
+.tbtn[aria-disabled="true"]{opacity:.45;cursor:default}
+.tbtn[aria-disabled="true"]:hover{border-color:var(--tip-edge)}
 .cols-h{display:grid;grid-template-columns:minmax(0,.8fr) minmax(0,1.35fr);gap:.5rem;font-family:var(--font-mono);font-size:.62rem;letter-spacing:.14em;text-transform:uppercase;color:var(--tip-muted);padding:0 .1rem}
 .srows{display:grid;gap:.4rem}
 /* Forge: prefixes and suffixes each in their own box, suffixes in their own colour */
@@ -335,14 +336,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
 .kd button[aria-pressed="true"][data-v="junk"]{background:color-mix(in srgb,var(--tip-junk) 20%,transparent);color:var(--tip-junk)}
 .h-x{background:none;border:0;color:var(--tip-muted);padding:.1rem .25rem;line-height:1}
 .h-x:hover{color:var(--tip-junk)}
-.forge{display:grid;gap:.45rem;margin-top:.35rem}
-.forge .btn{width:100%;padding:.75rem 1rem;font-size:1.05rem}
-.forge .btn.quiet{background:transparent;border-color:var(--tip-edge);color:var(--tip-text)}
-.forge .btn.quiet:hover{border-color:var(--tip-rare)}
-.forge .btn.primary{background:var(--tip-rare);border-color:var(--tip-rare);color:var(--tip-bg)}
-.forge .btn.pulse{animation:pulse 1.6s ease-in-out infinite}
-.forge .hint{font-size:.85rem;color:var(--tip-muted);text-align:center}
-@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(242,226,125,.0)}50%{box-shadow:0 0 0 6px rgba(242,226,125,.18)}}
+.live-hint{font-size:.85rem;color:var(--tip-muted);text-align:center;margin-top:.35rem}
 .item.flash{animation:flash 1.2s ease-out}
 @keyframes flash{0%{box-shadow:0 0 0 3px var(--tip-rare)}100%{box-shadow:0 0 0 0 transparent}}
 .legend{display:flex;flex-wrap:wrap;gap:.3rem .9rem;font-family:var(--font-mono);font-size:.66rem;color:var(--muted)}
@@ -355,7 +349,6 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
 .steps-head h2{font-size:1.45rem}
 .steps-head .meta{font-family:var(--font-mono);font-size:.76rem;color:var(--muted)}
 .steps-tools{display:flex;gap:.45rem;flex-wrap:wrap}
-.stale{display:flex;gap:.75rem;align-items:center;justify-content:space-between;flex-wrap:wrap;padding:.7rem .9rem;border:1px solid var(--brass);background:var(--brass-wash);border-radius:6px;font-size:.95rem}
 .timeline{list-style:none;margin:0;padding:0;position:relative}
 .timeline::before{content:"";position:absolute;left:17px;top:10px;bottom:10px;width:1px;background:var(--line-2)}
 .st{position:relative;display:grid;grid-template-columns:36px minmax(0,1fr);gap:.9rem;padding:.45rem 0}
@@ -370,7 +363,6 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
 .st.now .st-n{width:26px;height:26px;margin:.85rem 0 0 5px;background:var(--brass);border-color:var(--brass)}
 .st.now .st-n span{color:var(--brass-ink);font-weight:700;font-size:.74rem}
 .card{background:var(--surface);border:1px solid var(--brass);border-radius:7px;padding:1rem 1.15rem 1.1rem;box-shadow:0 0 0 4px var(--brass-wash);display:grid;gap:.75rem}
-.card.dim{opacity:.5;filter:saturate(.6)}
 .card-k{display:flex;justify-content:space-between;align-items:center;gap:.6rem;flex-wrap:wrap}
 .card h3{font-size:1.35rem}
 .how{font-size:1.02rem;line-height:1.55}
@@ -417,6 +409,22 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
 .st.next .ml{font-family:var(--font-mono);font-size:.72rem;margin-top:.25rem;color:var(--faint)}
 .st.next .more{display:none;background:none;border:0;padding:0;color:var(--muted);font-size:.8rem;text-decoration:underline;text-underline-offset:.2em;margin-top:.15rem}
 .st.next:hover h4{opacity:1}
+.st.setup .st-n{border-color:var(--brass-dim)}
+.st.setup .st-n span{color:var(--brass)}
+.st.setup .st-b{padding:.4rem 0 .45rem}
+.st.setup h4{font-family:var(--font-display);font-size:1.12rem;font-weight:700;color:var(--fg);margin:0;line-height:1.25}
+.st.setup .sm{font-size:.92rem;line-height:1.45;color:var(--muted);margin:.15rem 0 .6rem}
+.st.setup .sm b{color:var(--fg);font-weight:600}
+.pick3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.4rem}
+.pick3 button{display:grid;align-content:start;gap:.1rem;text-align:left;padding:.5rem .65rem;border:1px solid var(--line-2);border-radius:5px;background:var(--surface);color:var(--fg);font-size:.95rem}
+.pick3 button:hover{border-color:var(--brass-dim)}
+.pick3 button b{font-weight:700}
+.pick3 small{color:var(--muted);font-size:.78rem;line-height:1.3}
+.pick3 button[aria-pressed="true"]{border-color:var(--brass);background:var(--brass-wash);box-shadow:inset 0 0 0 1px var(--brass)}
+.setup-row{display:flex;flex-wrap:wrap;gap:.45rem}
+.to-item{display:none}
+.to-item .ico{width:1em;height:1em}
+.now-on{font-size:.88rem;color:var(--muted);margin-top:.55rem}
 .done-toggle{background:none;border:0;padding:.3rem 0;color:var(--muted);font-size:.9rem;display:flex;align-items:center;gap:.4rem}
 .done-toggle:hover{color:var(--fg)}
 .empty-steps{border:1px dashed var(--line-2);border-radius:7px;padding:1.4rem 1.2rem;display:grid;gap:.5rem;color:var(--muted);text-align:center;justify-items:center}
@@ -613,6 +621,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
   .plan-grid{grid-template-columns:minmax(0,1fr)}
   .have-col{position:static}
   .plan-grid.started .steps-col{order:-1}
+  .to-item{display:inline-flex}
 }
 @media (max-width:860px){
   .crafts-btn .lbl{display:none}
@@ -2288,7 +2297,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
   }
   function blankCraft(cls, base) {
     cls = cls || 'gloves';
-    var c = { id: newId(), cls: cls, base: base || defaultBase(cls), ilvl: 82, runeforge: cls === 'gloves', astrid: false, targets: [[], []], st: null, planSt: null, hist: [], stale: false, at: Date.now(), dev: DEV, editing: false };
+    var c = { id: newId(), cls: cls, base: base || defaultBase(cls), ilvl: 82, runeforge: cls === 'gloves', astrid: false, targets: [[], []], st: null, planSt: null, hist: [], stale: false, at: Date.now(), dev: DEV };
     fitTargets(c);
     return c;
   }
@@ -2317,9 +2326,10 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
     if (!c) return;
     renderCraftsBadge();
     renderSaved();
-    if (!c.planSt) { updateTabStep(null); return; }
+    if (!c.planSt || !targetCount(c)) { updateTabStep(null); return; }
     var steps = E.plan(designOf(c), c.planSt);
-    updateTabStep(steps[0].kind === 'done' ? '✓' : String(c.hist.filter(function (x) { return !x.e; }).length + 1));
+    var outs = doneCount(c);
+    updateTabStep(steps[0].kind === 'done' ? '✓' : outs ? String(SETUP + outs + 1) : null);
   }
   function slotNoun(cls) {
     var n = CLS[cls].n.toLowerCase();
@@ -2363,7 +2373,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
       v: 2, id: c.id, cls: c.cls, base: c.base, ilvl: c.ilvl, rf: !!c.runeforge, as: c.astrid ? 1 : undefined,
       t: c.targets.map(function (side) { return side.map(function (t) { return t ? { k: DATA.ids[t.mi] } : null; }); }),
       st: packSt(c.st), ps: packSt(c.planSt), sl: !!c.stale,
-      h: c.hist.slice(-30).map(function (h) { return { t: h.t, o: h.o, e: h.e ? 1 : 0, st: packSt(h.st), ps: packSt(h.ps), sl: !!h.sl }; }),
+      h: trimHist(c.hist.map(function (h) { return Object.assign({}, h); }), 40).map(function (h) { return { t: h.t, o: h.o, e: h.e ? 1 : 0, st: packSt(h.st), ps: packSt(h.ps), sl: false }; }),
       at: c.at, dev: c.dev
     }));
   }
@@ -2375,7 +2385,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
       targets: [0, 1].map(function (s) { return ((o.t || [])[s] || []).map(function (t) { return t && IDX[t.k] !== undefined ? { mi: IDX[t.k] } : null; }); }),
       st: unpackSt(o.st), planSt: unpackSt(o.ps), stale: !!o.sl,
       hist: (o.h || []).map(function (h) { return { t: h.t, o: h.o, e: !!h.e, st: unpackSt(h.st), ps: unpackSt(h.ps), sl: !!h.sl }; }),
-      at: o.at || 0, dev: o.dev || '', editing: false
+      at: o.at || 0, dev: o.dev || ''
     };
     fitTargets(c);
     return c;
@@ -2767,7 +2777,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
         '<div class="slot2' + (desec ? '' : ' free') + '"><span>Desecration</span><b>' + (desec ? esc(desec) : 'Free') + '</b></div></div>';
       if (warns.length) h += '<div class="warns">' + warns.map(function (w) { return '<p class="warnline">' + w + '</p>'; }).join('') + '</div>';
     }
-    var started = !!c.planSt;
+    var started = c.hist.length > 0 || !!(c.st && c.st.mods.length);
     h += '<button type="button" class="btn primary cta" data-act="to-plan"' + (all.length ? '' : ' disabled') + '>' + ico('u-hammer') + (started ? 'Back to the forge' : 'Craft it') + ico('u-arrow') + '</button>';
     h += copyBtn('copy-chat');
     h += '</div>';
@@ -2938,7 +2948,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
       });
     });
     fitTargets(c);
-    if (c.planSt) c.stale = true;
+    replan(c);
     var msg = [];
     if (dropped.length) msg.push('Removed ' + dropped.join(', ') + ' (not on ' + why + ')');
     if (lowered.length) msg.push('Adjusted the tier of ' + lowered.join(', '));
@@ -2987,17 +2997,13 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
     h += '<div class="item-head slim"><svg aria-hidden="true"><use href="#i-' + c.cls + '"/></svg>' +
       '<p class="nm' + nameCls + '">' + esc(c.base) + '</p><p class="sb">Item level ' + c.ilvl + ' · <a href="#design" data-go="design" style="color:inherit">edit design</a></p></div>';
     h += '<div class="item-body">';
-    if (!c.st) {
-      h += '<div class="startbar"><p><b>Where are you starting?</b></p><div class="row">' +
-        '<button type="button" class="tbtn" data-act="start-blank">Nothing yet<small>Plan from a fresh base</small></button>' +
-        '<button type="button" class="tbtn" data-act="start-copy">An item in progress<small>Copies your targets in. Remove what you don’t have.</small></button></div></div>';
-    } else {
-      h += '<div class="rarity"><span class="vh">Rarity</span><div class="seg" role="group" aria-label="Rarity">' +
-        ['none', 'magic', 'rare'].map(function (v) { return '<button type="button" data-act="rarity" data-v="' + v + '" aria-pressed="' + (rar === v) + '">' + { none: 'Normal', magic: 'Magic', rare: 'Rare' }[v] + '</button>'; }).join('') +
-        '</div><button type="button" class="tbtn" data-act="suggest" style="padding:.3rem .6rem;font-size:.82rem"' + (rar === 'none' ? ' aria-disabled="true"' : '') + '>Suggest</button>' +
-        '<button type="button" class="tbtn" data-act="start-copy" style="padding:.3rem .6rem;font-size:.82rem">Copy targets in</button>' +
-        '<button type="button" class="tbtn" data-act="start-blank" style="padding:.3rem .6rem;font-size:.82rem">Clear item</button></div>';
-    }
+    var canUndo = c.hist.length > 0;
+    h += '<div class="rarity"><span class="vh">Rarity</span><div class="seg" role="group" aria-label="Rarity">' +
+      ['none', 'magic', 'rare'].map(function (v) { return '<button type="button" data-act="rarity" data-v="' + v + '" aria-pressed="' + (rar === v) + '">' + RAR[v] + '</button>'; }).join('') +
+      '</div><button type="button" class="tbtn sm" data-act="suggest"' + (rar === 'none' ? ' aria-disabled="true"' : '') + '>Suggest</button>' +
+      '<button type="button" class="tbtn sm" data-act="start-copy">Copy targets in</button>' +
+      '<button type="button" class="tbtn sm" data-act="start-blank">Clear item</button>' +
+      '<button type="button" class="tbtn sm tb-undo" data-act="undo"' + (canUndo ? ' title="Undo: ' + esc(undoLabel(c)) + '"' : ' aria-disabled="true" title="Nothing to undo yet"') + '>' + ico('u-undo') + 'Undo</button></div>';
     h += '<div class="cols-h" aria-hidden="true"><span>Want</span><span>Have</span></div>';
     [0, 1].forEach(function (s) {
       if (!cat.caps[s]) return;
@@ -3032,12 +3038,8 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
       });
       h += '</div></section>';
     });
-    var planned = !!c.planSt;
-    h += '<div class="forge">';
-    if (!planned) h += '<button type="button" class="btn primary pulse" data-act="forge"' + (c.st ? '' : ' disabled') + '>' + ico('u-hammer') + 'Forge ahead</button><p class="hint">' + (c.st ? 'Lists every step from where your item is now.' : 'Choose where you’re starting first.') + '</p>';
-    else if (c.stale) h += '<button type="button" class="btn primary pulse" data-act="forge">' + ico('u-hammer') + 'Reforge from here</button><p class="hint">Your item changed. This re-plans from what it has now.</p>';
-    else h += '<button type="button" class="btn quiet" data-act="forge">' + ico('u-hammer') + 'Reforge from here</button><p class="hint">The steps match your item.</p>';
-    h += '</div></div></article>';
+    h += '<p class="live-hint">The steps update as soon as you change your item.</p>';
+    h += '</div></article>';
     h += '<div class="legend" aria-label="Colour key"><span><i style="--c:var(--tip-hit)"></i>On target</span><span><i style="--c:var(--tip-low)"></i>Lower tier</span><span><i style="--c:var(--tip-junk)"></i>Not wanted</span><span><i style="--c:var(--tip-keep)"></i>Keeping</span></div>';
     $('p-item').innerHTML = h;
   }
@@ -3064,12 +3066,11 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
     return step.options.find(function (o) { return o.key === k; }) || step.options[0];
   }
   function renderNow(c, step, n) {
-    var stale = c.stale;
     var opt = curOption(c, step);
     var mats = opt ? opt.mats : step.mats;
     var outs = opt ? opt.outcomes : step.outcomes;
     var odds = opt ? (opt.mats.length ? { p: opt.swap ? opt.pAdd : opt.p, what: opt.swap ? 'to reroll it into a target' : 'to remove junk' } : null) : step.odds;
-    var h = '<div class="card' + (stale ? ' dim' : '') + '">';
+    var h = '<div class="card">';
     h += '<div class="card-k"><span class="eyebrow">Now · step ' + n + ' · ' + esc(KIND[step.kind] || step.kind) + '</span></div>';
     h += '<h3>' + esc(step.title) + '</h3>';
     h += '<p class="how">' + esc(dash(step.how)) + '</p>';
@@ -3080,7 +3081,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
       step.options.forEach(function (o) {
         var on = o === opt;
         var costTxt = o.mats.length ? fmt(o.cost) + ' a try · ~' + fmt(o.exp) + ' avg' : 'free';
-        h += '<button type="button" class="opt" role="radio" aria-checked="' + on + '" data-act="opt" data-k="' + o.key + '"' + (stale ? ' disabled' : '') + '><span class="dot"></span>' +
+        h += '<button type="button" class="opt" role="radio" aria-checked="' + on + '" data-act="opt" data-k="' + o.key + '"><span class="dot"></span>' +
           '<span class="ol">' + esc(o.label) + (o.key === step.recommended ? '<span class="rec">Suggested</span>' : '') + '</span><span class="oc">' + esc(costTxt) + '</span>' +
           '<span class="ot">' + esc(o.text) + '</span></button>';
       });
@@ -3101,43 +3102,107 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
         if (seen[o.label]) return;
         seen[o.label] = true;
         var cls = 'out' + (i === 0 && !o.pick && !o.bad ? ' first' : '') + (o.pick || o.edit ? ' other' : '') + (o.bad ? ' bad' : '');
-        h += '<button type="button" class="' + cls + '" data-act="out" data-i="' + i + '"' + (stale ? ' disabled' : '') + '>' + esc(o.label) + (o.pick ? '…' : '') + '</button>';
+        h += '<button type="button" class="' + cls + '" data-act="out" data-i="' + i + '">' + esc(o.label) + (o.pick ? '…' : '') + '</button>';
       });
       h += '</div>';
     }
     h += '</div>';
     return h;
   }
+  /* The Forge's steps start with two setup steps: what the item is, then what's on it. The plan follows from step 3,
+     and it updates live as the item changes. */
+  var SETUP = 2;
+  var RAR = { none: 'Normal', magic: 'Magic', rare: 'Rare' };
+  var RAR_SUB = { none: 'Nothing yet, or a plain base', magic: 'One prefix and one suffix', rare: 'A craft in progress' };
+  function firstOutcome(c) { for (var i = 0; i < c.hist.length; i++) if (!c.hist[i].e) return i; return -1; }
+  /* What the item was when the first step was recorded (the end of the setup), or the item now before that. */
+  function startState(c) { var i = firstOutcome(c); return (i < 0 ? c.st : c.hist[i].st) || blankSt(); }
+  function modName(m) { return m.pseudo ? (m.pseudo === 'junk' ? 'a junk ' + SIDE[m.s] : 'any ' + SIDE[m.s]) : E.famName(famOf(m.mi)); }
+  function modsLine(st) { return st && st.mods.length ? listAnd(st.mods.map(modName)) : 'no mods'; }
+  function startText(c, st) {
+    if (st.rarity === 'none' || !st.mods.length) return st.rarity === 'rare' ? 'Started from a rare ' + c.base + ' with no mods entered' : 'Started from scratch, with no base yet';
+    return 'Started from a ' + st.rarity + ' ' + c.base + ' with ' + modsLine(st);
+  }
+  /* Done steps, oldest first: each recorded outcome numbered after the setup steps, and each run of hand edits as one
+     line. Edits made before the first outcome are the setup itself, so they don't show here. */
+  function histRows(c) {
+    var rows = [], k = 0, i0 = firstOutcome(c);
+    if (i0 < 0) return rows;
+    c.hist.slice(i0).forEach(function (x) {
+      if (x.e) {
+        var last = rows[rows.length - 1];
+        if (last && last.e) { if (x.o) last.labels.push(x.o); return; }
+        rows.push({ e: true, labels: x.o ? [x.o] : [] });
+        return;
+      }
+      k += 1;
+      rows.push({ n: SETUP + k, t: x.t, o: x.o });
+    });
+    return rows;
+  }
+  function doneCount(c) { return c.hist.filter(function (x) { return !x.e; }).length; }
+  function editLabels(labels) {
+    if (!labels.length) return '';
+    var shown = labels.slice(-3);
+    return (labels.length > 3 ? '… ' : '') + shown.join(', ');
+  }
+  function setupSteps(c) {
+    var h = '';
+    if (doneCount(c)) {
+      var s0 = startState(c);
+      h += '<li class="st done setup-done"><div class="st-n" aria-hidden="true"><span>1</span></div><div class="st-b"><b>What you had</b><span>' + esc(s0.rarity === 'none' ? 'Nothing yet' : RAR[s0.rarity] + ' ' + c.base) + '</span></div></li>';
+      h += '<li class="st done setup-done"><div class="st-n" aria-hidden="true"><span>2</span></div><div class="st-b"><b>What was on it</b><span>' + esc(s0.rarity === 'none' ? 'No mods: the plan got the base' : modsLine(s0)) + '</span></div></li>';
+      return h;
+    }
+    var rar = c.st.rarity;
+    h += '<li class="st setup"><div class="st-n" aria-hidden="true"><span>1</span></div><div class="st-b"><h4>What do you have?</h4>' +
+      '<p class="sm">Pick what you’re starting from. The steps below follow your choice.</p>' +
+      '<div class="pick3" role="group" aria-label="What you have">' + ['none', 'magic', 'rare'].map(function (v) {
+        return '<button type="button" data-act="rarity" data-v="' + v + '" aria-pressed="' + (rar === v) + '"><b>' + RAR[v] + '</b><small>' + RAR_SUB[v] + '</small></button>';
+      }).join('') + '</div></div></li>';
+    h += '<li class="st setup"><div class="st-n" aria-hidden="true"><span>2</span></div><div class="st-b"><h4>What’s on it?</h4>';
+    if (rar === 'none') {
+      h += '<p class="sm">Nothing to fill in. Step 3 starts by getting a magic base. Already have one? Choose Magic or Rare above.</p>';
+    } else {
+      h += '<p class="sm">' + (rar === 'magic' ? '<b>Suggest</b> fills in the magic base worth buying: your hardest targets.' : '<b>Suggest</b> fills in the item as the plan has it right after it turns rare.') +
+        ' Or <b>Copy targets in</b>, then press ✕ on your item for any it doesn’t have. You can also add mods one at a time on your item.</p>' +
+        '<div class="setup-row"><button type="button" class="btn small" data-act="suggest">Suggest</button><button type="button" class="btn small" data-act="start-copy">Copy targets in</button>' +
+        '<button type="button" class="btn small quiet to-item" data-act="to-item">Your item' + ico('u-chev') + '</button></div>' +
+        '<p class="now-on">On it now: ' + esc(modsLine(c.st)) + '.</p>';
+    }
+    h += '</div></li>';
+    return h;
+  }
   function renderPlanSteps() {
     var c = cur();
     var el = $('p-steps');
-    $('p-grid').classList.toggle('started', !!c.planSt);
-    if (!c.planSt) {
-      el.innerHTML = '<div class="steps-head"><h2>Steps</h2><div class="steps-tools">' + copyBtn('small') + '</div></div><div class="empty-steps"><h3>Your steps show up here</h3><p>Choose where you’re starting, remove any mods you don’t have yet, then press <b>Forge ahead</b>.</p></div>';
+    if (!targetCount(c)) {
+      $('p-grid').classList.remove('started');
+      el.innerHTML = '<div class="steps-head"><h2>Steps</h2></div><div class="empty-steps"><h3>Choose your targets first</h3><p>Add the mods you want on the Design screen, and the steps show up here.</p>' +
+        '<button type="button" class="btn small" data-act="go-design">Go to Design</button></div>';
       updateTabStep(null);
       return;
     }
+    $('p-grid').classList.add('started');
     var design = designOf(c);
     var steps = E.plan(design, c.planSt);
     app.steps = steps;
-    var doneSteps = c.hist.filter(function (x) { return !x.e; }).length;
-    var n = doneSteps + 1;
+    var rows = histRows(c);
+    var outs = doneCount(c);
+    var n = SETUP + outs + 1;
     var now = steps[0];
     var left = steps.filter(function (s) { return s.kind !== 'done'; }).length;
-    var h = '<div class="steps-head"><div><h2>Steps</h2><p class="meta">' + (now.kind === 'done' ? 'All done' : 'Step ' + n + ' · about ' + plural(left, 'step') + ' to go') + '</p></div><div class="steps-tools">' + copyBtn('small') +
-      (c.hist.length ? '<button type="button" class="btn small" data-act="undo">' + ico('u-undo') + 'Undo</button>' : '') +
-      (app.ui.confirmReset ? '<span class="muted" style="font-size:.9rem">Clear progress?</span><button type="button" class="btn small danger" data-act="reset-yes">Start over</button><button type="button" class="btn small quiet" data-act="reset-no">Keep</button>'
+    var meta = now.kind === 'done' ? 'All done' : outs ? 'Step ' + n + ' · about ' + plural(left, 'step') + ' to go' : 'Set up your item in steps 1 and 2, then follow step 3';
+    var h = '<div class="steps-head"><div><h2>Steps</h2><p class="meta">' + meta + '</p></div><div class="steps-tools">' + copyBtn('small') +
+      (c.hist.length ? '<button type="button" class="btn small" data-act="undo" title="Undo: ' + esc(undoLabel(c)) + '">' + ico('u-undo') + 'Undo</button>' : '') +
+      (!c.hist.length ? '' : app.ui.confirmReset ? '<span class="muted" style="font-size:.9rem">Clear progress?</span><button type="button" class="btn small danger" data-act="reset-yes">Start over</button><button type="button" class="btn small quiet" data-act="reset-no">Keep</button>'
         : '<button type="button" class="btn small quiet" data-act="reset">Start over</button>') + '</div></div>';
-    if (c.stale) h += '<div class="stale"><span>Your item or targets changed since these steps were made.</span><button type="button" class="btn small primary" data-act="forge">' + ico('u-hammer') + 'Reforge from here</button></div>';
-    h += '<ol class="timeline">';
-    var hist = c.hist;
-    var showFrom = app.ui.doneAll ? 0 : Math.max(0, hist.length - 3);
+    h += '<ol class="timeline">' + setupSteps(c);
+    var showFrom = app.ui.doneAll ? 0 : Math.max(0, rows.length - 3);
     if (showFrom > 0) h += '<li class="st"><span></span><button type="button" class="done-toggle" data-act="done-all">' + ico('u-chev') + 'Show ' + plural(showFrom, 'earlier step') + '</button></li>';
-    var k = 0;
-    hist.forEach(function (x, i) {
-      if (!x.e) k += 1;
-      if (i < showFrom) return;
-      h += '<li class="st done' + (x.e ? ' edit' : '') + '"><div class="st-n" aria-hidden="true"><span>' + (x.e ? '✎' : k) + '</span></div><div class="st-b"><b>' + esc(x.t) + '</b><span>' + esc(x.o || '') + '</span></div></li>';
+    rows.slice(showFrom).forEach(function (r) {
+      if (r.e) h += '<li class="st done edit"><div class="st-n" aria-hidden="true"><span>✎</span></div><div class="st-b"><b>Edited the item</b><span>' + esc(editLabels(r.labels)) + '</span></div></li>';
+      else h += '<li class="st done"><div class="st-n" aria-hidden="true"><span>' + r.n + '</span></div><div class="st-b"><b>' + esc(r.t) + '</b><span>' + esc(r.o || '') + '</span></div></li>';
     });
     h += '<li class="st now"><div class="st-n" aria-hidden="true"><span>' + n + '</span></div><div class="st-b">' + renderNow(c, now, n) + '</div></li>';
     steps.slice(1).forEach(function (s, i) {
@@ -3153,7 +3218,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
     if (lastS && lastS.endsHere) h += '<p class="fine">If you start over, the plan begins again from a fresh base.</p>';
     h += '<p class="fine">Later steps assume each roll lands. When one doesn’t, tell the current step what happened and the rest re-plans.</p>';
     el.innerHTML = h;
-    updateTabStep(now.kind === 'done' ? '✓' : String(n));
+    updateTabStep(now.kind === 'done' ? '✓' : outs ? String(n) : null);
   }
   function copyBtn(cls) {
     return '<button type="button" class="btn quiet ' + cls + '" data-act="copy-craft" title="Copies this craft as text, to paste into a chat and ask about it">' + ico('u-copy') + 'Copy for a chat</button>';
@@ -3163,37 +3228,57 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
     if (!t) { b.hidden = true; return; }
     b.hidden = false; b.textContent = t;
   }
-  function renderPlan() { renderPlanItem(); renderPlanSteps(); }
+  function renderPlan() { liveSt(cur()); renderPlanItem(); renderPlanSteps(); }
 
   /* ---------- plan actions ---------- */
-  function pushHist(c, entry) {
-    entry.st = clone(c.st); entry.ps = clone(c.planSt); entry.sl = c.stale;
-    c.hist.push(entry);
-    if (c.hist.length > 60) c.hist.shift();
+  function blankSt(skip) { return { rarity: 'none', mods: [], done: {}, skip: skip || {} }; }
+  /* The steps always follow the item: every change re-plans at once, so there's no out-of-date plan to reforge.
+     planSt stays in the data (saves and undo snapshots use it) but always matches st. */
+  function replan(c) {
+    if (c.st) c.planSt = clone(c.st);
+    c.stale = false;
   }
-  function manualEdit(c, fn) {
-    if (!c.editing) { pushHist(c, { t: 'Edited the item', o: '', e: true }); c.editing = true; }
+  function liveSt(c) {
+    if (!c.st) c.st = blankSt();
+    replan(c);
+  }
+  function entryLabel(x) { return x.e ? (x.o || 'your last change') : x.t; }
+  function undoLabel(c) { var x = c.hist[c.hist.length - 1]; return x ? entryLabel(x) : ''; }
+  /* Keep the history bounded: fold the oldest runs of hand edits first (a run's first entry keeps the item from
+     before the run, so undo still lands on a real state), then drop the oldest entries. */
+  function trimHist(h, max) {
+    while (h.length > max) {
+      var i = -1;
+      for (var k = 1; k < h.length - 10; k++) if (h[k].e && h[k - 1].e) { i = k; break; }
+      if (i > 0) {
+        if (h[i].o) h[i - 1] = Object.assign({}, h[i - 1], { o: (h[i - 1].o ? h[i - 1].o + ', ' : '') + h[i].o });
+        h.splice(i, 1);
+      } else h.shift();
+    }
+    return h;
+  }
+  function pushHist(c, entry) {
+    entry.st = clone(c.st); entry.ps = clone(c.planSt); entry.sl = false;
+    c.hist.push(entry);
+    trimHist(c.hist, 60);
+  }
+  /* A change made by hand on the item: its own undo step, labelled for the Undo button and the timeline. */
+  function manualEdit(c, fn, label) {
+    if (!c.st) c.st = blankSt();
+    var before = JSON.stringify(c.st);
+    pushHist(c, { t: 'Edited the item', o: label || '', e: true });
     fn();
-    if (c.planSt) c.stale = true;
+    if (JSON.stringify(c.st) === before) { c.hist.pop(); renderPlan(); return; }
+    replan(c);
     touch(c);
     renderPlan();
   }
   function commit(c, stepTitle, label, newSt) {
     pushHist(c, { t: stepTitle, o: label });
-    c.st = newSt; c.planSt = clone(newSt); c.stale = false; c.editing = false;
+    c.st = newSt; c.planSt = clone(newSt); c.stale = false;
     app.ui.optFor = null; app.ui.open = {};
     touch(c);
     renderPlan();
-  }
-  function forge() {
-    var c = cur();
-    if (!c.st) c.st = { rarity: 'none', mods: [], done: {}, skip: {} };
-    c.planSt = clone(c.st); c.stale = false; c.editing = false;
-    touch(c);
-    renderPlan();
-    if (window.matchMedia('(max-width: 980px)').matches) {
-      var s = $('p-steps'); if (s) s.scrollIntoView({ behavior: reduceMotion() ? 'auto' : 'smooth', block: 'start' });
-    }
   }
   function reduceMotion() { return window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches; }
   function flashItem(msg) {
@@ -3207,7 +3292,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
   function applyOutcome(i) {
     var c = cur();
     var step = app.steps && app.steps[0];
-    if (!step || c.stale) return;
+    if (!step) return;
     var opt = curOption(c, step);
     var outs = opt ? opt.outcomes : step.outcomes;
     var o = outs[i];
@@ -3221,9 +3306,9 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
     if (o.edit) {
       pushHist(c, { t: step.title, o: o.label });
       if (step.kind === 'base') c.st = { rarity: 'magic', mods: [], done: {}, skip: (c.st && c.st.skip) || {} };
-      c.stale = true; c.editing = true;
+      replan(c);
       touch(c); renderPlan();
-      flashItem(step.kind === 'base' ? 'Add the mods your base has, then press Reforge from here.' : 'Fix the item to match, then press Reforge from here.');
+      flashItem(step.kind === 'base' ? 'Add the mods your base has. The steps update as you go.' : 'Fix your item to match. The steps update as you go.');
       return;
     }
     if (o.pick) {
@@ -3245,10 +3330,11 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
     var c = cur();
     var x = c.hist.pop();
     if (!x) return;
-    c.st = x.st; c.planSt = x.ps; c.stale = x.sl; c.editing = false;
+    c.st = x.st; c.planSt = x.ps;
+    replan(c);
     app.ui.optFor = null;
     touch(c); renderPlan();
-    toast('Undid “' + x.t + '”.');
+    toast('Undid “' + entryLabel(x) + '”.');
   }
   function startCopy() {
     var c = cur(), cat = catOf(c);
@@ -3268,13 +3354,12 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
     var doIt = function () {
       c.st = { rarity: (perSide[0] > 1 || perSide[1] > 1) ? 'rare' : mods.length ? 'magic' : 'none', mods: mods, done: {}, skip: (c.st && c.st.skip) || {} };
     };
-    if (c.st) manualEdit(c, doIt); else { doIt(); touch(c); renderPlan(); }
+    manualEdit(c, doIt, 'Copy targets in');
     toast('Copied your targets in. Press ✕ on any you don’t have, and add what else is on it.');
   }
   function startBlank() {
     var c = cur();
-    var doIt = function () { c.st = { rarity: 'none', mods: [], done: {}, skip: (c.st && c.st.skip) || {} }; };
-    if (c.st) manualEdit(c, doIt); else { doIt(); touch(c); renderPlan(); }
+    manualEdit(c, function () { c.st = { rarity: 'none', mods: [], done: {}, skip: (c.st && c.st.skip) || {} }; }, 'Clear item');
   }
   function listAnd(a) { return a.length < 2 ? a.join('') : a.slice(0, -1).join(', ') + ' and ' + a[a.length - 1]; }
   /* Fill the item with what's worth having on a bought base of the chosen rarity, as the plan sees it. */
@@ -3285,7 +3370,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
     var design = designOf(c);
     var mods = E.suggest(design, rar, c.st.skip);
     if (!mods) { toast('Nothing to suggest yet. Add your targets on the Design screen first.'); return; }
-    manualEdit(c, function () { c.st.mods = mods; });
+    manualEdit(c, function () { c.st.mods = mods; }, 'Suggest');
     var parts = mods.map(function (m) {
       return m.pseudo ? 'any ' + SIDE[m.s] + ' (junk for the crafted mod to delete)' : E.famName(famOf(m.mi)) + (m.crafted ? ' (from an essence)' : '');
     });
@@ -3306,6 +3391,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
   }
   function setRarity(v) {
     var c = cur();
+    if (!RAR[v]) return;
     manualEdit(c, function () {
       c.st.rarity = v;
       if (v === 'none') c.st.mods = [];
@@ -3318,14 +3404,12 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
           }
         });
       }
-    });
+    }, RAR[v]);
   }
   function findMod(c, id) { return c.st && c.st.mods.find(function (m) { return m.id === id; }); }
   function addHave(s, f) {
     var c = cur();
-    if (!c.st || c.st.rarity === 'none') {
-      if (!c.st) c.st = { rarity: 'none', mods: [], done: {}, skip: {} };
-    }
+    if (!c.st) c.st = blankSt();
     openPicker({
       mode: 'have', side: s, prefer: f, flags: {}, title: 'What’s on your item?', sub: 'Pick the ' + SIDE[s] + ' your item has.',
       onPick: function (mod) {
@@ -3334,7 +3418,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
           var per = [0, 1].map(function (x) { return c.st.mods.filter(function (m) { return m.s === x; }).length; });
           if (c.st.rarity === 'none') c.st.rarity = 'magic';
           if (c.st.rarity === 'magic' && (per[0] > 1 || per[1] > 1)) { c.st.rarity = 'rare'; toast('Marked as rare: magic items hold one prefix and one suffix.'); }
-        });
+        }, 'Added ' + modName(mod));
       }
     });
   }
@@ -3349,7 +3433,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
         manualEdit(c, function () {
           var i = c.st.mods.findIndex(function (x) { return x.id === id; });
           if (i > -1) { mod.id = id; c.st.mods[i] = mod; }
-        });
+        }, 'Changed ' + modName(m) + ' to ' + modName(mod));
       }
     });
   }
@@ -3471,7 +3555,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
     if (p.mode === 'design') {
       var c = cur();
       c.targets[p.side][p.i] = { mi: mi };
-      if (c.planSt) c.stale = true;
+      replan(c);
       touch(c);
       closePicker();
       renderDesign();
@@ -3597,21 +3681,19 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
       if (skipped.length) L.push('Skipped for now: ' + listAnd(skipped) + '.');
     }
 
-    if (c.hist.length) {
+    var rows = histRows(c), outs = doneCount(c);
+    if (outs) {
       L.push('', 'STEPS DONE');
-      var k = 0;
-      c.hist.forEach(function (x) {
-        if (x.e) { L.push('- I edited the item by hand'); return; }
-        k += 1;
-        L.push(k + '. ' + x.t + (x.o ? ': ' + x.o : ''));
+      L.push('1–2. ' + startText(c, startState(c)) + '.');
+      rows.forEach(function (r) {
+        L.push(r.e ? '- I edited the item by hand' + (r.labels.length ? ' (' + r.labels.join(', ') + ')' : '') : r.n + '. ' + r.t + (r.o ? ': ' + r.o : ''));
       });
     }
     if (targetCount(c)) {
-      var steps = E.plan(design, clone(c.planSt || c.st || { rarity: 'none', mods: [], done: {}, skip: {} }));
-      var n = c.planSt ? c.hist.filter(function (x) { return !x.e; }).length + 1 : 1;
+      var steps = E.plan(design, clone(c.st || blankSt()));
+      var n = SETUP + outs + 1;
       var now = steps[0];
-      L.push('', now.kind === 'done' ? 'DONE' : c.planSt ? 'NEXT STEP (step ' + n + (c.stale ? ', planned before my latest changes, so it may be out of date' : '') + ')' :
-        c.st ? 'THE APP’S FIRST STEP FROM MY ITEM' : 'THE APP’S FIRST STEP FROM A FRESH BASE');
+      L.push('', now.kind === 'done' ? 'DONE' : c.st ? 'NEXT STEP (step ' + n + ')' : 'THE APP’S FIRST STEP FROM A FRESH BASE');
       L = L.concat(stepDetail(c, now));
       if (steps.length > 1) {
         L.push('', 'AFTER THAT (the plan assumes each roll lands)');
@@ -3756,7 +3838,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
       case 'slots-close': closeSlots(); break;
       case 'find-pick': pickFound(i); break;
       case 'd-pick': openPicker({ mode: 'design', side: s, i: i, current: c.targets[s][i] ? c.targets[s][i].mi : null }); break;
-      case 'd-clear': c.targets[s][i] = null; if (c.planSt) c.stale = true; touch(c); renderDesign(); break;
+      case 'd-clear': c.targets[s][i] = null; replan(c); touch(c); renderDesign(); break;
       case 'to-plan': go('plan'); break;
       case 'go-design': go('design'); break;
       case 'start-blank': startBlank(); break;
@@ -3765,16 +3847,16 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
       case 'rarity': setRarity(a.getAttribute('data-v')); break;
       case 'have-add': if (a.getAttribute('aria-disabled') === 'true') { toast('Set the rarity to Magic or Rare first.'); break; } addHave(s, a.hasAttribute('data-f') ? +a.getAttribute('data-f') : null); break;
       case 'have-edit': editHave(a.getAttribute('data-id')); break;
-      case 'have-del': (function (id) { manualEdit(c, function () { c.st.mods = c.st.mods.filter(function (m) { return m.id !== id; }); }); })(a.getAttribute('data-id')); break;
-      case 'mark': (function (id, v) { manualEdit(c, function () { var m = findMod(c, id); if (m) m.mark = v; }); })(a.getAttribute('data-id'), a.getAttribute('data-v')); break;
-      case 'unskip': (function (f) { manualEdit(c, function () { if (c.st && c.st.skip) delete c.st.skip[f]; }); })(a.getAttribute('data-f')); break;
-      case 'forge': forge(); break;
+      case 'have-del': (function (id) { var m = findMod(c, id); if (m) manualEdit(c, function () { c.st.mods = c.st.mods.filter(function (x) { return x.id !== id; }); }, 'Removed ' + modName(m)); })(a.getAttribute('data-id')); break;
+      case 'mark': (function (id, v) { var m = findMod(c, id); if (m) manualEdit(c, function () { m.mark = v; }, (v === 'keep' ? 'Kept ' : 'Ditched ') + modName(m)); })(a.getAttribute('data-id'), a.getAttribute('data-v')); break;
+      case 'unskip': (function (f) { manualEdit(c, function () { if (c.st && c.st.skip) delete c.st.skip[f]; }, 'Wanted ' + E.famName(+f) + ' again'); })(a.getAttribute('data-f')); break;
+      case 'to-item': (function () { var card = $('p-card'); if (card) card.scrollIntoView({ behavior: reduceMotion() ? 'auto' : 'smooth', block: 'start' }); })(); break;
       case 'out': applyOutcome(i); break;
       case 'opt': app.ui.opt = a.getAttribute('data-k'); app.ui.optFor = stepKey(c, app.steps[0]); renderPlanSteps(); break;
       case 'undo': undo(); break;
       case 'reset': app.ui.confirmReset = true; renderPlanSteps(); break;
       case 'reset-no': app.ui.confirmReset = false; renderPlanSteps(); break;
-      case 'reset-yes': app.ui.confirmReset = false; c.st = null; c.planSt = null; c.hist = []; c.stale = false; c.editing = false; touch(c); renderPlan(); break;
+      case 'reset-yes': app.ui.confirmReset = false; c.st = blankSt(); c.planSt = clone(c.st); c.hist = []; c.stale = false; app.ui.doneAll = false; touch(c); renderPlan(); break;
       case 'done-all': app.ui.doneAll = true; renderPlanSteps(); break;
       case 'more': (function (n) { app.ui.open[n] = !app.ui.open[n]; renderPlanSteps(); })(+a.getAttribute('data-n')); break;
       case 'new-craft': newCraft(); break;
@@ -3812,16 +3894,16 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
       var v = Math.max(1, Math.min(100, parseInt(t.value, 10) || 82));
       c.ilvl = v; revalidate(c, 'item level ' + v); touch(c); renderDesign(); return;
     }
-    if (t.id === 'd-rf') { c.runeforge = t.checked; if (c.planSt) c.stale = true; touch(c); return; }
+    if (t.id === 'd-rf') { c.runeforge = t.checked; replan(c); touch(c); return; }
     if (t.id === 'd-astrid') {
-      c.astrid = t.checked; if (c.planSt) c.stale = true; touch(c); renderDesign();
+      c.astrid = t.checked; replan(c); touch(c); renderDesign();
       var cb = $('d-astrid'); if (cb) cb.focus({ preventScroll: true });
       return;
     }
     if (t.getAttribute('data-act') === 'd-tier') {
       var s = +t.getAttribute('data-s'), i = +t.getAttribute('data-i');
       c.targets[s][i] = { mi: +t.value };
-      if (c.planSt) c.stale = true;
+      replan(c);
       touch(c); renderDesign();
     }
   });
