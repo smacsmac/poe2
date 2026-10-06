@@ -104,11 +104,11 @@ async function addTarget(page, side, i, query, famText) {
     assert.equal(await page.locator('.stale').count(), 0);
     await page.click('[data-act="undo"]');
 
-    // The Plan screen is called Forge. Suggest fills in the magic base the plan starts from.
+    // The Plan screen is called Forge. Suggest fills in the magic base the plan starts from: a hard target on each side.
     assert.match(await page.locator('.tabs [data-go="plan"]').innerText(), /^Forge/);
     await page.click('[data-act="rarity"][data-v="magic"]');
     await page.click('[data-act="suggest"]');
-    assert.match(await page.locator('#toast').innerText(), /Suggested a magic base with Maximum Life and any suffix/);
+    assert.match(await page.locator('#toast').innerText(), /Suggested a magic base with Maximum Life and Cold Resistance\. The rarest targets go on the base/);
     // "Add what's here" lists your design's targets first, the one for that row on top
     await page.locator('.srow', { hasText: 'Maximum Mana' }).locator('[data-act="have-add"]').click();
     assert.match(await page.locator('.fam.pin .fam-t').first().innerText(), /maximum Mana/);

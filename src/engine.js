@@ -274,6 +274,33 @@
       var W = weights(cat, [FAMS[t.f].s], 35, A.present, false);
       return hitShare(W, [t]);
     }
+    /* Hardest target first. Ties go to the higher mod level, then the family, so the order of the design's boxes
+       never decides what the plan does. */
+    function byHardness(cat, A) {
+      return function (a, b) { return (hardness(cat, A, a) - hardness(cat, A, b)) || (b.lv - a.lv) || (a.f - b.f); };
+    }
+    /* Likeliest target first (what a slam is projected to land), with the same box-free tie-break. */
+    function byLikely(W) {
+      return function (a, b) { return (hitShare(W, [b]) - hitShare(W, [a])) || (a.f - b.f); };
+    }
+    /* A deleting crafted mod (an alloy, or a Perfect or corrupted essence) needs junk to delete. The magic base only
+       spends a side on that junk when the side has no target worth buying, already holds junk, or will face two
+       deletions (two deleting crafts with Astrid's Creativity: a bought target would survive only one time in
+       four). Otherwise the base carries its hardest targets, which cost far less to buy than to slam or desecrate
+       later, and the junk is added once the item is rare (the sacrifice in rareStep), where the deletion is a coin
+       flip with the bought target. -1 when the base keeps no side as junk. */
+    function deletes(r) { return !!r && (r.via === 'alloy' || r.via === 'essLate'); }
+    function junkSide(cat, A, cp, eb) {
+      if (!deletes(cp)) return -1;
+      var x = 1 - FAMS[cp.t.f].s;
+      if (!cat.caps[x]) return -1;
+      var S = A.sides[x];
+      if (S.junk.length) return x;
+      if (S.hits.length) return -1;
+      if ([cp].concat(cp.next || []).filter(deletes).length > 1) return x;
+      var buy = S.unfilled.some(function (t) { return t !== cp.t && !(eb && eb.t === t) && methods(cat, t).slam; });
+      return buy ? -1 : x;
+    }
 
     /* What a deleting crafted mod is, for the steps that use one: Perfect and corrupted essences are less familiar than alloys. */
     function craftIntro(cp) {
@@ -322,7 +349,7 @@
           var m = methods(cat, t);
           if (!m.essEarly.length) return;
           var h = hardness(cat, A, t);
-          if (!best || h < best.h) best = { t: t, src: m.essEarly[0], h: h };
+          if (!best || h < best.h || (h === best.h && (t.lv > best.t.lv || (t.lv === best.t.lv && t.f < best.t.f)))) best = { t: t, src: m.essEarly[0], h: h };
         });
       });
       return best;
@@ -339,7 +366,7 @@
         });
       });
       if (!cand.length) return null;
-      cand.sort(function (a, b) { return (b.only - a.only) || (a.h - b.h); });
+      cand.sort(function (a, b) { return (b.only - a.only) || (a.h - b.h) || (a.only ? 0 : (b.t.lv - a.t.lv) || (a.t.f - b.t.f)); });
       return cand[0];
     }
 
@@ -392,11 +419,11 @@
 
     function baseStep(design, st, A, cat) {
       var cp = craftedPlan(cat, A, st);
-      var picks = [null, null], sacrifice = null;
+      var picks = [null, null], alts = [null, null], sacrifice = null;
       var needsSacrifice = cp && (cp.via === 'alloy' || cp.via === 'essLate');
-      var xSide = needsSacrifice ? 1 - FAMS[cp.t.f].s : -1;
       /* The target an essence will add at the magic-to-rare step stays off the base. */
       var essB = cp && cp.via === 'essEarly' ? null : essenceBonus(cat, A, { rarity: 'magic' }, cp);
+      var xSide = junkSide(cat, A, cp, essB);
       [0, 1].forEach(function (s) {
         if (s === xSide) { sacrifice = s; return; }
         var cands = A.sides[s].unfilled.filter(function (t) {
@@ -404,14 +431,18 @@
           if (essB && essB.t === t) return false;
           return methods(cat, t).slam;
         });
-        cands.sort(function (a, b) { return hardness(cat, A, a) - hardness(cat, A, b); });
+        cands.sort(byHardness(cat, A));
         if (cands.length) picks[s] = cands[0];
+        if (cands.length > 1 && hardness(cat, A, cands[1]) === hardness(cat, A, cands[0])) alts[s] = cands[1];
       });
       var ilvl = needIlvl(design, cat);
       var parts = [];
       if (picks[0]) parts.push(tName(picks[0]) + ' (' + labelTier(cat, picks[0]) + '+)');
       if (picks[1]) parts.push(tName(picks[1]) + ' (' + labelTier(cat, picks[1]) + '+)');
-      var sacText = sacrifice !== null ? ' Any ' + SIDE[sacrifice] + ' is fine on the other side: it becomes the junk the ' + cp.src.name + ' deletes later.' : '';
+      var sacText = sacrifice !== null ? ' Any ' + SIDE[sacrifice] + ' is fine on the other side: it becomes the junk the ' + cp.src.name + ' deletes later.'
+        : needsSacrifice && parts.length ? ' Buying ' + (parts.length > 1 ? 'them' : 'it') + ' costs far less than adding ' + (parts.length > 1 ? 'them' : 'it') + ' later. The ' + cp.src.name + ' still needs a mod to delete: the plan adds junk for it once the item is rare.' : '';
+      var swaps = [0, 1].filter(function (s) { return alts[s]; }).map(function (s) { return tName(alts[s]) + ' (' + labelTier(cat, alts[s]) + '+) instead of ' + tName(picks[s]); });
+      if (swaps.length) sacText += ' ' + (swaps.length > 1 ? swaps.join(', or ') + ', works just as well: each pair is' : swaps[0] + ' works just as well: they’re') + ' equally hard to add later.';
       var mods = [];
       if (picks[0]) mods.push(targetMod(picks[0]));
       if (picks[1]) mods.push(targetMod(picks[1]));
@@ -447,10 +478,10 @@
 
     function magicStep(design, st, A, cat) {
       var cp = craftedPlan(cat, A, st);
-      var needsSacrifice = cp && (cp.via === 'alloy' || cp.via === 'essLate');
-      var xSide = needsSacrifice ? 1 - FAMS[cp.t.f].s : -1;
       /* The essence that will make it rare, if any: its target is guaranteed, so augments don't aim at it. */
       var eb = cp && cp.via === 'essEarly' ? { t: cp.t, src: cp.src } : essenceBonus(cat, A, st, cp);
+      var xSide = junkSide(cat, A, cp, eb);
+      var needsSacrifice = xSide >= 0;
       // junk on a side that should hold a target: the base missed
       for (var s = 0; s < 2; s++) {
         var S = A.sides[s];
@@ -484,7 +515,7 @@
           if (aims.length) {
             var Wg = weights(cat, [s2], 44, A.present, false), Wp = weights(cat, [s2], 70, A.present, false);
             var pg = hitShare(Wg, aims), pp = hitShare(Wp, aims);
-            var best = aims.slice().sort(function (a, b) { return hitShare(Wg, [b]) - hitShare(Wg, [a]); })[0];
+            var best = aims.slice().sort(byLikely(Wg))[0];
             return {
               kind: 'aug', side: s2, title: 'Add the ' + SIDE[s2],
               how: 'Use a Greater Orb of Augmentation' + (pp > pg * 1.4 ? ' (a Perfect one only rolls top tiers: ' + oddsLabel(pp) + ')' : '') + '. Aim: ' + list(aims.map(tName)) + '.',
@@ -519,7 +550,7 @@
       outs.push({ label: 'Something else (suffix)', pick: { s: 1, mark: 'auto', rare: true } });
       /* Happy path: the Regal lands the likeliest target, kept off the side that holds the sacrifice. */
       var projAims = needsSacrifice ? aimsR.filter(function (t) { return FAMS[t.f].s !== xSide; }) : aimsR;
-      var bestR = projAims.slice().sort(function (a, b) { return hitShare(Wr, [b]) - hitShare(Wr, [a]); })[0];
+      var bestR = projAims.slice().sort(byLikely(Wr))[0];
       var proj = { type: 'rare', mods: bestR ? [targetMod(bestR)] : [] };
       return {
         kind: 'regal', title: 'Make it rare',
@@ -666,7 +697,7 @@
         var Wp = weights(cat, [Z.s], 50, A.present, false);
         var pp = hitShare(Wp, Z.aims);
         var usePerfect = false;
-        var best = Z.aims.slice().sort(function (a, b) { return hitShare(Z.W, [b]) - hitShare(Z.W, [a]); })[0];
+        var best = Z.aims.slice().sort(byLikely(Z.W))[0];
         var two = Z.slots >= 2 && Z.aims.length >= 2;
         var how = 'Activate ' + omenEx(Z.s).n + ', then use a Greater Exalted Orb. Aim: ' + list(Z.aims.map(tName)) + '.';
         if (two) how += ' Add an Omen of Greater Exaltation to put two ' + SIDE[Z.s] + 'es on at once.';
@@ -793,7 +824,7 @@
       function lvl(m) { return m.pseudo ? 999 : MODS[m.mi].l; }
       function isJunk(m) { return (m.status === 'junk' || m.status === 'low') && !m.fract; }
       var aims = S.unfilled.filter(function (t) { return methods(cat, t).slam; });
-      var best = aims.slice().sort(function (a, b) { return hardness(cat, A, b) - hardness(cat, A, a); })[0];
+      var best = aims.slice().sort(function (a, b) { return (hardness(cat, A, b) - hardness(cat, A, a)) || (a.f - b.f); })[0];
       var dj = S.junkRem.find(function (m) { return m.desec; });
       if (dj) {
         options.push({ key: 'light', label: 'Omen of Light + Orb of Annulment', mats: [{ k: 'o_light', n: 'Omen of Light' }, { k: 'annul', n: 'Orb of Annulment' }], p: 1,
@@ -828,7 +859,7 @@
             outcomes: makeOutcomesAdd(s, aims, S.unfilled, lowSide.id), project: proj(lowSide.id) });
         }
       }
-      var hardest = S.unfilled.slice().sort(function (a, b) { return hardness(cat, A, a) - hardness(cat, A, b); })[0];
+      var hardest = S.unfilled.slice().sort(byHardness(cat, A))[0];
       if (hardest) {
         options.push({ key: 'settle', label: 'Skip ' + tName(hardest), mats: [], p: 1,
           text: 'Keep the junk and finish without ' + tName(hardest) + '. Costs nothing, and you can bring it back later.',

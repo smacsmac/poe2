@@ -39,20 +39,19 @@ function glovesDesign() {
   };
 }
 
-test('fresh gloves: base, regal, alloy into the junk side, slams, desecration, finish', () => {
+test('fresh gloves: the base carries a target on each side, and the alloy’s junk comes once it’s rare', () => {
   const { design } = glovesDesign();
   const steps = E.plan(design, { rarity: 'none', mods: [] });
   const kinds = steps.map((s) => s.kind);
-  assert.equal(kinds[0], 'base');
-  assert.equal(kinds[1], 'regal');
-  const craft = steps.find((s) => s.kind === 'craft');
-  assert.ok(craft, 'has a crafted step');
-  assert.match(craft.title, /Sovereign Alloy/);
-  assert.ok(craft.odds.p >= 0.995, 'alloy deletion is certain to hit junk');
+  assert.deepEqual(kinds.slice(0, 4), ['base', 'regal', 'sacrifice', 'craft']);
+  const spec = Object.fromEntries(steps[0].spec.map((r) => [r.k, r.v]));
+  assert.equal(spec.Prefix, 'Maximum Life T1+');
+  assert.match(spec.Suffix, /^(Lightning|Cold) Resistance T2\+$/, 'a suffix target is bought, not junk');
+  assert.match(steps[0].how, /adds junk for it once the item is rare/);
+  assert.match(steps[3].title, /Sovereign Alloy/);
+  assert.equal(steps[3].odds.p, 0.5, 'the alloy deletes the junk or the bought suffix');
   assert.ok(kinds.includes('desec'), 'uses the desecration');
   assert.equal(kinds[kinds.length - 1], 'done');
-  const base = steps[0].spec.find((r) => r.k === 'Suffix');
-  assert.match(base.v, /sacrifice/, 'the base carries a sacrifice suffix for the alloy');
 });
 
 test('user case: life + mana with two junk suffixes -> alloy first, then annul the leftover junk', () => {
@@ -176,8 +175,12 @@ test('astrid: an early essence and an alloy share the two crafted slots', () => 
       [tgt(cat, 1, '+#% to Lightning Resistance', 'T2'), tgt(cat, 1, '+#% to Cold Resistance', 'T2')]]
   });
   assert.equal(E.plan(design(false), { rarity: 'none', mods: [] })[1].kind, 'regal', 'one crafted slot: the alloy has it');
-  const kinds = E.plan(design(true), { rarity: 'none', mods: [] }).map((s) => s.kind);
-  assert.deepEqual(kinds.slice(0, 4), ['base', 'essence', 'rune', 'craft']);
+  const steps = E.plan(design(true), { rarity: 'none', mods: [] });
+  const kinds = steps.map((s) => s.kind);
+  assert.deepEqual(kinds.slice(0, 2), ['base', 'essence'], 'the essence makes it rare first');
+  const craft = kinds.indexOf('craft');
+  assert.equal(kinds[craft - 1], 'rune', 'the rune goes in right before the alloy');
+  assert.match(steps[craft].title, /Sovereign Alloy/);
 });
 
 /* Cryptic Leggings: Movement Speed and Rarity, optionally with Runic Ward (Sovereign Alloy only) and Effect of
@@ -239,6 +242,56 @@ test('crafted slot full: a target only a magic-item essence adds is a stop, not 
   assert.equal(step.kind, 'stop');
   assert.match(step.how, /only comes from a Greater Essence of Battle, which needs a magic item/);
   assert.ok(!step.outcomes.some((o) => o.astrid), 'the rune wouldn’t help');
+});
+
+/* The user's Cultist Crown: Life, Mana, Mana Cost Efficiency (alloy); Armour also applies to Elemental Damage,
+   Life Regeneration, Damage taken Recouped as Life (desecration). */
+function crown() {
+  const cat = E.catalog('Cultist Crown', 82);
+  const t = (s, re, label) => { const F = cat.sides[s].find((f) => re.test(f.name)); const o = E.tierOptions(cat, F.f).find((x) => x.label === label); return { f: F.f, mi: o.mi, lv: o.l }; };
+  return { cat, design: { cls: 'helmet', base: 'Cultist Crown', ilvl: 82, league: 'roa', targets: [
+    [t(0, /^Maximum Life$/, 'T1'), t(0, /^Maximum Mana$/, 'T1'), t(0, /^Mana Cost Efficiency$/, 'Alloy')],
+    [t(1, /^Armour also applies to Elemental Damage$/, 'T1'), t(1, /^Life Regeneration per second$/, 'T1'), t(1, /^Damage taken Recouped as Life$/, 'Desecrated')]] } };
+}
+
+test('targets first: the magic base buys a hard suffix rather than junk for the alloy', () => {
+  const { design } = crown();
+  const steps = E.plan(design, { rarity: 'none', mods: [] });
+  const fam = (m) => m.pseudo ? 'any' : E.famName(E.MODS[m.mi].f);
+  assert.deepEqual(E.suggest(design, 'magic').map(fam), ['Maximum Life', 'Armour also applies to Elemental Damage']);
+  assert.match(steps[0].how, /Maximum Mana \(T1\+\) instead of Maximum Life, or Life Regeneration per second \(T1\+\) instead of Armour also applies to Elemental Damage, works just as well/);
+  assert.deepEqual(steps.slice(2, 4).map((s) => s.kind), ['sacrifice', 'craft']);
+});
+
+test('the order of the boxes never changes the plan', () => {
+  const { design } = crown();
+  const perms = (a) => a.length <= 1 ? [a] : a.flatMap((x, i) => perms(a.slice(0, i).concat(a.slice(i + 1))).map((p) => [x].concat(p)));
+  const fam = (m) => m.pseudo ? 'any' + m.s : E.famName(E.MODS[m.mi].f);
+  const sig = (d) => JSON.stringify([E.plan(d, { rarity: 'none', mods: [] }).map((s) => [s.kind, (s.mats || []).map((m) => m.n),
+    s.odds ? Math.round(s.odds.p * 1000) : null, s.project ? (s.project.mods || []).map(fam).sort() : null]), E.suggest(d, 'magic').map(fam), E.suggest(d, 'rare').map(fam).sort()]);
+  const want = sig(design);
+  for (const P of perms(design.targets[0])) for (const S of perms(design.targets[1])) assert.equal(sig(Object.assign({}, design, { targets: [P, S] })), want);
+  // Empty boxes in between don't matter either
+  const [arm, regen] = design.targets[1];
+  const two = (S) => sig(Object.assign({}, design, { targets: [design.targets[0], S] }));
+  const gaps = two([arm, regen, null]);
+  for (const S of [[regen, arm, null], [arm, null, regen], [null, regen, arm], [regen, null, arm], [null, arm, regen]]) assert.equal(two(S), gaps);
+});
+
+test('a magic base that already has junk where the alloy deletes keeps that route', () => {
+  const { cat, design } = crown();
+  const item = { rarity: 'magic', done: {}, skip: {}, mods: [mod(cat, 0, '+# to maximum Life', 'T1'), { id: 'j', s: 1, mi: null, pseudo: 'any', mark: 'junk' }] };
+  const steps = E.plan(design, item);
+  assert.deepEqual(steps.slice(0, 2).map((s) => s.kind), ['regal', 'craft']);
+  assert.ok(steps[1].odds.p >= 0.995, 'the alloy can only delete the junk suffix');
+});
+
+test('two deletions on one side: the base keeps junk there so both are certain', () => {
+  const steps = E.plan(leggings(true, true), { rarity: 'none', mods: [] });
+  assert.match(steps[0].spec.find((r) => r.k === 'Suffix').v, /sacrifice/);
+  const crafts = steps.filter((s) => s.kind === 'craft');
+  assert.equal(crafts.length, 2);
+  assert.ok(crafts.every((s) => s.odds.p >= 0.995));
 });
 
 test('magic: an augment doesn’t aim at the target an essence adds anyway', () => {
