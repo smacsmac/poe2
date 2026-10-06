@@ -8,6 +8,8 @@ A single-page web app for Path of Exile 2 (patch 0.5.5) crafting. Three screens:
 
 The header has the price league switch with full names (below 1320px wide it moves to `.league-row` under the header, and phones show FR and RoA; both sets of `[data-lg]` buttons stay in sync), a **Saved** button that says where the open craft is kept (`savedState()` in app.js: `local`, `account`, `saving`, or `fail` when the browser blocks storage; clicking it explains in a toast) and a gold **+** that starts a new craft in the same slot and says the old one is in My crafts.
 
+**Copy for a chat** (under "Craft it" in Design's route panel, and in the Forge's steps toolbar) copies the same plain-text summary of the open craft, never the others, to paste into Claude or ChatGPT: `craftText(c)` in app.js gives the base, the targets with how each is made, the item now (status, tier, crafted/desecrated), the steps done, the next step in full and the rest as an outline. It's written for an assistant that doesn't know the app, so it opens with a short how-to-read. Copying tries the Clipboard API, then `execCommand('copy')`, then opens `#copybox`, a dialog with the text selected to copy by hand (embedded pages can block the clipboard).
+
 It ships as one self-contained HTML file. It is published as a claude.ai artifact and can also be served as a static page (`docs/index.html`, GitHub Pages ready).
 
 ## Commands

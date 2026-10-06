@@ -263,6 +263,11 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
 .warnline{font-size:.88rem;color:var(--junk);display:flex;gap:.45rem;align-items:flex-start;line-height:1.4}
 .warnline::before{content:"";width:6px;height:6px;flex:none;margin-top:.45rem;background:currentColor;transform:rotate(45deg)}
 .cta{width:100%;margin-top:1rem;padding:.75rem 1rem;font-size:1.05rem}
+.copy-chat{width:100%;margin-top:.55rem;color:var(--muted)}
+.copy-chat:hover{color:var(--fg)}
+.copy-card{grid-template-rows:auto minmax(0,1fr) auto}
+.cb-body{display:grid;min-height:0;padding:0 1.1rem 1rem}
+.cb-body textarea{width:100%;min-height:16rem;resize:vertical;font-family:var(--font-mono);font-size:.8rem;line-height:1.5;color:var(--fg);background:var(--surface-2);border:1px solid var(--line-2);border-radius:5px;padding:.7rem .8rem}
 .fine{font-size:.82rem;color:var(--muted);line-height:1.45}
 
 /* ---------- plan ---------- */
@@ -663,6 +668,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
   .ledger tr.empty,.ledger tr.empty td{display:block}
   .example{grid-template-columns:minmax(0,1fr)}
   .modal{padding:0;place-items:end stretch}
+  .cb-body textarea{font-size:16px;min-height:12rem}
   .modal-card{width:100%;max-height:calc(100% - 24px - env(safe-area-inset-top,0px));border-radius:12px 12px 0 0;padding-bottom:env(safe-area-inset-bottom,0px)}
   .srow{grid-template-columns:minmax(0,1fr)}
   .srow .want{border:0;padding:.1rem .1rem 0;display:flex;gap:.5rem;align-items:baseline;flex-wrap:wrap}

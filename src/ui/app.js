@@ -550,6 +550,7 @@
     }
     var started = !!c.planSt;
     h += '<button type="button" class="btn primary cta" data-act="to-plan"' + (all.length ? '' : ' disabled') + '>' + ico('u-hammer') + (started ? 'Back to the forge' : 'Craft it') + ico('u-arrow') + '</button>';
+    h += copyBtn('copy-chat');
     h += '</div>';
     h += '<p class="fine">Odds count every eligible tier the same, because the game data doesn’t publish spawn weights. Treat them as a guide, not a promise.</p>';
     $('d-route').innerHTML = h;
@@ -893,7 +894,7 @@
     var el = $('p-steps');
     $('p-grid').classList.toggle('started', !!c.planSt);
     if (!c.planSt) {
-      el.innerHTML = '<div class="steps-head"><h2>Steps</h2></div><div class="empty-steps"><h3>Your steps show up here</h3><p>Choose where you’re starting, remove any mods you don’t have yet, then press <b>Forge ahead</b>.</p></div>';
+      el.innerHTML = '<div class="steps-head"><h2>Steps</h2><div class="steps-tools">' + copyBtn('small') + '</div></div><div class="empty-steps"><h3>Your steps show up here</h3><p>Choose where you’re starting, remove any mods you don’t have yet, then press <b>Forge ahead</b>.</p></div>';
       updateTabStep(null);
       return;
     }
@@ -904,7 +905,7 @@
     var n = doneSteps + 1;
     var now = steps[0];
     var left = steps.filter(function (s) { return s.kind !== 'done'; }).length;
-    var h = '<div class="steps-head"><div><h2>Steps</h2><p class="meta">' + (now.kind === 'done' ? 'All done' : 'Step ' + n + ' · about ' + plural(left, 'step') + ' to go') + '</p></div><div class="steps-tools">' +
+    var h = '<div class="steps-head"><div><h2>Steps</h2><p class="meta">' + (now.kind === 'done' ? 'All done' : 'Step ' + n + ' · about ' + plural(left, 'step') + ' to go') + '</p></div><div class="steps-tools">' + copyBtn('small') +
       (c.hist.length ? '<button type="button" class="btn small" data-act="undo">' + ico('u-undo') + 'Undo</button>' : '') +
       (app.ui.confirmReset ? '<span class="muted" style="font-size:.9rem">Clear progress?</span><button type="button" class="btn small danger" data-act="reset-yes">Start over</button><button type="button" class="btn small quiet" data-act="reset-no">Keep</button>'
         : '<button type="button" class="btn small quiet" data-act="reset">Start over</button>') + '</div></div>';
@@ -934,6 +935,9 @@
     h += '<p class="fine">Later steps assume each roll lands. When one doesn’t, tell the current step what happened and the rest re-plans.</p>';
     el.innerHTML = h;
     updateTabStep(now.kind === 'done' ? '✓' : String(n));
+  }
+  function copyBtn(cls) {
+    return '<button type="button" class="btn quiet ' + cls + '" data-act="copy-craft" title="Copies this craft as text, to paste into a chat and ask about it">' + ico('u-copy') + 'Copy for a chat</button>';
   }
   function updateTabStep(t) {
     var b = $('tab-step');
@@ -1265,6 +1269,189 @@
     fn(mod);
   }
 
+  /* ---------- the craft as text, to paste into a chat (Claude, ChatGPT, a friend) ---------- */
+  function untag(h) {
+    return String(h).replace(/<[^>]+>/g, '').replace(/&(amp|lt|gt|quot|#39);/g, function (x, k) { return { amp: '&', lt: '<', gt: '>', quot: '"', '#39': '\'' }[k]; });
+  }
+  function chanceLine(odds) {
+    var what = odds.what && odds.what !== 'guaranteed' ? ' ' + odds.what : '';
+    return 'Chance' + what + ': ' + E.oddsLabel(odds.p) + (odds.alt ? '. With a ' + odds.alt.label + ': ' + E.oddsLabel(odds.alt.p) + ', at a much higher price per try' : '');
+  }
+  function pricedMat(m) {
+    var v = E.price(m.k, app.league);
+    var bits = [v === null ? '' : fmt(v * (m.q || 1)), m.opt ? 'optional' : ''].filter(Boolean);
+    return m.n + (m.q ? ' ×' + m.q : '') + (bits.length ? ' (' + bits.join(', ') + ')' : '');
+  }
+  function stepOutline(s) {
+    var bits = [];
+    if (s.mats && s.mats.length) bits.push(s.mats.map(function (m) { return m.n; }).join(', '));
+    if (s.odds && s.odds.p < 0.995) bits.push(E.oddsLabel(s.odds.p));
+    return s.title + (bits.length ? ': ' + bits.join(' · ') : '');
+  }
+  function stepDetail(c, step) {
+    var L = [step.title];
+    if (step.how) L.push(dash(step.how));
+    (step.spec || []).forEach(function (r) { L.push(r.k + ': ' + r.v); });
+    (step.warn || []).forEach(function (w) { L.push('Warning: ' + dash(w)); });
+    var opt = curOption(c, step);
+    if (step.options) {
+      L.push('Ways to do it:');
+      step.options.forEach(function (o) {
+        L.push('- ' + o.label + (o.key === step.recommended ? ' (suggested)' : o === opt ? ' (my choice)' : '') + ': ' + dash(o.text) +
+          (o.mats.length ? ' About ' + fmt(o.cost) + ' a try, ' + fmt(o.exp) + ' on average.' : ' Free.'));
+      });
+    }
+    var odds = opt ? (opt.mats.length ? { p: opt.swap ? opt.pAdd : opt.p, what: opt.swap ? 'to reroll it into a target' : 'to remove junk' } : null) : step.odds;
+    if (odds) L.push(chanceLine(odds));
+    var mats = opt ? opt.mats : step.mats;
+    if (mats && mats.length) {
+      var need = mats.filter(function (m) { return !m.opt; });
+      L.push('Uses: ' + mats.map(pricedMat).join(', ') + (need.length > 1 ? '. Per try: ' + fmt(E.matsCost(need, app.league).sum) : ''));
+    }
+    if (step.note) L.push(dash(step.note));
+    var outs = (opt ? opt.outcomes : step.outcomes) || [];
+    var labels = outs.map(function (o) { return o.label.replace(/…$/, ''); }).filter(function (x, i, a) { return a.indexOf(x) === i; });
+    if (labels.length && step.kind !== 'done') L.push('The app then asks what happened: ' + labels.join(' / '));
+    return L;
+  }
+  function haveText(m, t, cat) {
+    if (m.pseudo) return m.pseudo === 'junk' ? 'a ' + SIDE[m.s] + ' I don’t want' : 'any ' + SIDE[m.s] + ', there as junk to sacrifice';
+    var tl = tierLab(cat, m.mi), roll = tl.charAt(0) === 'T';
+    var tier = roll ? (m.est ? tl + ' or better' : tl) : '';
+    var st = m.status === 'hit' ? (m.accepted ? 'kept at ' + tl + ' (lower than wanted)' : 'on target')
+      : m.status === 'low' ? 'lower tier than wanted' + (t ? ' (want ' + tierLab(cat, t.mi) + ')' : '')
+        : m.status === 'keep' ? 'not a target, keeping it' : 'not wanted';
+    var bits = [st];
+    if (tier && !(m.status === 'hit' && m.accepted)) bits.push(tier);
+    if (m.crafted) bits.push(roll ? 'crafted' : 'crafted (' + tl.toLowerCase() + ')');
+    if (m.desec) bits.push('desecrated');
+    if (m.fract) bits.push('fractured');
+    return modText(m.mi) + ': ' + bits.join(', ');
+  }
+  /* One craft (never the others) as plain text: the base, what's wanted and how, the item now, the steps so far and next. */
+  function craftText(c) {
+    var cat = catOf(c), b = cat.base, design = designOf(c);
+    var skip = (c.st && c.st.skip) || {};
+    var L = [];
+    L.push('Path of Exile 2 crafting, patch 0.5.5. This is a craft I’m working on, copied from the crafting planner app I use (PoE2 Crafting Playbook). Prices are from the ' + (app.league === 'roa' ? 'Runes of Aldur' : 'Forbidden Rites') + ' league, in divines (div) and exalts (ex).');
+    L.push('How to read it: T1 is a mod’s best tier. Crafted mods come from an essence or an alloy, one per item (two with the rune Astrid’s Creativity socketed). Desecrated mods come from a desecration at the Well of Souls, one per item. The app’s odds count every eligible tier as equally likely, so they’re rough.');
+    L.push('', 'THE ITEM');
+    L.push(c.base + ' (' + CLS[c.cls].n + (b.sub ? ', ' + b.sub : '') + '), item level ' + c.ilvl + '.');
+    var imp = implicitLines(b);
+    if (imp.length) L.push('Implicit: ' + imp.join('; ') + '.');
+    if (cat.caps[0] !== 3 || cat.caps[1] !== 3) L.push('As a rare it can have ' + plural(cat.caps[0], 'prefix', 'prefixes') + ' and ' + plural(cat.caps[1], 'suffix', 'suffixes') + '.');
+    if ((b.rf || b.rfw) && c.runeforge) L.push('I plan to runeforge it at the Verisium Anvil at the end.');
+    if (c.astrid && E.socketable(b)) L.push('I plan to use Astrid’s Creativity so it can hold two crafted mods.');
+
+    L.push('', 'WHAT I WANT');
+    if (!targetCount(c)) L.push('No target mods chosen yet.');
+    var rmap = routeMap(c);
+    [0, 1].forEach(function (s) {
+      var ts = c.targets[s].filter(Boolean);
+      if (!ts.length) return;
+      L.push((s ? 'Suffixes' : 'Prefixes') + ':');
+      ts.forEach(function (t) {
+        var f = famOf(t.mi), tl = tierLab(cat, t.mi);
+        var how = untag(routeFor(c, cat, rmap, t).line).replace(' below allows', ' allows');
+        L.push('- ' + E.famName(f) + (tl.charAt(0) === 'T' ? ' (' + tl + ' or better)' : '') + ': ' + modText(t.mi) + '. How: ' + how + '.' + (skip[f] ? ' Skipped for now.' : ''));
+      });
+    });
+
+    L.push('', 'WHERE I AM NOW');
+    if (!c.st) L.push('Not started: I haven’t entered an item yet.');
+    else {
+      E.analyze(cat, design, c.st);
+      var rar = c.st.rarity, missing = [];
+      L.push(rar === 'rare' ? 'Rare item.' : rar === 'magic' ? 'Magic item.' : 'Normal item, no mods yet.');
+      [0, 1].forEach(function (s) {
+        if (!cat.caps[s]) return;
+        var rows = rowsFor(c, s, cat);
+        rows.forEach(function (r) { if (r.t && !r.m && !skip[famOf(r.t.mi)]) missing.push(E.famName(famOf(r.t.mi))); });
+        if (rar === 'none') return;
+        var have = rows.filter(function (r) { return r.m; });
+        L.push((s ? 'Suffixes' : 'Prefixes') + ' (' + have.length + ' of ' + (rar === 'magic' ? 1 : cat.caps[s]) + '):');
+        if (!have.length) L.push('- none');
+        have.forEach(function (r) { L.push('- ' + haveText(r.m, r.t, cat)); });
+      });
+      if (missing.length) L.push('Still missing: ' + listAnd(missing) + '.');
+      var skipped = Object.keys(skip).filter(function (f) { return skip[f]; }).map(function (f) { return E.famName(+f); });
+      if (skipped.length) L.push('Skipped for now: ' + listAnd(skipped) + '.');
+    }
+
+    if (c.hist.length) {
+      L.push('', 'STEPS DONE');
+      var k = 0;
+      c.hist.forEach(function (x) {
+        if (x.e) { L.push('- I edited the item by hand'); return; }
+        k += 1;
+        L.push(k + '. ' + x.t + (x.o ? ': ' + x.o : ''));
+      });
+    }
+    if (targetCount(c)) {
+      var steps = E.plan(design, clone(c.planSt || c.st || { rarity: 'none', mods: [], done: {}, skip: {} }));
+      var n = c.planSt ? c.hist.filter(function (x) { return !x.e; }).length + 1 : 1;
+      var now = steps[0];
+      L.push('', now.kind === 'done' ? 'DONE' : c.planSt ? 'NEXT STEP (step ' + n + (c.stale ? ', planned before my latest changes, so it may be out of date' : '') + ')' :
+        c.st ? 'THE APP’S FIRST STEP FROM MY ITEM' : 'THE APP’S FIRST STEP FROM A FRESH BASE');
+      L = L.concat(stepDetail(c, now));
+      if (steps.length > 1) {
+        L.push('', 'AFTER THAT (the plan assumes each roll lands)');
+        steps.slice(1).forEach(function (st, i) { L.push((n + i + 1) + '. ' + stepOutline(st)); });
+      }
+    }
+    return L.join('\n');
+  }
+  var copyRet = null;
+  function copyByCommand(text) {
+    var ret = document.activeElement, ok = false;
+    var ta = document.createElement('textarea');
+    ta.value = text;
+    ta.setAttribute('readonly', '');
+    ta.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;opacity:0';
+    document.body.appendChild(ta);
+    ta.select();
+    try { ta.setSelectionRange(0, text.length); } catch (e) { /* older browsers */ }
+    try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+    document.body.removeChild(ta);
+    if (ret && ret.focus) { try { ret.focus(); } catch (e) { /* ignore */ } }
+    return ok;
+  }
+  function copyCraft() {
+    var text = craftText(cur());
+    var done = function () { toast('Copied this craft as text. Paste it into a chat (Claude, ChatGPT…) and ask your question.', 5500); };
+    var fallback = function () { if (copyByCommand(text)) done(); else openCopyBox(text); };
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(text).then(done, fallback); return; }
+    } catch (e) { /* the clipboard API threw: try the other ways */ }
+    fallback();
+  }
+  /* When the browser won't let the app copy (some embedded pages do that), show the text to copy by hand. */
+  function openCopyBox(text) {
+    hideToast();
+    copyRet = document.activeElement;
+    var el = $('copybox');
+    el.hidden = false;
+    el.innerHTML = '<div class="modal-card copy-card" role="dialog" aria-modal="true" aria-labelledby="cb-t">' +
+      '<div class="pk-head"><div><h2 id="cb-t">Copy this craft</h2><p>Your browser didn’t let the app copy it. Select the text and copy it, then paste it into your chat.</p></div>' +
+      '<button type="button" class="x" data-act="cb-close" aria-label="Close">' + ico('u-x') + '</button></div>' +
+      '<div class="cb-body"><textarea id="cb-text" readonly spellcheck="false" aria-label="This craft as text">' + esc(text) + '</textarea></div>' +
+      '<div class="pk-foot"><button type="button" class="btn small" data-act="cb-select">Select all</button><button type="button" class="btn small quiet sp" data-act="cb-close">Close</button></div></div>';
+    setTimeout(selectCopyText, 0);
+  }
+  function selectCopyText() {
+    var ta = $('cb-text');
+    if (!ta) return;
+    ta.focus(); ta.select();
+    try { ta.setSelectionRange(0, ta.value.length); } catch (e) { /* older browsers */ }
+  }
+  function closeCopyBox() {
+    var el = $('copybox');
+    el.hidden = true; el.innerHTML = '';
+    if (copyRet && document.body.contains(copyRet)) { try { copyRet.focus(); } catch (e) { /* ignore */ } }
+    copyRet = null;
+  }
+  function copyBoxOpen() { return !$('copybox').hidden; }
+
   /* ---------- crafts drawer ---------- */
   function craftMeta(c) {
     var t = targetCount(c);
@@ -1338,6 +1525,7 @@
     if (e.target.closest('#slot-pick')) { openSlots(); return; }
     if (e.target === $('picker')) { closePicker(); return; }
     if (e.target === $('drawer')) { closeDrawer(); return; }
+    if (e.target === $('copybox')) { closeCopyBox(); return; }
     if (e.target === $('slots')) { closeSlots(); return; }
     var a = e.target.closest('[data-act]');
     if (!a) return;
@@ -1371,6 +1559,9 @@
       case 'done-all': app.ui.doneAll = true; renderPlanSteps(); break;
       case 'more': (function (n) { app.ui.open[n] = !app.ui.open[n]; renderPlanSteps(); })(+a.getAttribute('data-n')); break;
       case 'new-craft': newCraft(); break;
+      case 'copy-craft': copyCraft(); break;
+      case 'cb-close': closeCopyBox(); break;
+      case 'cb-select': selectCopyText(); break;
       case 'pk-close': closePicker(); break;
       case 'pk-cat': app.pk.cat = a.getAttribute('data-c'); a.parentNode.querySelectorAll('.chip').forEach(function (b) { b.setAttribute('aria-pressed', String(b === a)); }); renderPickList(); break;
       case 'pk-fam':
@@ -1417,6 +1608,7 @@
   });
   document.addEventListener('keydown', function (e) {
     if (e.key !== 'Escape') return;
+    if (copyBoxOpen()) { closeCopyBox(); e.preventDefault(); return; }
     if (app.pk) { closePicker(); e.preventDefault(); return; }
     if (slotsOpen()) { closeSlots(); e.preventDefault(); return; }
     if (!$('drawer').hidden) { closeDrawer(); e.preventDefault(); }
@@ -1448,7 +1640,7 @@
   var h0 = (location.hash || '').replace('#', '');
   if (h0 === 'forge') h0 = 'plan';
   if (h0 === 'plan' || h0 === 'design' || h0 === 'ref' || h0 === 'reference') app.view = h0 === 'reference' ? 'ref' : h0;
-  window.App = { get: function () { return app; }, league: function () { return app.league; }, toast: toast, go: go };
+  window.App = { get: function () { return app; }, league: function () { return app.league; }, toast: toast, go: go, craftText: function () { return craftText(cur()); } };
   initFind();
   go(app.view, { keepScroll: true });
   renderAll();

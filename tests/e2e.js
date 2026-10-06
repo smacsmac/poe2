@@ -27,6 +27,11 @@ async function addTarget(page, side, i, query, famText) {
   const errors = [];
   for (const scheme of ['dark', 'light']) {
     const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 }, colorScheme: scheme });
+    // Catch what "Copy for a chat" puts on the clipboard
+    await ctx.addInitScript(() => {
+      window.__copied = null;
+      Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: (t) => { window.__copied = t; return Promise.resolve(); } } });
+    });
     const page = await ctx.newPage();
     page.on('pageerror', (e) => errors.push(scheme + ': ' + e.message));
     await page.goto(URL);
@@ -46,6 +51,16 @@ async function addTarget(page, side, i, query, famText) {
     await page.waitForSelector('#saved[data-state="local"]');
     await page.click('#saved');
     assert.match(await page.locator('#toast').innerText(), /The Blacksteel Gauntlets craft is saved in this browser/);
+
+    // Copy for a chat: the craft as text, from the Design page
+    await page.click('#d-route [data-act="copy-craft"]');
+    assert.match(await page.locator('#toast').innerText(), /Copied this craft as text/);
+    const designText = await page.evaluate(() => window.__copied);
+    assert.match(designText, /^Path of Exile 2 crafting, patch 0\.5\.5\./);
+    assert.match(designText, /THE ITEM\nBlacksteel Gauntlets \(Gloves, Armour\/Evasion\), item level 82\./);
+    assert.match(designText, /- Runic Ward: \(31–40\)% increased Runic Ward\. How: Crafted slot · Sovereign Alloy\./);
+    assert.match(designText, /WHERE I AM NOW\nNot started/);
+    assert.match(designText, /THE APP’S FIRST STEP FROM A FRESH BASE\nGet a magic base/);
 
     // Astrid's Creativity opens a second crafted slot; untick it again for the rest of the walk-through
     await page.check('#d-astrid');
@@ -68,6 +83,19 @@ async function addTarget(page, side, i, query, famText) {
     await page.click('.card [data-act="out"][data-i="0"]');
     assert.match(await page.locator('.card h3').textContent(), /Make room/);
     await page.screenshot({ path: `${OUT}/${scheme}-plan.png`, fullPage: true });
+
+    // From the Forge, the copy has the item, the steps so far and the next one; Design copies the same text
+    await page.click('.steps-tools [data-act="copy-craft"]');
+    const forgeText = await page.evaluate(() => window.__copied);
+    assert.match(forgeText, /WHERE I AM NOW\nRare item\.\nPrefixes \(3 of 3\):\n- \+\(\d+–\d+\) to maximum Life: on target, T1/);
+    assert.match(forgeText, /\(31–40\)% increased Runic Ward: on target, crafted \(alloy\)/);
+    assert.match(forgeText, /STEPS DONE\n- I edited the item by hand\n1\. Add Runic Ward with the Sovereign Alloy: /);
+    assert.match(forgeText, /NEXT STEP \(step 2\)\nMake room on the suffix side/);
+    assert.match(forgeText, /Ways to do it:\n- .+\(suggested\)/);
+    await page.click('.tabs [data-go="design"]');
+    await page.click('#d-route [data-act="copy-craft"]');
+    assert.equal(await page.evaluate(() => window.__copied), forgeText, 'both pages copy the same text');
+    await page.click('.tabs [data-go="plan"]');
 
     // Hand edit makes the plan stale until Reforge
     await page.locator('.have:not(.empty) [data-act="have-del"]').last().click();
@@ -117,6 +145,11 @@ async function addTarget(page, side, i, query, famText) {
   // A last target that needs a second crafted slot: the plan offers Astrid's Creativity, then shows the way.
   // At 1280px wide the league switch sits in a row under the header.
   const ctx2 = await browser.newContext({ viewport: { width: 1280, height: 900 }, colorScheme: 'dark' });
+  // This browser won't let the app copy, so "Copy for a chat" shows the text to copy by hand
+  await ctx2.addInitScript(() => {
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: () => Promise.reject(new Error('blocked')) } });
+    document.execCommand = () => false;
+  });
   const q = await ctx2.newPage();
   q.on('pageerror', (e) => errors.push('astrid: ' + e.message));
   await q.goto(URL);
@@ -137,6 +170,13 @@ async function addTarget(page, side, i, query, famText) {
   await q.click('.card [data-act="out"][data-i="0"]');
   assert.match(await q.locator('#toast').innerText(), /Astrid’s Creativity is on/);
   assert.equal(await q.locator('.st', { hasText: 'Socket Astrid’s Creativity' }).count(), 1, 'the plan sockets the rune');
+  await q.click('.steps-tools [data-act="copy-craft"]');
+  await q.waitForSelector('#copybox:not([hidden])');
+  assert.match(await q.inputValue('#cb-text'), /I plan to use Astrid’s Creativity so it can hold two crafted mods\./);
+  assert.match(await q.inputValue('#cb-text'), /\nNEXT STEP \(step 1\)\n.+\n[\s\S]*\d+\. Socket Astrid’s Creativity: Artificer’s Orb, Astrid’s Creativity/);
+  await q.screenshot({ path: `${OUT}/dark-copybox.png` });
+  await q.keyboard.press('Escape');
+  assert.ok(await q.locator('#copybox').isHidden());
   await q.click('.tabs [data-go="design"]');
   assert.ok(await q.isChecked('#d-astrid'));
   // The gold + starts a new craft in the same slot and says the old one is saved
