@@ -28,6 +28,9 @@
   --src-aldur:#68cdb3;
   --src-breach:#d778c8;
   --src-delirium:#c8c8c8;
+  /* Attribute and element words in mod text, in the game's colours (Strength red, Dexterity green, Intelligence blue,
+     Fire, Cold, Lightning, Chaos a darker red). */
+  --kw-str:#f0675c; --kw-dex:#7dd068; --kw-int:#6584ff; --kw-fire:#ff8f45; --kw-cold:#8edcff; --kw-light:#f4d348; --kw-chaos:#e0506a;
   /* The item tooltip is an in-game object and keeps one look in both themes. */
   --tip-bg:#0d0c0b;
   --tip-head:#1c1712;
@@ -44,6 +47,7 @@
   --tip-junk:#f08a7a;
   --tip-keep:#93bdf2;
   --tip-suffix:#7fd0c3;
+  --tip-kw-str:#f0675c; --tip-kw-dex:#7dd068; --tip-kw-int:#6584ff; --tip-kw-fire:#ff8f45; --tip-kw-cold:#8edcff; --tip-kw-light:#f4d348; --tip-kw-chaos:#e0506a;
   --tip-shadow:#000000;
   --art-steel-hi:#6a7080;
   --art-steel:#30343c;
@@ -67,6 +71,7 @@
     --scrim:rgba(24,26,30,.42); --shadow:0 18px 50px rgba(24,26,30,.2);
     --src-drops:#7a6e55; --src-ritual:#a8362c; --src-abyss:#6a41ba; --src-essence:#1f6d93;
     --src-aldur:#1c7a62; --src-breach:#9a2c8a; --src-delirium:#5b5f66;
+    --kw-str:#b3261e; --kw-dex:#24702a; --kw-int:#2747c9; --kw-fire:#a83f0a; --kw-cold:#095f8a; --kw-light:#6e5700; --kw-chaos:#8c1d2e;
   }
 }
 :root[data-theme="light"]{
@@ -77,6 +82,7 @@
   --scrim:rgba(24,26,30,.42); --shadow:0 18px 50px rgba(24,26,30,.2);
   --src-drops:#7a6e55; --src-ritual:#a8362c; --src-abyss:#6a41ba; --src-essence:#1f6d93;
   --src-aldur:#1c7a62; --src-breach:#9a2c8a; --src-delirium:#5b5f66;
+  --kw-str:#b3261e; --kw-dex:#24702a; --kw-int:#2747c9; --kw-fire:#a83f0a; --kw-cold:#095f8a; --kw-light:#6e5700; --kw-chaos:#8c1d2e;
 }
 
 *{box-sizing:border-box}
@@ -192,6 +198,16 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
 .find-foot b{color:var(--fg);font-weight:500}
 
 /* tooltip item card */
+/* attribute and element words (kwWords in app.js); the item card keeps the dark tooltip's set in both themes */
+.kw{font-weight:500}
+.kw-str{color:var(--kw-str)}
+.kw-dex{color:var(--kw-dex)}
+.kw-int{color:var(--kw-int)}
+.kw-fire{color:var(--kw-fire)}
+.kw-cold{color:var(--kw-cold)}
+.kw-light{color:var(--kw-light)}
+.kw-chaos{color:var(--kw-chaos)}
+.item{--kw-str:var(--tip-kw-str);--kw-dex:var(--tip-kw-dex);--kw-int:var(--tip-kw-int);--kw-fire:var(--tip-kw-fire);--kw-cold:var(--tip-kw-cold);--kw-light:var(--tip-kw-light);--kw-chaos:var(--tip-kw-chaos)}
 .item{background:var(--tip-bg);color:var(--tip-text);border:1px solid var(--tip-edge);box-shadow:0 0 0 1px var(--tip-shadow) inset,0 24px 60px -30px rgba(0,0,0,.7);max-width:40rem;margin-inline:auto;width:100%}
 .item-head{position:relative;background:linear-gradient(180deg,var(--tip-head),var(--tip-bg));border-bottom:1px solid var(--tip-edge);padding:1rem 1.1rem .9rem;display:grid;justify-items:center;gap:.35rem;text-align:center}
 .art{position:relative;width:132px;height:150px;display:grid;place-items:center;border:1px solid var(--tip-edge-2);background:radial-gradient(closest-side,var(--art-glow),transparent 75%),repeating-linear-gradient(0deg,transparent 0 29px,rgba(93,76,44,.18) 29px 30px),repeating-linear-gradient(90deg,transparent 0 29px,rgba(93,76,44,.18) 29px 30px);margin-bottom:.35rem}

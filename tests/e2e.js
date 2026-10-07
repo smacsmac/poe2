@@ -44,6 +44,15 @@ async function addTarget(page, side, i, query, famText) {
     await addTarget(page, 1, 1, 'cold resistance', 'to Cold Resistance');
     await addTarget(page, 1, 2, 'critical damage', 'Critical Damage Bonus');
     assert.equal(await page.locator('#d-item .box:not(.empty)').count(), 6);
+    // Element and attribute words carry the game's colours, the word only
+    assert.deepEqual(await page.locator('#d-item .box-text .kw').allTextContents(), ['Lightning', 'Cold']);
+    assert.deepEqual(await page.locator('#d-item .box-text .kw').evaluateAll((els) => els.map((e) => e.className)), ['kw kw-light', 'kw kw-cold']);
+    // Life can roll, so the picker doesn't tag it Essence (that read as the only way); essence-only mods keep the tag
+    await page.click('[data-act="d-pick"][data-s="0"][data-i="0"]');
+    await page.fill('#pk-q', 'life');
+    assert.equal(await page.locator('.fam-main', { hasText: 'to maximum Life' }).first().locator('.tag').count(), 0);
+    assert.equal(await page.locator('.fam-main:has(.tag.ess) .fam-m', { hasText: /^\d+ tiers?/ }).count(), 0, 'no Essence tag on a mod that rolls');
+    await page.keyboard.press('Escape');
     await page.screenshot({ path: `${OUT}/${scheme}-design.png`, fullPage: true });
 
     // The header: full league names, and a Saved button that says where the craft is kept
@@ -72,7 +81,7 @@ async function addTarget(page, side, i, query, famText) {
     // The current-step box starts on step 1.
     await page.click('[data-act="to-plan"]');
     assert.match(await page.locator('.st.now .card-k').textContent(), /Now · step 1 · Setup/);
-    assert.equal((await page.locator('.st.now .card h3').innerText()).replace(/\s+/g, ' '), 'Step 1: What do you have?', 'numbered for screen readers too');
+    assert.equal((await page.locator('.st.now .card h3').innerText()).replace(/\s+/g, ' '), 'Step 1: What kind of item would you like to start with?', 'numbered for screen readers too');
     assert.match(await page.locator('.st.setup.todo h4').innerText(), /What’s on it\?/);
     assert.match(await page.locator('.st.next h4').first().textContent(), /Get a magic base/, 'the plan follows, waiting its turn');
     assert.equal(await page.locator('[data-act="forge"]').count(), 0, 'no Forge ahead button: the plan is live');
