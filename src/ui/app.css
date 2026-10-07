@@ -403,6 +403,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
 .st.next .ml{font-family:var(--font-mono);font-size:.72rem;margin-top:.25rem;color:var(--faint)}
 .st.next .more{display:none;background:none;border:0;padding:0;color:var(--muted);font-size:.8rem;text-decoration:underline;text-underline-offset:.2em;margin-top:.15rem}
 .st.next:hover h4{opacity:1}
+.st.now,#p-card{scroll-margin-top:calc(var(--bar-h) + 12px)}
 .st.setup .st-n{border-color:var(--brass-dim)}
 .st.setup .st-n span{color:var(--brass)}
 .st.setup .st-b{padding:.4rem 0 .45rem}

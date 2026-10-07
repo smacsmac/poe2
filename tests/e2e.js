@@ -60,7 +60,7 @@ async function addTarget(page, side, i, query, famText) {
     assert.match(designText, /THE ITEM\nBlacksteel Gauntlets \(Gloves, Armour\/Evasion\), item level 82\./);
     assert.match(designText, /- Runic Ward: \(31–40\)% increased Runic Ward\. How: Crafted slot · Sovereign Alloy\./);
     assert.match(designText, /WHERE I AM NOW\nNot started/);
-    assert.match(designText, /THE APP’S FIRST STEP FROM A FRESH BASE\nGet a magic base/);
+    assert.match(designText, /NEXT STEP \(step 3\)\nGet a magic base/);
 
     // Astrid's Creativity opens a second crafted slot; untick it again for the rest of the walk-through
     await page.check('#d-astrid');
@@ -70,7 +70,7 @@ async function addTarget(page, side, i, query, famText) {
 
     // The Forge opens on two setup steps (what you have, what's on it), then the live plan from step 3
     await page.click('[data-act="to-plan"]');
-    assert.deepEqual(await page.locator('#p-steps .st.setup h4').allInnerTexts(), ['What do you have?', 'What’s on it?']);
+    assert.deepEqual((await page.locator('#p-steps .st.setup h4').allInnerTexts()).map((t) => t.replace(/\s+/g, ' ')), ['Step 1: What do you have?', 'Step 2: What’s on it?'], 'numbered for screen readers too');
     assert.match(await page.locator('.st.now .card-k').textContent(), /Now · step 3/);
     assert.match(await page.locator('.card h3').textContent(), /Get a magic base/);
     assert.equal(await page.locator('[data-act="forge"]').count(), 0, 'no Forge ahead button: the plan is live');
@@ -87,7 +87,7 @@ async function addTarget(page, side, i, query, famText) {
       await page.locator('.have.empty [data-act="have-add"][data-s="1"]').first().click();
       await page.click('.pk-junk');
     }
-    assert.match(await page.locator('.now-on').innerText(), /On it now: Maximum Life, Maximum Mana, a junk suffix and a junk suffix\./);
+    assert.match(await page.locator('.now-on').innerText(), /On it now: Maximum Life T1, Maximum Mana T1, a junk suffix and a junk suffix\./);
     assert.match(await page.locator('.card h3').textContent(), /Sovereign Alloy/, 'the steps follow each change');
     await page.click('.card [data-act="out"][data-i="0"]');
     assert.match(await page.locator('.card h3').textContent(), /Make room/);

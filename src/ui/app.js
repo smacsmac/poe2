@@ -141,11 +141,14 @@
     return { rarity: o.r || 'none', mods: (o.m || []).map(unpackMod), done: o.d || {}, skip: skip };
   }
   function packCraft(c) {
+    var meta = { hdrop: c.hdrop || 0, h0: c.h0 || null };
+    var hist = trimHist(c.hist.map(function (h) { return Object.assign({}, h); }), 40, meta);
     return JSON.parse(JSON.stringify({
       v: 2, id: c.id, cls: c.cls, base: c.base, ilvl: c.ilvl, rf: !!c.runeforge, as: c.astrid ? 1 : undefined,
       t: c.targets.map(function (side) { return side.map(function (t) { return t ? { k: DATA.ids[t.mi] } : null; }); }),
       st: packSt(c.st), ps: packSt(c.planSt), sl: !!c.stale,
-      h: trimHist(c.hist.map(function (h) { return Object.assign({}, h); }), 40).map(function (h) { return { t: h.t, o: h.o, e: h.e ? 1 : 0, st: packSt(h.st), ps: packSt(h.ps), sl: false }; }),
+      h: hist.map(function (h) { return { t: h.t, o: h.o, e: h.e ? 1 : 0, st: packSt(h.st), ps: packSt(h.ps), sl: false, a: h.as === undefined ? undefined : (h.as ? 1 : 0) }; }),
+      hd: meta.hdrop || undefined, h0: meta.hdrop ? packSt(meta.h0) : undefined,
       at: c.at, dev: c.dev
     }));
   }
@@ -156,16 +159,28 @@
       id: o.id, cls: o.cls, base: base, ilvl: Math.max(1, Math.min(100, o.ilvl || 82)), runeforge: !!o.rf, astrid: !!o.as,
       targets: [0, 1].map(function (s) { return ((o.t || [])[s] || []).map(function (t) { return t && IDX[t.k] !== undefined ? { mi: IDX[t.k] } : null; }); }),
       st: unpackSt(o.st), planSt: unpackSt(o.ps), stale: !!o.sl,
-      hist: (o.h || []).map(function (h) { return { t: h.t, o: h.o, e: !!h.e, st: unpackSt(h.st), ps: unpackSt(h.ps), sl: !!h.sl }; }),
+      hist: (o.h || []).map(function (h) {
+        var x = { t: h.t, o: h.o, e: !!h.e, st: unpackSt(h.st), ps: unpackSt(h.ps), sl: false };
+        if (h.a !== undefined) x.as = !!h.a;
+        return x;
+      }),
+      hdrop: o.hd || 0, h0: unpackSt(o.h0),
       at: o.at || 0, dev: o.dev || ''
     };
     fitTargets(c);
+    // The plan always follows the item now: an old save made before that may still hold a plan from an older item
+    if (c.st) c.planSt = clone(c.st);
+    c.stale = false;
     return c;
   }
 
   /* ---------- storage: your account (db) when available, this browser otherwise ---------- */
   var store = { mode: 'local', col: null, inflight: {}, dirty: {}, timers: {}, last: {}, remoteIds: null, readOnly: false };
-  function worth(c) { return c && (targetCount(c) > 0 || c.st); }
+  /* A craft counts as under way once its item is set up or a step is recorded. The blank item the Forge creates
+     just by being opened doesn't count, so looking at the Forge doesn't change what the base search or saving do. */
+  function blankItem(st) { return !st || (st.rarity === 'none' && !st.mods.length); }
+  function underWay(c) { return !!c && (c.hist.length > 0 || (c.hdrop || 0) > 0 || !blankItem(c.st)); }
+  function worth(c) { return !!c && (targetCount(c) > 0 || underWay(c)); }
   var saveOk = null, localDirty = false;
   function saveLocal() {
     clearTimeout(localTimer); localTimer = null; localDirty = false;
@@ -312,7 +327,11 @@
     });
     if (view === 'plan') renderPlan();
     if (view === 'design') renderDesign();
-    if (!opts || !opts.keepScroll) window.scrollTo(0, 0);
+    if (!opts || !opts.keepScroll) {
+      window.scrollTo(0, 0);
+      var h1 = document.querySelector('#v-' + view + ' h1');
+      if (h1) { h1.setAttribute('tabindex', '-1'); try { h1.focus({ preventScroll: true }); } catch (e) { /* ignore */ } }
+    }
     saveLocalSoon();
   }
 
@@ -567,7 +586,7 @@
   function changeClass(cls, base) {
     var c = cur();
     if (c.cls === cls) return;
-    if (targetCount(c) || c.st) startCraftFor(cls, base);
+    if (targetCount(c) || underWay(c)) startCraftFor(cls, base);
     else { c.cls = cls; c.base = base || defaultBase(cls); c.runeforge = cls === 'gloves'; c.astrid = false; c.targets = [[], []]; fitTargets(c); touch(c); }
     renderDesign(); refreshBadges();
   }
@@ -577,7 +596,7 @@
     var c = cur(), b = E.BASE[name];
     if (!b || name === c.base) return;
     if (b.c !== c.cls) changeClass(b.c, name);
-    else if (c.st) { startCraftFor(b.c, name); renderDesign(); refreshBadges(); }
+    else if (underWay(c)) { startCraftFor(b.c, name); renderDesign(); refreshBadges(); }
     else { c.base = name; revalidate(c, name); touch(c); renderDesign(); }
     revealSlot();
   }
@@ -765,7 +784,7 @@
     var skip = (c.st && c.st.skip) || {};
     var rar = c.st ? c.st.rarity : null;
     var nameCls = rar === 'rare' ? '' : rar === 'magic' ? ' magic' : ' normal';
-    var h = '<article class="item" id="p-card" aria-label="Your item">';
+    var h = '<article class="item" id="p-card" tabindex="-1" aria-label="Your item">';
     h += '<div class="item-head slim"><svg aria-hidden="true"><use href="#i-' + c.cls + '"/></svg>' +
       '<p class="nm' + nameCls + '">' + esc(c.base) + '</p><p class="sb">Item level ' + c.ilvl + ' · <a href="#design" data-go="design" style="color:inherit">edit design</a></p></div>';
     h += '<div class="item-body">';
@@ -804,7 +823,7 @@
             '<span class="h-text">' + (m.pseudo ? (m.pseudo === 'junk' ? 'A ' + SIDE[s] + ' you don’t want' : 'Any ' + SIDE[s] + ' (junk to sacrifice)') : esc(modText(m.mi))) + '</span>' +
             '<span class="h-st"><span>' + esc(info.text) + '</span>' + flags.map(function (f) { return '<span class="fl">' + f + '</span>'; }).join('') + '</span></button>' +
             '<div class="h-tools">' + (showKd ? '<div class="kd" role="group" aria-label="Keep or ditch"><button type="button" data-act="mark" data-id="' + esc(m.id) + '" data-v="keep" aria-pressed="' + keepOn + '">Keep</button><button type="button" data-act="mark" data-id="' + esc(m.id) + '" data-v="junk" aria-pressed="' + (!keepOn) + '">Ditch</button></div>' : '') +
-            '<button type="button" class="h-x" data-act="have-del" data-id="' + esc(m.id) + '" aria-label="Not on my item">' + ico('u-x') + '</button></div></div>';
+            '<button type="button" class="h-x" data-act="have-del" data-id="' + esc(m.id) + '" aria-label="Remove ' + esc(modName(m)) + ': not on my item">' + ico('u-x') + '</button></div></div>';
         }
         h += '<div class="srow">' + w + hv + '</div>';
       });
@@ -844,7 +863,7 @@
     var odds = opt ? (opt.mats.length ? { p: opt.swap ? opt.pAdd : opt.p, what: opt.swap ? 'to reroll it into a target' : 'to remove junk' } : null) : step.odds;
     var h = '<div class="card">';
     h += '<div class="card-k"><span class="eyebrow">Now · step ' + n + ' · ' + esc(KIND[step.kind] || step.kind) + '</span></div>';
-    h += '<h3>' + esc(step.title) + '</h3>';
+    h += '<h3 tabindex="-1">' + esc(step.title) + '</h3>';
     h += '<p class="how">' + esc(dash(step.how)) + '</p>';
     if (step.spec) h += '<dl class="spec">' + step.spec.map(function (r) { return '<dt>' + esc(r.k) + '</dt><dd>' + esc(r.v) + '</dd>'; }).join('') + '</dl>';
     (step.warn || []).forEach(function (w) { h += '<p class="warn2">' + esc(w) + '</p>'; });
@@ -888,17 +907,31 @@
   var RAR_SUB = { none: 'Nothing yet, or a plain base', magic: 'One prefix and one suffix', rare: 'A craft in progress' };
   function firstOutcome(c) { for (var i = 0; i < c.hist.length; i++) if (!c.hist[i].e) return i; return -1; }
   /* What the item was when the first step was recorded (the end of the setup), or the item now before that. */
-  function startState(c) { var i = firstOutcome(c); return (i < 0 ? c.st : c.hist[i].st) || blankSt(); }
+  function startState(c) {
+    if (c.hdrop) return c.h0 || blankSt();
+    var i = firstOutcome(c);
+    return (i < 0 ? c.st : c.hist[i].st) || blankSt();
+  }
   function modName(m) { return m.pseudo ? (m.pseudo === 'junk' ? 'a junk ' + SIDE[m.s] : 'any ' + SIDE[m.s]) : E.famName(famOf(m.mi)); }
   function modsLine(st) { return st && st.mods.length ? listAnd(st.mods.map(modName)) : 'no mods'; }
+  /* The mods with their tiers ("Maximum Life T1+"), for what to look for when buying. */
+  function modsTiers(st, cat) {
+    if (!st || !st.mods.length) return 'no mods';
+    return listAnd(st.mods.map(function (m) {
+      if (m.pseudo) return modName(m);
+      var tl = tierLab(cat, m.mi);
+      return E.famName(famOf(m.mi)) + (tl.charAt(0) === 'T' ? ' ' + tl + (m.est ? '+' : '') : '');
+    }));
+  }
   function startText(c, st) {
-    if (st.rarity === 'none' || !st.mods.length) return st.rarity === 'rare' ? 'Started from a rare ' + c.base + ' with no mods entered' : 'Started from scratch, with no base yet';
-    return 'Started from a ' + st.rarity + ' ' + c.base + ' with ' + modsLine(st);
+    if (st.rarity === 'none') return 'Started from scratch, with no base yet';
+    return 'Started from a ' + st.rarity + ' ' + c.base + (st.mods.length ? ' with ' + modsLine(st) : ' with no mods entered');
   }
   /* Done steps, oldest first: each recorded outcome numbered after the setup steps, and each run of hand edits as one
      line. Edits made before the first outcome are the setup itself, so they don't show here. */
   function histRows(c) {
-    var rows = [], k = 0, i0 = firstOutcome(c);
+    var rows = [], k = c.hdrop || 0, i0 = k ? 0 : firstOutcome(c);
+    if (k) rows.push({ gap: k });
     if (i0 < 0) return rows;
     c.hist.slice(i0).forEach(function (x) {
       if (x.e) {
@@ -912,27 +945,34 @@
     });
     return rows;
   }
-  function doneCount(c) { return c.hist.filter(function (x) { return !x.e; }).length; }
+  function doneCount(c) { return (c.hdrop || 0) + c.hist.filter(function (x) { return !x.e; }).length; }
   function editLabels(labels) {
     if (!labels.length) return '';
     var shown = labels.slice(-3);
     return (labels.length > 3 ? '… ' : '') + shown.join(', ');
   }
+  /* After Suggest on a magic item: the item level to look for, from the plan's own base step. */
+  function buyHint(c) {
+    if (c.st.rarity !== 'magic' || !c.st.mods.length) return '';
+    var b = E.nextStep(designOf(c), blankSt(c.st.skip));
+    var lv = b.kind === 'base' && b.spec ? b.spec.filter(function (r) { return r.k === 'Item level'; })[0] : null;
+    return lv ? ' Buying one? Look for item level ' + esc(lv.v) + '.' : '';
+  }
   function setupSteps(c) {
     var h = '';
     if (doneCount(c)) {
       var s0 = startState(c);
-      h += '<li class="st done setup-done"><div class="st-n" aria-hidden="true"><span>1</span></div><div class="st-b"><b>What you had</b><span>' + esc(s0.rarity === 'none' ? 'Nothing yet' : RAR[s0.rarity] + ' ' + c.base) + '</span></div></li>';
-      h += '<li class="st done setup-done"><div class="st-n" aria-hidden="true"><span>2</span></div><div class="st-b"><b>What was on it</b><span>' + esc(s0.rarity === 'none' ? 'No mods: the plan got the base' : modsLine(s0)) + '</span></div></li>';
+      h += '<li class="st done setup-done"><div class="st-n" aria-hidden="true"><span>1</span></div><div class="st-b"><b><span class="vh">Step 1: </span>What you had</b><span>' + esc(s0.rarity === 'none' ? 'Nothing yet' : RAR[s0.rarity] + ' ' + c.base) + '</span></div></li>';
+      h += '<li class="st done setup-done"><div class="st-n" aria-hidden="true"><span>2</span></div><div class="st-b"><b><span class="vh">Step 2: </span>What was on it</b><span>' + esc(s0.rarity === 'none' ? 'Nothing yet: step 3 got the base' : modsLine(s0)) + '</span></div></li>';
       return h;
     }
     var rar = c.st.rarity;
-    h += '<li class="st setup"><div class="st-n" aria-hidden="true"><span>1</span></div><div class="st-b"><h4>What do you have?</h4>' +
+    h += '<li class="st setup"><div class="st-n" aria-hidden="true"><span>1</span></div><div class="st-b"><h4><span class="vh">Step 1: </span>What do you have?</h4>' +
       '<p class="sm">Pick what you’re starting from. The steps below follow your choice.</p>' +
       '<div class="pick3" role="group" aria-label="What you have">' + ['none', 'magic', 'rare'].map(function (v) {
         return '<button type="button" data-act="rarity" data-v="' + v + '" aria-pressed="' + (rar === v) + '"><b>' + RAR[v] + '</b><small>' + RAR_SUB[v] + '</small></button>';
       }).join('') + '</div></div></li>';
-    h += '<li class="st setup"><div class="st-n" aria-hidden="true"><span>2</span></div><div class="st-b"><h4>What’s on it?</h4>';
+    h += '<li class="st setup"><div class="st-n" aria-hidden="true"><span>2</span></div><div class="st-b"><h4><span class="vh">Step 2: </span>What’s on it?</h4>';
     if (rar === 'none') {
       h += '<p class="sm">Nothing to fill in. Step 3 starts by getting a magic base. Already have one? Choose Magic or Rare above.</p>';
     } else {
@@ -940,7 +980,7 @@
         ' Or <b>Copy targets in</b>, then press ✕ on your item for any it doesn’t have. You can also add mods one at a time on your item.</p>' +
         '<div class="setup-row"><button type="button" class="btn small" data-act="suggest">Suggest</button><button type="button" class="btn small" data-act="start-copy">Copy targets in</button>' +
         '<button type="button" class="btn small quiet to-item" data-act="to-item">Your item' + ico('u-chev') + '</button></div>' +
-        '<p class="now-on">On it now: ' + esc(modsLine(c.st)) + '.</p>';
+        '<p class="now-on">On it now: ' + esc(modsTiers(c.st, catOf(c))) + '.' + buyHint(c) + '</p>';
     }
     h += '</div></li>';
     return h;
@@ -966,6 +1006,8 @@
     var left = steps.filter(function (s) { return s.kind !== 'done'; }).length;
     var meta = now.kind === 'done' ? 'All done' : outs ? 'Step ' + n + ' · about ' + plural(left, 'step') + ' to go' : 'Set up your item in steps 1 and 2, then follow step 3';
     var h = '<div class="steps-head"><div><h2>Steps</h2><p class="meta">' + meta + '</p></div><div class="steps-tools">' + copyBtn('small') +
+      // On narrow screens the steps come first: a jump to the item card (step 2 has its own until the craft starts)
+      (outs ? '<button type="button" class="btn small quiet to-item" data-act="to-item">Your item' + ico('u-chev') + '</button>' : '') +
       (c.hist.length ? '<button type="button" class="btn small" data-act="undo" title="Undo: ' + esc(undoLabel(c)) + '">' + ico('u-undo') + 'Undo</button>' : '') +
       (!c.hist.length ? '' : app.ui.confirmReset ? '<span class="muted" style="font-size:.9rem">Clear progress?</span><button type="button" class="btn small danger" data-act="reset-yes">Start over</button><button type="button" class="btn small quiet" data-act="reset-no">Keep</button>'
         : '<button type="button" class="btn small quiet" data-act="reset">Start over</button>') + '</div></div>';
@@ -973,14 +1015,15 @@
     var showFrom = app.ui.doneAll ? 0 : Math.max(0, rows.length - 3);
     if (showFrom > 0) h += '<li class="st"><span></span><button type="button" class="done-toggle" data-act="done-all">' + ico('u-chev') + 'Show ' + plural(showFrom, 'earlier step') + '</button></li>';
     rows.slice(showFrom).forEach(function (r) {
-      if (r.e) h += '<li class="st done edit"><div class="st-n" aria-hidden="true"><span>✎</span></div><div class="st-b"><b>Edited the item</b><span>' + esc(editLabels(r.labels)) + '</span></div></li>';
-      else h += '<li class="st done"><div class="st-n" aria-hidden="true"><span>' + r.n + '</span></div><div class="st-b"><b>' + esc(r.t) + '</b><span>' + esc(r.o || '') + '</span></div></li>';
+      if (r.gap) h += '<li class="st done edit"><div class="st-n" aria-hidden="true"><span>…</span></div><div class="st-b"><b>Earlier steps</b><span>' + plural(r.gap, 'step') + ' no longer kept in the history</span></div></li>';
+      else if (r.e) h += '<li class="st done edit"><div class="st-n" aria-hidden="true"><span>✎</span></div><div class="st-b"><b>Edited the item</b><span>' + esc(editLabels(r.labels)) + '</span></div></li>';
+      else h += '<li class="st done"><div class="st-n" aria-hidden="true"><span>' + r.n + '</span></div><div class="st-b"><b><span class="vh">Step ' + r.n + ': </span>' + esc(r.t) + '</b><span>' + esc(r.o || '') + '</span></div></li>';
     });
     h += '<li class="st now"><div class="st-n" aria-hidden="true"><span>' + n + '</span></div><div class="st-b">' + renderNow(c, now, n) + '</div></li>';
     steps.slice(1).forEach(function (s, i) {
       var num = n + i + 1;
       var open = !!app.ui.open[num];
-      h += '<li class="st next"><div class="st-n" aria-hidden="true"><span>' + num + '</span></div><div class="st-b"><h4>' + esc(s.title) + '</h4>' +
+      h += '<li class="st next"><div class="st-n" aria-hidden="true"><span>' + num + '</span></div><div class="st-b"><h4><span class="vh">Step ' + num + ': </span>' + esc(s.title) + '</h4>' +
         (s.how ? '<p class="sm' + (open ? ' open' : '') + '">' + esc(dash(s.how)) + '</p>' : '') +
         ((s.mats && s.mats.length) ? '<p class="ml">' + esc(s.mats.map(function (m) { return m.n; }).join(' · ')) + (s.odds && s.odds.p < 0.995 ? ' · ' + esc(E.oddsLabel(s.odds.p)) : '') + '</p>' : '') +
         (s.how && s.how.length > 100 ? '<button type="button" class="more" data-act="more" data-n="' + num + '">' + (open ? 'Less' : 'More') + '</button>' : '') + '</div></li>';
@@ -1000,7 +1043,46 @@
     if (!t) { b.hidden = true; return; }
     b.hidden = false; b.textContent = t;
   }
-  function renderPlan() { liveSt(cur()); renderPlanItem(); renderPlanSteps(); }
+  function renderPlan() {
+    var k = focusKey();
+    liveSt(cur()); renderPlanItem(); renderPlanSteps();
+    restoreFocus(k);
+  }
+  /* Re-rendering replaces the buttons, so remember which one had focus and give it back afterwards. After a step's
+     outcome, focus goes to the new current step instead, so a second Enter can't record the next one by mistake. */
+  var FOCUS_ATTRS = ['data-v', 'data-s', 'data-id', 'data-k', 'data-f', 'data-n'];
+  var FOCUS_ALT = { reset: 'reset-yes', 'reset-no': 'reset', 'reset-yes': null, 'done-all': null };
+  function focusKey() {
+    var a = document.activeElement;
+    if (!a || !a.closest || !a.getAttribute) return null;
+    var cont = a.closest('#p-item, #p-steps'), act = a.getAttribute('data-act');
+    if (!cont || !act) return null;
+    if (act === 'out') return { now: true };
+    var k = { cont: cont.id, act: act, attrs: {} };
+    FOCUS_ATTRS.forEach(function (n) { if (a.hasAttribute(n)) k.attrs[n] = a.getAttribute(n); });
+    return k;
+  }
+  function restoreFocus(k) {
+    if (!k) return;
+    var el = null;
+    var find = function (act) {
+      return document.querySelector('#' + k.cont + ' [data-act="' + act + '"]' + Object.keys(k.attrs).map(function (n) { return '[' + n + '="' + k.attrs[n] + '"]'; }).join(''));
+    };
+    if (!k.now) {
+      el = find(k.act);
+      if (!el && FOCUS_ALT[k.act]) el = document.querySelector('#' + k.cont + ' [data-act="' + FOCUS_ALT[k.act] + '"]');
+    }
+    if (!el) el = document.querySelector('.st.now .card h3');
+    if (el) { try { el.focus({ preventScroll: true }); } catch (e) { /* ignore */ } }
+  }
+  /* After a recorded step, bring the new current step into view if it moved off screen (the setup steps fold up). */
+  function revealNow() {
+    var now = document.querySelector('.st.now');
+    if (!now) return;
+    var r = now.getBoundingClientRect();
+    var bar = document.querySelector('.bar'), top = bar ? bar.getBoundingClientRect().bottom : 0;
+    if (r.top < top + 4 || r.top > window.innerHeight * 0.7) now.scrollIntoView({ behavior: reduceMotion() ? 'auto' : 'smooth', block: 'start' });
+  }
 
   /* ---------- plan actions ---------- */
   function blankSt(skip) { return { rarity: 'none', mods: [], done: {}, skip: skip || {} }; }
@@ -1017,40 +1099,60 @@
   function entryLabel(x) { return x.e ? (x.o || 'your last change') : x.t; }
   function undoLabel(c) { var x = c.hist[c.hist.length - 1]; return x ? entryLabel(x) : ''; }
   /* Keep the history bounded: fold the oldest runs of hand edits first (a run's first entry keeps the item from
-     before the run, so undo still lands on a real state), then drop the oldest entries. */
-  function trimHist(h, max) {
+     before the run, so undo still lands on a real state), then drop the oldest entries. meta (the craft, or a copy
+     of its counters when saving) counts the recorded steps dropped and keeps the item they started from, so step
+     numbers and "Started from" don't change when old history goes. */
+  function trimHist(h, max, meta) {
     while (h.length > max) {
       var i = -1;
-      for (var k = 1; k < h.length - 10; k++) if (h[k].e && h[k - 1].e) { i = k; break; }
+      for (var k = 1; k < h.length - 10; k++) if (h[k].e && h[k - 1].e && h[k].as === undefined) { i = k; break; }
       if (i > 0) {
         if (h[i].o) h[i - 1] = Object.assign({}, h[i - 1], { o: (h[i - 1].o ? h[i - 1].o + ', ' : '') + h[i].o });
         h.splice(i, 1);
-      } else h.shift();
+      } else {
+        var x = h.shift();
+        if (!x.e && meta) {
+          if (!meta.hdrop) meta.h0 = x.st || blankSt();
+          meta.hdrop = (meta.hdrop || 0) + 1;
+        }
+      }
     }
     return h;
   }
   function pushHist(c, entry) {
     entry.st = clone(c.st); entry.ps = clone(c.planSt); entry.sl = false;
     c.hist.push(entry);
-    trimHist(c.hist, 60);
+    trimHist(c.hist, 60, c);
   }
   /* A change made by hand on the item: its own undo step, labelled for the Undo button and the timeline. */
+  /* What an item change is judged by: the mods themselves, not their ids or the analysis fields renders add. */
+  function stSig(st) {
+    if (!st) return '';
+    return JSON.stringify([st.rarity, st.mods.map(function (m) {
+      return [m.s, m.mi === undefined ? null : m.mi, m.pseudo || '', m.mark || 'auto', !!m.crafted, !!m.desec, !!m.fract].join('|');
+    }).sort(), Object.keys(st.skip || {}).filter(function (k) { return st.skip[k]; }).sort(), st.done || {}]);
+  }
   function manualEdit(c, fn, label) {
     if (!c.st) c.st = blankSt();
-    var before = JSON.stringify(c.st);
-    pushHist(c, { t: 'Edited the item', o: label || '', e: true });
+    var before = { st: clone(c.st), ps: clone(c.planSt) }, sig = stSig(c.st);
+    hideToast();
     fn();
-    if (JSON.stringify(c.st) === before) { c.hist.pop(); renderPlan(); return; }
+    if (stSig(c.st) === sig) { c.st = before.st; replan(c); renderPlan(); return false; }
+    c.hist.push({ t: 'Edited the item', o: label || '', e: true, st: before.st, ps: before.ps, sl: false });
+    trimHist(c.hist, 60, c);
+    app.ui.confirmReset = false;
     replan(c);
     touch(c);
     renderPlan();
+    return true;
   }
   function commit(c, stepTitle, label, newSt) {
     pushHist(c, { t: stepTitle, o: label });
     c.st = newSt; c.planSt = clone(newSt); c.stale = false;
-    app.ui.optFor = null; app.ui.open = {};
+    app.ui.optFor = null; app.ui.open = {}; app.ui.confirmReset = false;
     touch(c);
     renderPlan();
+    revealNow();
   }
   function reduceMotion() { return window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches; }
   function flashItem(msg) {
@@ -1071,7 +1173,9 @@
     if (!o) return;
     var title = step.title + (opt && opt.key !== 'settle' && opt.key !== 'restart' ? ' · ' + opt.label : '');
     if (o.astrid) {
-      c.astrid = true; touch(c); renderPlan();
+      pushHist(c, { t: 'Edited the item', o: 'Turned on Astrid’s Creativity', e: true, as: !!c.astrid });
+      c.astrid = true; app.ui.confirmReset = false;
+      replan(c); touch(c); renderPlan();
       toast('Astrid’s Creativity is on for this craft, so it can take a second crafted modifier. The steps now show how.', 6000);
       return;
     }
@@ -1103,8 +1207,9 @@
     var x = c.hist.pop();
     if (!x) return;
     c.st = x.st; c.planSt = x.ps;
+    if (x.as !== undefined) c.astrid = x.as;
     replan(c);
-    app.ui.optFor = null;
+    app.ui.optFor = null; app.ui.confirmReset = false;
     touch(c); renderPlan();
     toast('Undid “' + entryLabel(x) + '”.');
   }
@@ -1131,7 +1236,7 @@
   }
   function startBlank() {
     var c = cur();
-    manualEdit(c, function () { c.st = { rarity: 'none', mods: [], done: {}, skip: (c.st && c.st.skip) || {} }; }, 'Clear item');
+    if (manualEdit(c, function () { c.st = { rarity: 'none', mods: [], done: {}, skip: (c.st && c.st.skip) || {} }; }, 'Clear item')) toast('Cleared the item. Undo brings it back.');
   }
   function listAnd(a) { return a.length < 2 ? a.join('') : a.slice(0, -1).join(', ') + ' and ' + a[a.length - 1]; }
   /* Fill the item with what's worth having on a bought base of the chosen rarity, as the plan sees it. */
@@ -1164,7 +1269,8 @@
   function setRarity(v) {
     var c = cur();
     if (!RAR[v]) return;
-    manualEdit(c, function () {
+    var had = c.st ? c.st.mods.slice() : [];
+    var changed = manualEdit(c, function () {
       c.st.rarity = v;
       if (v === 'none') c.st.mods = [];
       if (v === 'magic') {
@@ -1177,6 +1283,9 @@
         });
       }
     }, RAR[v]);
+    var gone = changed ? had.filter(function (m) { return c.st.mods.indexOf(m) < 0 && !c.st.mods.some(function (x) { return x.id === m.id; }); }) : [];
+    if (gone.length) toast((v === 'none' ? 'A normal item has no mods, so ' : 'A magic item holds one prefix and one suffix, so ') + listAnd(gone.map(modName)) +
+      (gone.length > 1 ? ' were' : ' was') + ' taken off. Undo puts ' + (gone.length > 1 ? 'them' : 'it') + ' back.', 6000);
   }
   function findMod(c, id) { return c.st && c.st.mods.find(function (m) { return m.id === id; }); }
   function addHave(s, f) {
@@ -1433,7 +1542,7 @@
     });
 
     L.push('', 'WHERE I AM NOW');
-    if (!c.st) L.push('Not started: I haven’t entered an item yet.');
+    if (!underWay(c)) L.push('Not started: no base yet, or I haven’t entered my item.');
     else {
       E.analyze(cat, design, c.st);
       var rar = c.st.rarity, missing = [];
@@ -1458,14 +1567,14 @@
       L.push('', 'STEPS DONE');
       L.push('1–2. ' + startText(c, startState(c)) + '.');
       rows.forEach(function (r) {
-        L.push(r.e ? '- I edited the item by hand' + (r.labels.length ? ' (' + r.labels.join(', ') + ')' : '') : r.n + '. ' + r.t + (r.o ? ': ' + r.o : ''));
+        L.push(r.gap ? '- (' + plural(r.gap, 'earlier step') + ' not kept in the history)' : r.e ? '- I edited the item by hand' + (r.labels.length ? ' (' + r.labels.join(', ') + ')' : '') : r.n + '. ' + r.t + (r.o ? ': ' + r.o : ''));
       });
     }
     if (targetCount(c)) {
       var steps = E.plan(design, clone(c.st || blankSt()));
       var n = SETUP + outs + 1;
       var now = steps[0];
-      L.push('', now.kind === 'done' ? 'DONE' : c.st ? 'NEXT STEP (step ' + n + ')' : 'THE APP’S FIRST STEP FROM A FRESH BASE');
+      L.push('', now.kind === 'done' ? 'DONE' : 'NEXT STEP (step ' + n + ')');
       L = L.concat(stepDetail(c, now));
       if (steps.length > 1) {
         L.push('', 'AFTER THAT (the plan assumes each roll lands)');
@@ -1528,10 +1637,10 @@
   /* ---------- crafts drawer ---------- */
   function craftMeta(c) {
     var t = targetCount(c);
-    if (!c.st) return t ? plural(t, 'target') + ' · not started' : 'Empty design';
-    var A = E.analyze(catOf(c), designOf(c), clone(c.st));
-    var steps = c.hist.filter(function (x) { return !x.e; }).length;
-    return A.hits + '/' + t + ' on the item · ' + plural(steps, 'step') + ' done';
+    if (!underWay(c)) return t ? plural(t, 'target') + ' · not started' : 'Empty design';
+    var A = E.analyze(catOf(c), designOf(c), clone(c.st || blankSt()));
+    var outs = doneCount(c);
+    return A.hits + '/' + t + ' on the item · ' + (outs ? 'at step ' + (SETUP + outs + 1) : 'item set up');
   }
   function renderCraftsBadge() {
     var n = Object.keys(app.crafts).filter(function (id) { return worth(app.crafts[id]); }).length;
@@ -1579,6 +1688,9 @@
   var toastTimer = null;
   function toast(msg, ms) {
     var el = $('toast');
+    // The visible toast comes and goes; screen readers hear it from a live region that's always there
+    var sr = $('sr-live');
+    if (sr) { sr.textContent = ''; setTimeout(function () { sr.textContent = msg; }, 60); }
     el.innerHTML = '<span>' + esc(msg) + '</span>';
     el.hidden = false;
     clearTimeout(toastTimer);
@@ -1620,17 +1732,17 @@
       case 'have-add': if (a.getAttribute('aria-disabled') === 'true') { toast('Set the rarity to Magic or Rare first.'); break; } addHave(s, a.hasAttribute('data-f') ? +a.getAttribute('data-f') : null); break;
       case 'have-edit': editHave(a.getAttribute('data-id')); break;
       case 'have-del': (function (id) { var m = findMod(c, id); if (m) manualEdit(c, function () { c.st.mods = c.st.mods.filter(function (x) { return x.id !== id; }); }, 'Removed ' + modName(m)); })(a.getAttribute('data-id')); break;
-      case 'mark': (function (id, v) { var m = findMod(c, id); if (m) manualEdit(c, function () { m.mark = v; }, (v === 'keep' ? 'Kept ' : 'Ditched ') + modName(m)); })(a.getAttribute('data-id'), a.getAttribute('data-v')); break;
+      case 'mark': if (a.getAttribute('aria-pressed') === 'true') break; (function (id, v) { var m = findMod(c, id); if (m) manualEdit(c, function () { m.mark = v; }, (v === 'keep' ? 'Kept ' : 'Ditched ') + modName(m)); })(a.getAttribute('data-id'), a.getAttribute('data-v')); break;
       case 'unskip': (function (f) { manualEdit(c, function () { if (c.st && c.st.skip) delete c.st.skip[f]; }, 'Wanted ' + E.famName(+f) + ' again'); })(a.getAttribute('data-f')); break;
-      case 'to-item': (function () { var card = $('p-card'); if (card) card.scrollIntoView({ behavior: reduceMotion() ? 'auto' : 'smooth', block: 'start' }); })(); break;
+      case 'to-item': (function () { var card = $('p-card'); if (card) { card.scrollIntoView({ behavior: reduceMotion() ? 'auto' : 'smooth', block: 'start' }); try { card.focus({ preventScroll: true }); } catch (err) { /* ignore */ } } })(); break;
       case 'out': applyOutcome(i); break;
-      case 'opt': app.ui.opt = a.getAttribute('data-k'); app.ui.optFor = stepKey(c, app.steps[0]); renderPlanSteps(); break;
+      case 'opt': app.ui.opt = a.getAttribute('data-k'); app.ui.optFor = stepKey(c, app.steps[0]); renderPlan(); break;
       case 'undo': undo(); break;
-      case 'reset': app.ui.confirmReset = true; renderPlanSteps(); break;
-      case 'reset-no': app.ui.confirmReset = false; renderPlanSteps(); break;
-      case 'reset-yes': app.ui.confirmReset = false; c.st = blankSt(); c.planSt = clone(c.st); c.hist = []; c.stale = false; app.ui.doneAll = false; touch(c); renderPlan(); break;
-      case 'done-all': app.ui.doneAll = true; renderPlanSteps(); break;
-      case 'more': (function (n) { app.ui.open[n] = !app.ui.open[n]; renderPlanSteps(); })(+a.getAttribute('data-n')); break;
+      case 'reset': app.ui.confirmReset = true; renderPlan(); break;
+      case 'reset-no': app.ui.confirmReset = false; renderPlan(); break;
+      case 'reset-yes': app.ui.confirmReset = false; c.st = blankSt(); c.planSt = clone(c.st); c.hist = []; c.hdrop = 0; c.h0 = null; c.stale = false; app.ui.doneAll = false; touch(c); renderPlan(); break;
+      case 'done-all': app.ui.doneAll = true; renderPlan(); break;
+      case 'more': (function (n) { app.ui.open[n] = !app.ui.open[n]; renderPlan(); })(+a.getAttribute('data-n')); break;
       case 'new-craft': newCraft(); break;
       case 'copy-craft': copyCraft(); break;
       case 'cb-close': closeCopyBox(); break;
