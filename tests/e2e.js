@@ -68,11 +68,13 @@ async function addTarget(page, side, i, query, famText) {
     await page.uncheck('#d-astrid');
     assert.doesNotMatch(await page.locator('.slot2').first().innerText(), /crafted slots/i);
 
-    // The Forge opens on two setup steps (what you have, what's on it), then the live plan from step 3
+    // The Forge opens on two setup steps (what you have, what's on it), then the live plan from step 3.
+    // The current-step box starts on step 1.
     await page.click('[data-act="to-plan"]');
-    assert.deepEqual((await page.locator('#p-steps .st.setup h4').allInnerTexts()).map((t) => t.replace(/\s+/g, ' ')), ['Step 1: What do you have?', 'Step 2: What’s on it?'], 'numbered for screen readers too');
-    assert.match(await page.locator('.st.now .card-k').textContent(), /Now · step 3/);
-    assert.match(await page.locator('.card h3').textContent(), /Get a magic base/);
+    assert.match(await page.locator('.st.now .card-k').textContent(), /Now · step 1 · Setup/);
+    assert.equal((await page.locator('.st.now .card h3').innerText()).replace(/\s+/g, ' '), 'Step 1: What do you have?', 'numbered for screen readers too');
+    assert.match(await page.locator('.st.setup.todo h4').innerText(), /What’s on it\?/);
+    assert.match(await page.locator('.st.next h4').first().textContent(), /Get a magic base/, 'the plan follows, waiting its turn');
     assert.equal(await page.locator('[data-act="forge"]').count(), 0, 'no Forge ahead button: the plan is live');
     await page.screenshot({ path: `${OUT}/${scheme}-setup.png`, fullPage: true });
 
@@ -88,7 +90,11 @@ async function addTarget(page, side, i, query, famText) {
       await page.click('.pk-junk');
     }
     assert.match(await page.locator('.now-on').innerText(), /On it now: Maximum Life T1, Maximum Mana T1, a junk suffix and a junk suffix\./);
-    assert.match(await page.locator('.card h3').textContent(), /Sovereign Alloy/, 'the steps follow each change');
+    assert.match(await page.locator('.st.now .card-k').textContent(), /Now · step 2 · Setup/, 'step 2 stays current until Done');
+    assert.match(await page.locator('.st.next h4').first().textContent(), /Sovereign Alloy/, 'the steps follow each change');
+    await page.click('#p-steps [data-act="setup-done"]');
+    assert.match(await page.locator('.st.now .card-k').textContent(), /Now · step 3/);
+    assert.match(await page.locator('.card h3').textContent(), /Sovereign Alloy/);
     await page.click('.card [data-act="out"][data-i="0"]');
     assert.match(await page.locator('.card h3').textContent(), /Make room/);
     assert.match(await page.locator('.st.now .card-k').textContent(), /Now · step 4/);
@@ -182,6 +188,7 @@ async function addTarget(page, side, i, query, famText) {
   await q.click('[data-act="to-plan"]');
   await q.click('#p-item [data-act="start-copy"]');
   await q.locator('.srow', { hasText: 'Socketed Augment' }).locator('[data-act="have-del"]').click();
+  await q.click('#p-steps [data-act="setup-done"]');
   assert.match(await q.locator('.card h3').textContent(), /Use Astrid’s Creativity for Effect of Socketed Augment Items/);
   await q.screenshot({ path: `${OUT}/dark-astrid.png`, fullPage: true });
   await q.click('.card [data-act="out"][data-i="0"]');
@@ -215,6 +222,7 @@ async function addTarget(page, side, i, query, famText) {
   await p.locator('#p-steps [data-act="rarity"][data-v="magic"]').tap();
   await p.locator('#p-steps [data-act="suggest"]').tap();
   assert.match(await p.locator('.now-on').innerText(), /On it now: Maximum Life/);
+  assert.match(await p.locator('.st.now .card-k').textContent(), /Now · step 3/, 'Suggest fills in the item, so step 3 is next');
   assert.ok(await p.locator('#p-steps .to-item').isVisible(), 'a jump to the item card on a phone');
   const [sw, w] = await p.evaluate(() => [document.documentElement.scrollWidth, window.innerWidth]);
   assert.ok(sw <= w, 'no sideways scroll on a phone');
