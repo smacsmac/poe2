@@ -9,6 +9,9 @@ const ROOT = path.join(__dirname, '..');
 const read = (p) => fs.readFileSync(path.join(ROOT, p), 'utf8');
 
 const data = read('data/data.json').replace(/<\//g, '<\\/');
+/* The app version the header shows (V2, V3...): bump appVersion in package.json for every change published to main. */
+const VERSION = 'V' + JSON.parse(read('package.json')).appVersion;
+const withVersion = (t) => t.replace(/\{\{APP_VERSION\}\}/g, VERSION);
 const page = [
   '<title>PoE2 Crafting Playbook</title>',
   '<meta name="description" content="Design a Path of Exile 2 item, get a step-by-step crafting plan that re-plans as you go, and look up every crafting material.">',
@@ -17,11 +20,11 @@ const page = [
   '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Alegreya+SC:wght@500;700&family=Alegreya+Sans:ital,wght@0,400;0,500;0,700;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap">',
   '<style>\n' + read('src/ui/app.css') + '\n</style>',
   read('src/ui/icons.html'),
-  read('src/ui/markup.html'),
+  withVersion(read('src/ui/markup.html')),
   '<script>window.DATA=' + data + ';</script>',
   '<script>\n' + read('src/prices.js') + '\n</script>',
   '<script>\n' + read('src/engine.js') + '\n</script>',
-  '<script>\n' + read('src/ui/app.js') + '\n</script>',
+  '<script>\n' + withVersion(read('src/ui/app.js')) + '\n</script>',
   '<script>\n' + read('src/ui/ref.js') + '\n</script>'
 ].join('\n');
 
@@ -33,4 +36,4 @@ fs.mkdirSync(path.join(ROOT, 'dist'), { recursive: true });
 fs.mkdirSync(path.join(ROOT, 'docs'), { recursive: true });
 fs.writeFileSync(path.join(ROOT, 'dist/artifact.html'), page);
 fs.writeFileSync(path.join(ROOT, 'docs/index.html'), skeleton + page + '</body></html>');
-console.log('dist/artifact.html and docs/index.html', (page.length / 1024).toFixed(0) + ' KB');
+console.log('dist/artifact.html and docs/index.html', VERSION, (page.length / 1024).toFixed(0) + ' KB');

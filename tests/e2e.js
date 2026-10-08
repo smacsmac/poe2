@@ -57,6 +57,7 @@ async function addTarget(page, side, i, query, famText) {
 
     // The header: full league names, and a Saved button that says where the craft is kept
     assert.deepEqual(await page.locator('.bar [data-lg]').allInnerTexts(), ['Forbidden Rites', 'Runes of Aldur']);
+    assert.equal(await page.locator('.bar .brand-v').innerText(), 'V' + require('../package.json').appVersion, 'the app version shows in the header');
     await page.waitForSelector('#saved[data-state="local"]');
     await page.click('#saved');
     assert.match(await page.locator('#toast').innerText(), /The Blacksteel Gauntlets craft is saved in this browser/);
@@ -127,19 +128,24 @@ async function addTarget(page, side, i, query, famText) {
     assert.match(forgeText, /\(suggested\): .+ About [\d.]+ (div|ex) a try; about [\d,.]+ (div|ex) to finish\./);
     await page.click('.tabs [data-go="plan"]');
 
-    // Cost: if every roll lands, the average with misses, spent so far; each choice says what it still costs to finish
+    // Cost: each choice says what it still costs to finish; the cost box itself stays closed until asked for
+    const choicesReady = () => page.waitForFunction(() => [...document.querySelectorAll('.oc .ofin')].every((e) => !/…/.test(e.textContent)));
+    assert.equal(await page.locator('#p-cost').count(), 0, 'the steps start without the cost box');
+    await choicesReady();
+    for (const t of await page.locator('.opt .ofin').allInnerTexts()) assert.match(t, /to finish|until it stops again|Very high/);
+    // a new base usually ends without Maximum Mana, and says so next to its lower figure
+    assert.match(await page.locator('.opt[data-k="restart"] .otry').innerText(), /^\+ (a magic base|about \d+ magic bases) · (\d+ in 10|nearly always) without Maximum Mana$/);
+    const spentCard = await page.locator('.card .spent').innerText();
+    assert.match(spentCard, /^Spent so far: about [\d.]+ (div|ex), plus the item you started with\. That’s gone whichever you choose, so compare what each choice still costs\.$/);
+    // "Cost & shopping list", left of Copy for a chat, opens the box: if every roll lands, the average, spent so far, the list
+    assert.deepEqual((await page.locator('.steps-tools .btn').allInnerTexts()).slice(0, 2), ['Cost & shopping list', 'Copy for a chat']);
+    await page.click('.steps-tools [data-act="shop"]');
+    assert.equal(await page.getAttribute('.steps-tools [data-act="shop"]', 'aria-expanded'), 'true');
     await page.waitForSelector('#p-cost-body[aria-busy="false"]');
     const costText = await page.locator('#p-cost-body').innerText();
     assert.match(costText, /if every roll lands/);
     assert.match(costText, /~[\d,.]+ (div|ex) on average, following the steps/);
     assert.match(costText, /Spent so far: about [\d.]+ (div|ex), plus the item you started with\./);
-    for (const t of await page.locator('.opt .ofin').allInnerTexts()) assert.match(t, /to finish|until it stops again|Very high/);
-    // a new base usually ends without Maximum Mana, and says so next to its lower figure
-    assert.match(await page.locator('.opt[data-k="restart"] .otry').innerText(), /^\+ (a magic base|about \d+ magic bases) · (\d+ in 10|nearly always) without Maximum Mana$/);
-    assert.match(await page.locator('.card .spent').innerText(), /That’s gone whichever you choose, so compare what each choice still costs\.$/);
-    // The shopping list: the items for the steps, what a miss calls for, a copy
-    await page.click('#p-cost [data-act="shop"]');
-    assert.equal(await page.getAttribute('#p-cost [data-act="shop"]', 'aria-expanded'), 'true');
     const shopH = await page.locator('#shop h4').allInnerTexts();
     assert.ok(shopH.some((t) => /^For the steps/.test(t)), 'items for the steps');
     assert.ok(!shopH.some((t) => /^The base/.test(t)), 'the item started rare: no base to buy');
@@ -148,9 +154,12 @@ async function addTarget(page, side, i, query, famText) {
     assert.match(await page.locator('#toast').innerText(), /Copied the shopping list\./);
     assert.match(await page.evaluate(() => window.__copied), /^Shopping list: Blacksteel Gauntlets, item level 82\n/);
     await page.click('[data-act="shop-close"]');
-    assert.equal(await page.locator('#shop').count(), 0);
+    assert.equal(await page.locator('#p-cost').count(), 0);
+    assert.equal(await page.evaluate(() => document.activeElement.getAttribute('data-act')), 'shop', 'focus goes back to the button');
+    // A line of Path of Exile 2 story heads the Forge, a different one each visit
+    const lore = await page.locator('#p-lore').innerText();
+    assert.ok(lore.length > 20, 'a story line');
     // A save from before spend was recorded is priced from the steps' titles, the same way
-    const spentLine = await page.locator('.cost-spent').innerText();
     await page.waitForTimeout(400);
     await page.evaluate(() => {
       const k = 'poe2-crafting-playbook-app-v2', raw = JSON.parse(localStorage.getItem(k));
@@ -158,8 +167,9 @@ async function addTarget(page, side, i, query, famText) {
       localStorage.setItem(k, JSON.stringify(raw));
     });
     await page.reload();
-    await page.waitForSelector('#p-cost-body[aria-busy="false"]');
-    assert.equal(await page.locator('.cost-spent').innerText(), spentLine, 'old entries are priced from their titles');
+    await choicesReady();
+    assert.equal(await page.locator('.card .spent').innerText(), spentCard, 'old entries are priced from their titles');
+    assert.notEqual(await page.locator('#p-lore').innerText(), lore, 'a different story line after a reload');
 
     // A hand edit re-plans at once and shows as one "Edited the item" line; Undo next to Clear item takes it back
     await page.locator('.have:not(.empty) [data-act="have-del"]').last().click();
@@ -237,7 +247,7 @@ async function addTarget(page, side, i, query, famText) {
   await q.click('#p-steps [data-act="setup-done"]');
   assert.match(await q.locator('.card h3').textContent(), /Use Astrid’s Creativity for Effect of Socketed Augment Items/);
   // The rune offer compares what each way on still costs
-  await q.waitForSelector('#p-cost-body[aria-busy="false"]');
+  await q.waitForFunction(() => [...document.querySelectorAll('.oc .ofin')].every((e) => !/…/.test(e.textContent)));
   assert.match(await q.locator('.cmp .oc[data-ck="astrid"] .otry').innerText(), /^the rune: /);
   assert.match(await q.locator('.cmp .oc[data-ck="astrid"] .ofin').innerText(), /to finish|Very high/);
   await q.screenshot({ path: `${OUT}/dark-astrid.png`, fullPage: true });
@@ -281,7 +291,7 @@ async function addTarget(page, side, i, query, famText) {
   assert.equal(await p.locator('#saved').innerText(), 'Saved');
   await p.screenshot({ path: `${OUT}/phone-plan.png`, fullPage: true });
   // The shopping list fits a phone too
-  await p.locator('#p-cost [data-act="shop"]').tap();
+  await p.locator('.steps-tools [data-act="shop"]').tap();
   await p.waitForSelector('#shop');
   const [sw3, w3] = await p.evaluate(() => [document.documentElement.scrollWidth, window.innerWidth]);
   assert.ok(sw3 <= w3, 'no sideways scroll with the shopping list open');

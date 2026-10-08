@@ -1219,21 +1219,21 @@
   /* The cost figures for the open craft, from the plan already drawn: cheap parts now, the average if it's ready. */
   function costState(c, design, steps, stage) {
     var now = steps[0];
-    var K = { design: design, steps: steps, st: c.planSt, n0: SETUP + doneCount(c) + 1, done: now.kind === 'done', spent: spentSoFar(c), happy: E.planCost(design, steps), cp: null, cc: null, choices: null };
+    var K = { design: design, steps: steps, st: c.planSt, n0: SETUP + doneCount(c) + 1, done: now.kind === 'done', open: !!app.ui.shop, spent: spentSoFar(c), happy: E.planCost(design, steps), cp: null, cc: null, choices: null };
     if (K.done) return K;
-    K.cp = E.costPlan(design, c.planSt, { steps: steps, quick: true });
+    if (K.open) K.cp = E.costPlan(design, c.planSt, { steps: steps, quick: true });   // the average is only shown in the open cost box
     K.choices = !stage ? E.choicesOf(now) : null;
     if (K.choices) K.cc = E.choiceCosts(design, c.planSt, now, { quick: true });
     return K;
   }
-  function costReady(K) { return K.done || (!!K.cp && (!K.choices || !!K.cc)); }
+  function costReady(K) { return K.done || ((!K.open || !!K.cp) && (!K.choices || !!K.cc)); }
   /* Work the average out a slice at a time (the page stays responsive), then patch the figures in. */
   function scheduleCost(c, K) {
     var tok = app.ui.costTok, st = clone(K.st);
     function run() {
       if (tok !== app.ui.costTok || cur() !== c || app.view !== 'plan') return;
-      if (!K.cp) K.cp = E.costPlan(K.design, st, { steps: K.steps, budget: 12 });
-      if (K.cp && K.choices && !K.cc) K.cc = E.choiceCosts(K.design, st, K.steps[0], { budget: 12 });
+      if (K.open && !K.cp) K.cp = E.costPlan(K.design, st, { steps: K.steps, budget: 12 });
+      if ((K.cp || !K.open) && K.choices && !K.cc) K.cc = E.choiceCosts(K.design, st, K.steps[0], { budget: 12 });
       if (!costReady(K)) { app.ui.costTimer = setTimeout(run, 0); return; }
       patchCost(K);
     }
@@ -1256,12 +1256,17 @@
     var sa = $('shop-avg');
     if (sa) sa.innerHTML = shopTotal(shopData(K));
   }
+  /* The button in the steps toolbar that opens the cost box (cost, spent so far and the shopping list). */
+  function costBtn(K) {
+    return '<button type="button" class="btn small quiet" data-act="shop" aria-expanded="' + !!app.ui.shop + '" aria-controls="p-cost">' + ico('u-list') + (K.done ? 'Cost' : 'Cost & shopping list') + '</button>';
+  }
+  /* The cost box, drawn only while it's open, so the steps start with step 1 and no figures. */
   function costSection(K) {
-    var h = '<section class="cost" id="p-cost" aria-labelledby="p-cost-h"><div class="cost-head"><h3 id="p-cost-h" class="eyebrow">' + (K.done ? 'Cost' : 'Cost · rough') + '</h3>' +
-      (K.done ? '' : '<button type="button" class="btn small quiet" data-act="shop" aria-expanded="' + !!app.ui.shop + '" aria-controls="shop">' + ico('u-list') + 'Shopping list</button>') + '</div>' +
+    if (!K.open) return '';
+    var h = '<section class="cost" id="p-cost" aria-labelledby="p-cost-h"><div class="cost-head"><h3 id="p-cost-h" class="eyebrow">' + (K.done ? 'Cost' : 'Cost · rough') + '</h3></div>' +
       '<div class="cost-body" id="p-cost-body" aria-busy="' + !costReady(K) + '">' + costBody(K) + '</div>';
     K.drawnCp = !!K.cp || K.done;   // patchCost leaves a body that already has its average alone
-    if (app.ui.shop && !K.done) h += shopPanel(shopData(K));
+    h += K.done ? '<div class="shop-foot"><button type="button" class="btn small quiet" data-act="shop-close">Close</button></div>' : shopPanel(shopData(K));
     return h + '</section>';
   }
   /* The spent line and, on a step with choices, what each one still costs. */
@@ -1378,7 +1383,7 @@
     app.ui.nowKey2 = c.id + '|' + stage + '|' + n;
     var K = costState(c, design, steps, stage);
     var meta = now.kind === 'done' ? 'All done' : stage === 1 ? 'Start with step 1: choose your starting item' : stage === 2 ? 'Step 2: fill in what’s on your item' : 'Step ' + n + ' · about ' + plural(left, 'step') + ' to go';
-    var h = '<div class="steps-head"><div><h2>Steps</h2><p class="meta">' + meta + '</p></div><div class="steps-tools">' + copyBtn('small') +
+    var h = '<div class="steps-head"><div><h2>Steps</h2><p class="meta">' + meta + '</p></div><div class="steps-tools">' + costBtn(K) + copyBtn('small') +
       // On narrow screens the steps come first: a jump to the item card (step 2 has its own until the craft starts)
       (outs ? '<button type="button" class="btn small quiet to-item" data-act="to-item">Your item' + ico('u-chev') + '</button>' : '') +
       (c.hist.length ? '<button type="button" class="btn small" data-act="undo" title="Undo: ' + esc(undoLabel(c)) + '">' + ico('u-undo') + 'Undo</button>' : '') +
@@ -1956,7 +1961,7 @@
     var cat = catOf(c), b = cat.base, design = designOf(c);
     var skip = (c.st && c.st.skip) || {};
     var L = [];
-    L.push('Path of Exile 2 crafting, patch 0.5.5. This is a craft I’m working on, copied from the crafting planner app I use (PoE2 Crafting Playbook). Prices are from the ' + (app.league === 'roa' ? 'Runes of Aldur' : 'Forbidden Rites') + ' league, in divines (div) and exalts (ex).');
+    L.push('Path of Exile 2 crafting, patch 0.5.5. This is a craft I’m working on, copied from the crafting planner app I use (PoE2 Crafting Playbook {{APP_VERSION}}). Prices are from the ' + (app.league === 'roa' ? 'Runes of Aldur' : 'Forbidden Rites') + ' league, in divines (div) and exalts (ex).');
     L.push('How to read it: T1 is a mod’s best tier. Crafted mods come from an essence or an alloy, one per item (two with the rune Astrid’s Creativity socketed). Desecrated mods come from a desecration at the Well of Souls, one per item. The app’s odds count every eligible tier as equally likely, so they’re rough.');
     L.push('', 'THE ITEM');
     L.push(c.base + ' (' + CLS[c.cls].n + (b.sub ? ', ' + b.sub : '') + '), item level ' + c.ilvl + '.');
@@ -2264,6 +2269,21 @@
     refreshBadges();
   }
 
+  /* ---------- a line of Path of Exile 2 story above the Forge, a different one each visit ---------- */
+  var LORE_KEY = 'poe2-crafting-playbook-lore';
+  var LORE = [
+    'LORE_PLACEHOLDER'
+  ];
+  function showLore() {
+    var el = $('p-lore');
+    if (!el || !LORE.length) return;
+    var last = -1, i = Math.floor(Math.random() * LORE.length);
+    try { last = parseInt(localStorage.getItem(LORE_KEY), 10); } catch (e) { /* storage blocked: any fact will do */ }
+    if (LORE.length > 1 && i === last) i = (i + 1) % LORE.length;
+    try { localStorage.setItem(LORE_KEY, String(i)); } catch (e) { /* storage blocked */ }
+    el.textContent = LORE[i];
+  }
+
   /* ---------- boot ---------- */
   loadLocal();
   if (!app.curId || !app.crafts[app.curId]) {
@@ -2277,6 +2297,7 @@
   if (h0 === 'plan' || h0 === 'design' || h0 === 'ref' || h0 === 'reference') app.view = h0 === 'reference' ? 'ref' : h0;
   window.App = { get: function () { return app; }, league: function () { return app.league; }, toast: toast, go: go, craftText: function () { return craftText(cur()); } };
   initFind();
+  showLore();
   go(app.view, { keepScroll: true });
   renderAll();
   initDb();
