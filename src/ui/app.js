@@ -2271,8 +2271,39 @@
 
   /* ---------- a line of Path of Exile 2 story above the Forge, a different one each visit ---------- */
   var LORE_KEY = 'poe2-crafting-playbook-lore';
+  /* Basic story facts, checked against poe2wiki.net, poewiki.net and pathofexile.com (October 2026). */
   var LORE = [
-    'LORE_PLACEHOLDER'
+    "Wraeclast is the continent where both Path of Exile games are set. It’s a cursed, hostile land: few people remain alive there, and fewer still remain sane.",
+    "In the first game, the island nation of Oriath banished people it accused of crimes across the sea to Wraeclast. The heroes were those exiles, hence the name.",
+    "Path of Exile 2 is set about 20 years after the first game, whose hero ended the story by defeating Kitava, the Insatiable, a cannibal god of the Karui.",
+    "Path of Exile 2 opens in Ogham, where the cruel Count Geonor has sentenced your exile to hang. You escape by leaping into the water and wash up on a riverbank near the Clearfell Encampment.",
+    "The trouble starts when Count Geonor ambushes a mysterious hooded figure and takes a metal sphere. It opens, releasing the Seed of Corruption, which your exile chases across Wraeclast.",
+    "The Vaal were an ancient, advanced civilisation that mastered corruption, until their own ambition destroyed them. Path of Exile 2’s third act takes you through their jungle ruins.",
+    "Queen Atziri ruled the Vaal. Her obsessive pursuit of eternal youth is blamed for the cataclysm that ended the Vaal civilisation overnight and cost millions of lives.",
+    "After the Vaal fell, Azmeri migrants came down from the mountains and founded the Eternal Empire, building its capital, Sarn, on the bones of a Vaal city.",
+    "The Eternal Empire was wiped out by the Cataclysm, a disaster linked to the thaumaturgist Malachai, before the first exiles ever reached Wraeclast’s corrupted shores.",
+    "Why is Wraeclast so grim? Its very soil is steeped in dark, ancient power: the wildlife grows twisted and savage, and the dead are refused peace, rising to wander in hunger.",
+    "You’ll meet many peoples: the Ezomyte clans of Ogham, the Maraketh of the Vastiri desert, the Karui of their island homeland, and Kalguuran settlers in the port town of Kingsmarch.",
+    "Act 1 takes place in Ogham, a region of Wraeclast ruled by the cruel Count Geonor, who sentenced to death anyone who dared to question him.",
+    "Clearfell, Act 1’s town, is a walled camp of survivors fleeing Count Geonor’s cruelty and the monsters in the woods. Renly the blacksmith and Una the mystic live there.",
+    "Una fled to Clearfell after Count Geonor’s soldiers arrested her father for bringing in the harvest one day late.",
+    "In Act 1 you free the Hooded One, left bound to the Tree of Souls in the Grelwood. Once he recovers, he follows you from town to town, identifying items for free and refunding passive points.",
+    "Count Geonor is the “Mad Wolf of Ogham”: an ancient corrupting power has driven him mad, and he can turn into a wolf. You face him in his manor at the end of Act 1.",
+    "Act 2 follows the Beast’s trail east into the Vastiri desert, where you travel with the Ardura Caravan of the Maraketh, a desert people, led by Sekhema Asala.",
+    "The Faridun are outcasts of the Maraketh who still long to rejoin them. Countess Oriana won them over by promising to bring their long-dead leader Jamanra back to life.",
+    "The Faridun built the Dreadnought, a huge war caravan that carries the Beast across the desert hunting corpses with divine power. Being so near the Beast has corrupted most of their army.",
+    "Jamanra was a Faridun leader who long ago tried to unite the Faridun tribes and bring them back to the Maraketh. Raised by corruption, he is the final boss of Act 2.",
+    "In Act 2 a huge sandstorm blocks the caravan’s way across the desert. You clear it by sounding the Horn of the Vastiri from the front of the caravan.",
+    "Act 3 takes you into wild jungles that have swallowed the ruins of the ancient Vaal civilisation. Your base there is the Ziggurat Encampment, on top of a half-sunken ziggurat.",
+    "In Act 3 you drain the waterways to reveal the drowned Vaal city of Utzaal, then step through a time portal to see the city as it was long ago.",
+    "Doryani was Royal Thaumaturge to the Vaal queen Atziri, leading research into corruption, immortality and even time. Act 3 sends you back in time to find him.",
+    "In Act 4 you sail from Kingsmarch to Ngamakanui, the Karui islands, to find the scattered pieces of an ancient weapon that could stand against the Beast.",
+    "Act 4 is non-linear: you can sail to its islands in any order, from the serene sands of Whakapanu Island to the smouldering hellscape of the Isle of Kin.",
+    "After Act 4, three Interludes have you and the Hooded One rally allies (the Ezomytes, the Maraketh and Vaal survivors) for an attack on Oriath against the Twilight Order.",
+    "The endgame is set after a devastating cataclysm has left Wraeclast in ruin, consumed by creeping corruption. From the Ziggurat Refuge, where Doryani opens the Map Device, you set out to fight it.",
+    "Since patch 0.5, a huge Precursor Fortress rises on the Atlas, woken by an ancient protocol meant to counter the Beast. Inside, you track down the keys to its weapons and disarm them.",
+    "Ascendancy classes are earned in two trials: the Maraketh desert’s Trial of the Sekhemas, ending with Zarokh, the Temporal, and the Trial of Chaos, whose final foe is the Trialmaster.",
+    "Since patch 0.5, the endgame’s Ritual story has the spirit Aoife ask for help: the King in the Mists holds her body, binding her to the Wildwood, so freeing her means facing him."
   ];
   function showLore() {
     var el = $('p-lore');
