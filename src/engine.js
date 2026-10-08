@@ -1284,11 +1284,15 @@
       return C;
     }
     /* A chain that grew past half the limit over a session (every item edit adds states) starts again before it
-       explores states it hasn't seen, so new states aren't cut short. */
-    function fitChain(C, design, states) {
-      if (C.nodes.length <= COST_MAXN / 2 || states.every(function (s) { return C.index.has(skey(canon(s))); })) return C;
+       explores states it hasn't seen, so new states aren't cut short. It starts again once per item state (its anchor):
+       the average and the choices for the same item then share one chain instead of throwing each other's away. */
+    function fitChain(C, design, st, states) {
+      var anchor = skey(canon(st));
+      if (C.nodes.length <= COST_MAXN / 2 || C.anchor === anchor || states.every(function (s) { return C.index.has(skey(canon(s))); })) return C;
       chains.delete(dsig(design));
-      return chainFor(design, false);
+      C = chainFor(design, false);
+      C.anchor = anchor;
+      return C;
     }
     /* A node's value with restarts folded in: here + r · fresh / (1 − r(fresh)). */
     function valuer(C) {
@@ -1306,7 +1310,9 @@
           if (!fresh) return k === 0 || k === 2 ? Infinity : v;
           return v + r * fresh[k];
         },
-        stuck: function (id) { var r = S.V[1][id]; return S.V[5][id] > 1e-9 || (!fresh && r > 1e-9); }
+        stuck: function (id) { var r = S.V[1][id]; return S.V[5][id] > 1e-9 || (!fresh && r > 1e-9); },
+        // why a state is stuck: a loop the steps never leave (here, or after a restart), not just too many restarts
+        loop: function (id) { var r = S.V[1][id]; return S.V[5][id] > 1e-9 || (r > 1e-9 && S.V[5][f0] > 1e-9); }
       };
     }
     /* These states are already explored and solved: answering takes no exploring and no solve. */
@@ -1349,7 +1355,7 @@
         var path = [st], s = st;
         steps.forEach(function (x) { if (x.project && x.project.type !== 'restart') { s = apply(s, x.project); path.push(s); } });
         if (opts.quick && !ready(C, path)) return null;
-        if (!opts.quick) C = fitChain(C, design, path);
+        if (!opts.quick) C = fitChain(C, design, st, path);
         if (!prepare(C, path, opts)) return null;
         var val = valuer(C);
         var id0 = C.node(st);
@@ -1430,7 +1436,7 @@
         var states = [];
         branches.forEach(function (b) { b.forEach(function (y) { if (y[1] !== 'restart') states.push(y[1]); }); });
         if (opts.quick && !ready(C, states)) return null;
-        if (!opts.quick) C = fitChain(C, design, states);
+        if (!opts.quick) C = fitChain(C, design, st, states);
         if (!prepare(C, states, opts)) return null;
         var astrid = null;
         if (list.some(function (x) { return x.kind === 'astrid'; })) {
@@ -1440,25 +1446,41 @@
         var val = valuer(C);
         var out = list.map(function (x, i) {
           var nowp = x.kind === 'astrid' ? C.priced([{ k: 'Astrid\'s Creativity' }]) : x.op && x.op.mats.length ? C.priced(x.op.mats) : { sum: 0, known: true };
-          var r = { key: x.key, label: x.label, kind: x.kind, now: nowp.sum, known: nowp.known, keeps: x.kind !== 'skip' };
+          // lose: the chance it ends without a target that isn't skipped yet (the likeliest one, named in loseName)
+          var r = { key: x.key, label: x.label, kind: x.kind, now: nowp.sum, known: nowp.known, keeps: x.kind !== 'skip', loop: false, lose: 0, loseName: null };
+          var live = C.tfam.map(function (f, j) { return st.skip && st.skip[f] ? -1 : j; }).filter(function (j) { return j >= 0; });
+          var lose = live.map(function () { return 0; });
+          function worst() {
+            lose.forEach(function (p, q) { if (p > r.lose) { r.lose = p; r.loseName = famName(C.tfam[live[q]]); } });
+          }
           if (x.kind === 'restart') {
             r.finish = val.fresh ? val.fresh[0] : Infinity; r.bases = val.fresh ? val.fresh[2] : Infinity; r.stop = val.fresh ? val.fresh[4] : 0;
+            r.loop = !val.fresh && val.loop(C.node(FRESH));
+            if (val.fresh) { lose = live.map(function (j) { return val.fresh[6 + j]; }); worst(); }
             return r;
           }
-          if (x.kind === 'astrid') { var a = astrid.avg; r.finish = a ? a.div : Infinity; r.bases = a ? a.bases : Infinity; r.stop = a ? a.stop : 0; return r; }
+          if (x.kind === 'astrid') {
+            var a = astrid.avg;
+            r.finish = a ? a.div : Infinity; r.bases = a ? a.bases : Infinity; r.stop = a ? a.stop : 0; r.loop = !!astrid.loop;
+            if (a) a.skipped.forEach(function (y) { if (!(st.skip && st.skip[y.f]) && y.p > r.lose) { r.lose = y.p; r.loseName = y.name; } });
+            return r;
+          }
           var fin = nowp.sum, b = 0, stop = 0;
           branches[i].forEach(function (y) {
             var p = y[0];
             if (y[1] === 'restart') {
-              if (!val.fresh) { fin = Infinity; b = Infinity; return; }
+              if (!val.fresh) { fin = Infinity; b = Infinity; r.loop = r.loop || val.loop(C.node(FRESH)); return; }
               fin += p * val.fresh[0]; b += p * val.fresh[2]; stop += p * val.fresh[4];
+              live.forEach(function (j, q) { lose[q] += p * val.fresh[6 + j]; });
               return;
             }
             var id = C.node(y[1]);
-            if (val.stuck(id)) { fin = Infinity; b = Infinity; return; }   // can end in a loop, or restarts that never finish
+            if (val.stuck(id)) { fin = Infinity; b = Infinity; r.loop = r.loop || val.loop(id); return; }   // a loop, or restarts that never finish
             fin += p * val.col(id, 0); b += p * val.col(id, 2); stop += p * val.col(id, 4);
+            live.forEach(function (j, q) { lose[q] += p * val.col(id, 6 + j); });
           });
           r.finish = isFinite(fin) ? fin : Infinity; r.bases = isFinite(b) ? b : Infinity; r.stop = stop;
+          worst();
           return r;
         });
         C.memo.set(ck, out);

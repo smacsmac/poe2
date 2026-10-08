@@ -134,7 +134,8 @@ async function addTarget(page, side, i, query, famText) {
     assert.match(costText, /~[\d,.]+ (div|ex) on average, following the steps/);
     assert.match(costText, /Spent so far: about [\d.]+ (div|ex), plus the item you started with\./);
     for (const t of await page.locator('.opt .ofin').allInnerTexts()) assert.match(t, /to finish|until it stops again|Very high/);
-    assert.match(await page.locator('.opt[data-k="restart"] .otry').innerText(), /^\+ (a magic base|about \d+ magic bases)$/);
+    // a new base usually ends without Maximum Mana, and says so next to its lower figure
+    assert.match(await page.locator('.opt[data-k="restart"] .otry').innerText(), /^\+ (a magic base|about \d+ magic bases) · (\d+ in 10|nearly always) without Maximum Mana$/);
     assert.match(await page.locator('.card .spent').innerText(), /That’s gone whichever you choose, so compare what each choice still costs\.$/);
     // The shopping list: the items for the steps, what a miss calls for, a copy
     await page.click('#p-cost [data-act="shop"]');

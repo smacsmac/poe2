@@ -654,3 +654,42 @@ test('spend: an entry without a title isn’t priced (and doesn’t throw)', () 
   const { design } = glovesDesign();
   assert.equal(E.deriveSpend(design, { o: 'Done', st: fresh(), ps: fresh() }), null);
 });
+
+test('cost: a new base that usually drops a target says so, and the loop is named on the choices', () => {
+  const { cat, design } = glovesDesign();
+  const st = { rarity: 'rare', mods: [mod(cat, 0, '+# to maximum Life', 'T1'), mod(cat, 0, '+# to maximum Mana', 'T1'), mod(cat, 0, '#% increased Runic Ward', 'Alloy', { crafted: true }), junk(1)], done: {}, skip: {} };
+  const by = Object.fromEntries(E.choiceCosts(design, st, E.nextStep(design, st)).map((c) => [c.key, c]));
+  assert.ok(by.restart.lose > 0.5 && by.restart.loseName === 'Maximum Mana', 'a fresh base usually ends without Maximum Mana');
+  assert.ok(by.annul.lose < 0.05, 'fixing this item keeps every target');
+  const d = Object.assign({}, design, { runeforge: false, targets: [[design.targets[0][0], design.targets[0][1]], [tgt(cat, 1, '+#% to Cold Resistance', 'T2')]] });
+  const st2 = { rarity: 'rare', mods: [mod(cat, 0, '+# to maximum Life', 'T1'), mod(cat, 0, '+# to maximum Mana', 'T2'), mod(cat, 1, '+#% to Cold Resistance', 'T6', { fract: true }), Object.assign(junk(1), { desec: true })], done: {}, skip: {} };
+  const cc = E.choiceCosts(d, st2, E.nextStep(d, st2));
+  assert.ok(cc.find((c) => c.key === 'light').loop, 'Omen of Light leads back into the loop');
+  assert.ok(!cc.find((c) => c.key === 'restart').loop);
+});
+
+test('cost: a chain past half its limit answers the average and the choices for one item from cache, render after render', () => {
+  // A review case: Warlord Cuirass, mid-craft at "Make room on the prefix side", with a chain of over 200 states.
+  // Before the fix, the average and the choices each started the chain again and threw the other's work away.
+  const byId = (k) => { const mi = DATA.ids.indexOf(k); assert.ok(mi >= 0, k); return { f: E.MODS[mi].f, mi, lv: E.MODS[mi].l }; };
+  const [ar, arb, th, regen, cold, attr] = ['LocalIncreasedPhysicalDamageReductionRatingPercent8_', 'LocalIncreasedArmourAndBase5', 'AttackerTakesDamage7',
+    'LifeRegeneration9', 'ColdResist7', 'ReducedLocalAttributeRequirements3'].map(byId);
+  const d = { cls: 'body', base: 'Warlord Cuirass', ilvl: 82, league: 'fr', targets: [[ar, arb, th], [regen, cold, attr]] };
+  const st = { rarity: 'rare', mods: [{ id: 'a', s: 0, mi: ar.mi, mark: 'auto' }, junk(0), junk(0), { id: 'c', s: 1, mi: cold.mi, mark: 'auto' }, { id: 'r', s: 1, mi: attr.mi, mark: 'auto' }, junk(1)], done: {}, skip: {} };
+  E.costReset();
+  const steps = E.plan(d, st);
+  assert.equal(steps[0].kind, 'remove');
+  const render = () => {
+    let cp = E.costPlan(d, st, { steps, quick: true }), cc = E.choiceCosts(d, st, steps[0], { quick: true });
+    const quick = !!cp && !!cc;
+    for (let i = 0; i < 500 && !(cp && cc); i++) {
+      if (!cp) cp = E.costPlan(d, st, { steps, budget: 12 });
+      if (cp && !cc) cc = E.choiceCosts(d, st, steps[0], { budget: 12 });
+    }
+    return { quick, states: cp.states };
+  };
+  const first = render();
+  assert.ok(first.states > 200, 'the chain holds ' + first.states + ' states');
+  render();
+  for (let r = 0; r < 3; r++) assert.ok(render().quick, 'render ' + (r + 3) + ' comes from cache');
+});

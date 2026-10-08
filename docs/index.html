@@ -2499,11 +2499,15 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
       return C;
     }
     /* A chain that grew past half the limit over a session (every item edit adds states) starts again before it
-       explores states it hasn't seen, so new states aren't cut short. */
-    function fitChain(C, design, states) {
-      if (C.nodes.length <= COST_MAXN / 2 || states.every(function (s) { return C.index.has(skey(canon(s))); })) return C;
+       explores states it hasn't seen, so new states aren't cut short. It starts again once per item state (its anchor):
+       the average and the choices for the same item then share one chain instead of throwing each other's away. */
+    function fitChain(C, design, st, states) {
+      var anchor = skey(canon(st));
+      if (C.nodes.length <= COST_MAXN / 2 || C.anchor === anchor || states.every(function (s) { return C.index.has(skey(canon(s))); })) return C;
       chains.delete(dsig(design));
-      return chainFor(design, false);
+      C = chainFor(design, false);
+      C.anchor = anchor;
+      return C;
     }
     /* A node's value with restarts folded in: here + r · fresh / (1 − r(fresh)). */
     function valuer(C) {
@@ -2521,7 +2525,9 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
           if (!fresh) return k === 0 || k === 2 ? Infinity : v;
           return v + r * fresh[k];
         },
-        stuck: function (id) { var r = S.V[1][id]; return S.V[5][id] > 1e-9 || (!fresh && r > 1e-9); }
+        stuck: function (id) { var r = S.V[1][id]; return S.V[5][id] > 1e-9 || (!fresh && r > 1e-9); },
+        // why a state is stuck: a loop the steps never leave (here, or after a restart), not just too many restarts
+        loop: function (id) { var r = S.V[1][id]; return S.V[5][id] > 1e-9 || (r > 1e-9 && S.V[5][f0] > 1e-9); }
       };
     }
     /* These states are already explored and solved: answering takes no exploring and no solve. */
@@ -2564,7 +2570,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
         var path = [st], s = st;
         steps.forEach(function (x) { if (x.project && x.project.type !== 'restart') { s = apply(s, x.project); path.push(s); } });
         if (opts.quick && !ready(C, path)) return null;
-        if (!opts.quick) C = fitChain(C, design, path);
+        if (!opts.quick) C = fitChain(C, design, st, path);
         if (!prepare(C, path, opts)) return null;
         var val = valuer(C);
         var id0 = C.node(st);
@@ -2645,7 +2651,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
         var states = [];
         branches.forEach(function (b) { b.forEach(function (y) { if (y[1] !== 'restart') states.push(y[1]); }); });
         if (opts.quick && !ready(C, states)) return null;
-        if (!opts.quick) C = fitChain(C, design, states);
+        if (!opts.quick) C = fitChain(C, design, st, states);
         if (!prepare(C, states, opts)) return null;
         var astrid = null;
         if (list.some(function (x) { return x.kind === 'astrid'; })) {
@@ -2655,25 +2661,41 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
         var val = valuer(C);
         var out = list.map(function (x, i) {
           var nowp = x.kind === 'astrid' ? C.priced([{ k: 'Astrid\'s Creativity' }]) : x.op && x.op.mats.length ? C.priced(x.op.mats) : { sum: 0, known: true };
-          var r = { key: x.key, label: x.label, kind: x.kind, now: nowp.sum, known: nowp.known, keeps: x.kind !== 'skip' };
+          // lose: the chance it ends without a target that isn't skipped yet (the likeliest one, named in loseName)
+          var r = { key: x.key, label: x.label, kind: x.kind, now: nowp.sum, known: nowp.known, keeps: x.kind !== 'skip', loop: false, lose: 0, loseName: null };
+          var live = C.tfam.map(function (f, j) { return st.skip && st.skip[f] ? -1 : j; }).filter(function (j) { return j >= 0; });
+          var lose = live.map(function () { return 0; });
+          function worst() {
+            lose.forEach(function (p, q) { if (p > r.lose) { r.lose = p; r.loseName = famName(C.tfam[live[q]]); } });
+          }
           if (x.kind === 'restart') {
             r.finish = val.fresh ? val.fresh[0] : Infinity; r.bases = val.fresh ? val.fresh[2] : Infinity; r.stop = val.fresh ? val.fresh[4] : 0;
+            r.loop = !val.fresh && val.loop(C.node(FRESH));
+            if (val.fresh) { lose = live.map(function (j) { return val.fresh[6 + j]; }); worst(); }
             return r;
           }
-          if (x.kind === 'astrid') { var a = astrid.avg; r.finish = a ? a.div : Infinity; r.bases = a ? a.bases : Infinity; r.stop = a ? a.stop : 0; return r; }
+          if (x.kind === 'astrid') {
+            var a = astrid.avg;
+            r.finish = a ? a.div : Infinity; r.bases = a ? a.bases : Infinity; r.stop = a ? a.stop : 0; r.loop = !!astrid.loop;
+            if (a) a.skipped.forEach(function (y) { if (!(st.skip && st.skip[y.f]) && y.p > r.lose) { r.lose = y.p; r.loseName = y.name; } });
+            return r;
+          }
           var fin = nowp.sum, b = 0, stop = 0;
           branches[i].forEach(function (y) {
             var p = y[0];
             if (y[1] === 'restart') {
-              if (!val.fresh) { fin = Infinity; b = Infinity; return; }
+              if (!val.fresh) { fin = Infinity; b = Infinity; r.loop = r.loop || val.loop(C.node(FRESH)); return; }
               fin += p * val.fresh[0]; b += p * val.fresh[2]; stop += p * val.fresh[4];
+              live.forEach(function (j, q) { lose[q] += p * val.fresh[6 + j]; });
               return;
             }
             var id = C.node(y[1]);
-            if (val.stuck(id)) { fin = Infinity; b = Infinity; return; }   // can end in a loop, or restarts that never finish
+            if (val.stuck(id)) { fin = Infinity; b = Infinity; r.loop = r.loop || val.loop(id); return; }   // a loop, or restarts that never finish
             fin += p * val.col(id, 0); b += p * val.col(id, 2); stop += p * val.col(id, 4);
+            live.forEach(function (j, q) { lose[q] += p * val.col(id, 6 + j); });
           });
           r.finish = isFinite(fin) ? fin : Infinity; r.bases = isFinite(b) ? b : Infinity; r.stop = stop;
+          worst();
           return r;
         });
         C.memo.set(ck, out);
@@ -3862,15 +3884,18 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
   }
   function spentCore(sp) {
     var b = sp.bases ? (sp.bases === 1 ? '1 magic base' : sp.bases + ' magic bases') : '';
-    var d = sp.div > 0 ? 'about ' + fmt(sp.div) : '';
-    return d && b ? d + ' and ' + b : d || b || 'nothing yet';
+    var d = sp.div > 1e-9 ? aboutTxt(sp.div) : '';
+    return d && b ? d + ' and ' + b : d || b || (sp.known ? 'nothing yet' : 'nothing we could price');
   }
+  /* A total that may hold unknown prices: "not priced" when nothing in it has a price. */
+  function sumTxt(v, known) { return v <= 1e-9 && !known ? 'not priced' : aboutTxt(v); }
   function spentLine(sp) { return 'Spent so far: ' + spentCore(sp) + spentTail(sp); }
   function inTenEnd(p, first) {
     var n = Math.round(p * 10);
     if (first) return n >= 10 ? 'nearly every craft ends' : 'about ' + Math.max(1, n) + ' in 10 crafts end';
     return n >= 10 ? 'nearly every one' : Math.max(1, n) + ' in 10';
   }
+  function inTenWithout(p) { var n = Math.round(p * 10); return (n >= 10 ? 'nearly always' : Math.max(1, n) + ' in 10') + ' without'; }
   function missText(m) {
     if (!m) return '';
     if (m.type === 'fix') return 'each one is fixed with ' + m.label + ' (' + fmt(m.each) + ' a try).';
@@ -3880,7 +3905,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
   }
   /* The step whose misses add the most on the way to the end, and what a miss there leads to. */
   function riskText(risk, n0) {
-    return 'The dearest misses are at step ' + (n0 + risk.i) + ', ' + risk.title + ' (' + E.oddsLabel(risk.p) + '): they add ' + aboutTxt(risk.extra) + ' on average, and ' + missText(risk.miss);
+    return 'The dearest misses are at step ' + (n0 + risk.i) + ', ' + risk.title + ' (' + E.oddsLabel(risk.p) + '): when you get there, they add ' + aboutTxt(risk.extra) + ' on average, and ' + missText(risk.miss);
   }
   /* The average is worth a line of its own when misses make it dearer than every roll landing. */
   function avgShown(happy, cp) {
@@ -3896,17 +3921,18 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
   function costBody(K) {
     var h = '', happy = K.happy, cp = K.cp, sp = K.spent;
     if (K.done) {
-      var cost = sp.div > 0 || sp.bases ? spentCore(sp) : 'nothing we could price';
+      var cost = sp.div > 1e-9 || sp.bases ? spentCore(sp) : sp.known ? 'nothing' : 'nothing we could price';
       return '<p class="cost-line">' + (sp.steps ? 'This craft cost <b>' + esc(cost) + '</b>' + esc(spentTail(sp)) + '.' : 'No steps recorded here, so nothing to add up.') + '</p>';
     }
     if (happy.stopsAt === 0) {
-      // this step is the call: the choices on it carry the figures
-      h += '<p class="cost-line">This step is your call: each choice below says what it still costs to finish.</p>';
+      // the plan's next step is the call: the choices on it carry the figures
+      h += '<p class="cost-line">' + (K.choices ? 'This step is your call: each choice below says what it still costs to finish.'
+        : 'Step ' + K.n0 + ' is your call: once it’s the current step, each choice on it says what it still costs to finish.') + '</p>';
       if (sp.steps) h += '<p class="cost-spent">' + esc(spentLine(sp)) + '.</p>';
       return h;
     }
     if (!happy.restart) {
-      h += '<p class="cost-line"><b>' + esc(happy.div > 1e-9 ? est(happy.div) : 'Nothing to buy') + '</b> if every roll lands' + (happy.base ? ', plus the magic base' : '') +
+      h += '<p class="cost-line"><b>' + esc(happy.div > 1e-9 ? est(happy.div) : happy.known ? 'Nothing to buy' : 'Not priced') + '</b> if every roll lands' + (happy.base ? ', plus the magic base' : '') +
         (happy.stopsAt !== null ? ', up to step ' + (K.n0 + happy.stopsAt) + ', where the plan needs your call' : '') + (happy.known ? '' : ' (some prices unknown)') + '</p>';
     }
     var more = false;
@@ -3946,25 +3972,34 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
       fin = '… to finish';
       sub = ch.kind === 'restart' ? '+ a magic base' : ch.kind === 'skip' ? 'free' : ch.kind === 'astrid' ? 'the rune: ' + fmt(E.price('Astrid\'s Creativity', app.league))
         : fmt(E.matsCost(ch.op.mats.filter(function (m) { return !m.opt; }), app.league).sum) + ' a try';
-    } else if (!isFinite(x.finish)) { fin = '<b>Very high</b>'; sub = '200+ magic bases'; }
+    } else if (!isFinite(x.finish)) { fin = x.loop ? '<b>Can’t finish</b>' : '<b>Very high</b>'; sub = x.loop ? 'the steps loop from there' : '200+ magic bases'; }
     else {
       fin = '<b>' + esc(avgTxt(x.finish)) + '</b> ' + (x.stop >= 0.5 ? 'until it stops again' : 'to finish');
       sub = x.kind === 'restart' ? '+ ' + basesTxt(x.bases) : x.kind === 'astrid' ? 'the rune: ' + fmt(x.now)
         : x.now > 0 ? fmt(x.now) + ' a try' + (x.known ? '' : ' (some prices unknown)') : 'free';
+      // a cheaper figure that often drops a target says so
+      if (x.kind !== 'skip' && x.lose >= 0.2 && x.loseName) sub += ' · ' + inTenWithout(x.lose) + ' ' + x.loseName;
     }
     return '<span class="ofin">' + fin + '</span><span class="otry">' + esc(sub) + '</span>';
   }
   /* At most one line under the choices: a cheaper way to keep every target than the suggested one, or what keeping
      the target costs over skipping it. */
+  /* Choices that end with every target (rarely without one: a new base often ends up skipping one), finite, no stop. */
+  function keepAll(cc) {
+    return cc.filter(function (x) { return x.keeps && (x.lose || 0) < 0.05 && isFinite(x.finish) && x.stop < 0.5; }).sort(function (a, b) { return a.finish - b.finish; });
+  }
   function cheaperThanSuggested(cc, rec) {
     if (!cc) return null;
-    var keep = cc.filter(function (x) { return x.keeps && isFinite(x.finish) && x.stop < 0.5; }).sort(function (a, b) { return a.finish - b.finish; });
+    var keep = keepAll(cc);
     var sug = rec ? cc.find(function (x) { return x.key === rec; }) : null;
-    return sug && sug.keeps && keep[0] && keep[0] !== sug && keep[0].finish < 0.95 * sug.finish ? { best: keep[0], sug: sug } : null;
+    if (!sug || keep.indexOf(sug) < 0 || !keep[0] || keep[0] === sug) return null;
+    // a choice that needs more magic bases (never priced) has to be clearly cheaper
+    var margin = keep[0].bases > sug.bases + 0.5 ? 0.8 : 0.95;
+    return keep[0].finish < margin * sug.finish ? { best: keep[0], sug: sug } : null;
   }
   function costHint(cc, rec) {
     if (!cc) return '';
-    var keep = cc.filter(function (x) { return x.keeps && isFinite(x.finish) && x.stop < 0.5; }).sort(function (a, b) { return a.finish - b.finish; });
+    var keep = keepAll(cc);
     var ch = cheaperThanSuggested(cc, rec);
     if (ch) {
       return esc(ch.best.label) + ' averages less from here: ' + esc(avgTxt(ch.best.finish)) + ' to finish, against ' + esc(avgTxt(ch.sug.finish)) + ' for the suggested choice.';
@@ -4045,8 +4080,11 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
   function shopTotal(D) {
     var cp = D.K.cp;
     if (D.happy.stopsAt === 0) return 'The next step is your call: each choice on it says what it still costs to finish.';
-    return 'About <b>' + esc(est(D.happy.div)) + '</b> if every roll lands' + (D.sl.base ? ', plus the base' : '') + (D.happy.stopsAt !== null ? ', up to your call' : '') +
-      (!cp ? ' · working out the average with misses…' : cp.capped ? ' · very high on average (' + cappedText(cp) + ').' : avgShown(D.K.happy, cp) ? ' · <b>' + esc(avgTxt(cp.avg.div)) + '</b> on average with misses.' : '.');
+    var sum = sumTxt(D.happy.div, D.happy.known);
+    return (sum === 'not priced' ? 'Not priced' : 'About <b>' + esc(est(D.happy.div)) + '</b>') + ' if every roll lands' + (D.sl.base ? ', plus the base' : '') + (D.happy.stopsAt !== null ? ', up to your call' : '') +
+      (D.happy.known ? '' : ' (some prices unknown)') +
+      (!cp ? ' · working out the average with misses…' : cp.capped ? ' · very high on average (' + cappedText(cp) + ').'
+        : avgShown(D.K.happy, cp) ? ' · <b>' + esc(avgTxt(cp.avg.div)) + '</b> on average with misses' + (cp.avg.bases >= 1.5 ? ', and ' + basesTxt(cp.avg.bases) : '') + (cp.avg.unknown ? ' (some prices unknown)' : '') + '.' : '.');
   }
   function shopRowName(r) { return r.n + (r.approx ? ' (the Anvil shows the exact amount)' : ''); }
   function shopPanel(D) {
@@ -4058,7 +4096,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
         '<p class="sm">Prefix: ' + modHTML(specOf(sl.base, 'Prefix')) + ' · Suffix: ' + modHTML(specOf(sl.base, 'Suffix')) + '. Not priced here.</p>';
     }
     if (sl.rows.length) {
-      h += '<h4>For the steps <span>about ' + esc(est(D.happy.div)) + '</span></h4><ul class="shop-list">' + sl.rows.map(function (r) {
+      h += '<h4>For the steps <span>' + esc(sumTxt(D.happy.div, D.happy.known)) + (D.happy.known ? '' : ' (some prices unknown)') + (D.happy.stopsAt !== null ? ', up to your call' : '') + '</span></h4><ul class="shop-list">' + sl.rows.map(function (r) {
         return '<li><span class="sn">' + r.q + ' × ' + esc(shopRowName(r)) + (r.chance ? '<small>Step ' + (D.n0 + r.chance.i) + ' is ' + esc(E.oddsLabel(r.chance.p)) + ' a try: bring spares</small>' : '') + '</span>' +
           '<span class="sp">' + esc(r.total === null ? 'price unknown' : fmt(r.total)) + '</span></li>';
       }).join('') + '</ul>';
@@ -4090,7 +4128,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
       L.push('- Magic ' + specOf(sl.base, 'Base') + ', item level ' + specOf(sl.base, 'Item level') + ', prefix: ' + specOf(sl.base, 'Prefix') + ', suffix: ' + specOf(sl.base, 'Suffix'));
     }
     if (sl.rows.length) {
-      L.push('', 'For the steps (' + aboutTxt(D.happy.div) + ' if every roll lands):');
+      L.push('', 'For the steps (' + sumTxt(D.happy.div, D.happy.known) + ' if every roll lands' + (D.happy.stopsAt !== null ? ', up to the step where I choose how to go on' : '') + (D.happy.known ? '' : ', some prices unknown') + '):');
       sl.rows.forEach(function (r) {
         L.push('- ' + r.q + ' × ' + shopRowName(r) + ': ' + (r.total === null ? 'price unknown' : fmt(r.total)) + (r.chance ? ' (step ' + (D.n0 + r.chance.i) + ' is ' + E.oddsLabel(r.chance.p) + ' a try: bring spares)' : ''));
       });
@@ -4105,7 +4143,10 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
     var cp = K.cp;
     if (D.happy.stopsAt === 0) L.push('', 'The next step is my call: the app prices each choice on it.');
     else if (cp.capped) L.push('', 'On average, following the steps: very high (' + cappedText(cp) + ').');
-    else if (avgShown(K.happy, cp)) L.push('', 'On average, following the steps: ' + aboutTxt(cp.avg.div) + (sl.base || D.restart ? ', plus ' + basesTxt(cp.avg.bases) : '') + '.');
+    else if (avgShown(K.happy, cp)) {
+      L.push('', 'On average, following the steps' + (D.happy.stopsAt !== null ? ' up to that choice' : '') + ': ' + aboutTxt(cp.avg.div) +
+        (sl.base || D.restart || cp.avg.bases >= 1.5 ? ', plus ' + basesTxt(cp.avg.bases) : '') + (cp.avg.unknown ? ' (some prices unknown)' : '') + '.');
+    }
     return L.join('\n');
   }
   function renderPlanSteps() {
@@ -4620,7 +4661,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
     return s.title + (bits.length ? ': ' + bits.join(' · ') : '');
   }
   function finishText(x) {
-    if (!isFinite(x.finish)) return 'very high to finish (it would take more than 200 magic bases)';
+    if (!isFinite(x.finish)) return x.loop ? 'can’t finish (after it the steps can loop)' : 'very high to finish (it would take more than 200 magic bases)';
     return aboutTxt(x.finish) + (x.stop >= 0.5 ? ' until it stops again' : ' to finish');
   }
   function stepDetail(c, step, cc) {
@@ -4633,11 +4674,12 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
       L.push('Ways to do it:');
       step.options.forEach(function (o, i) {
         var x = cc && cc[i];
+        var lost = x && x.kind !== 'skip' && x.lose >= 0.2 && x.loseName ? ' (' + inTenWithout(x.lose) + ' ' + x.loseName + ')' : '';
         var cost = !x ? (o.mats.length ? ' About ' + fmt(o.cost) + ' a try.' : ' Free.')
           : x.kind === 'fix' ? ' About ' + fmt(x.now) + ' a try; ' + finishText(x) + '.'
             : x.kind === 'skip' ? ' Free now; ' + finishText(x) + ' without ' + o.label.replace(/^Skip /, '') + '.'
               : ' Free now; ' + finishText(x) + (isFinite(x.finish) ? ' from a new base, plus ' + basesTxt(x.bases) : '') + '.';
-        L.push('- ' + o.label + (o.key === step.recommended ? ' (suggested)' : o === opt ? ' (my choice)' : '') + ': ' + dash(o.text) + cost);
+        L.push('- ' + o.label + (o.key === step.recommended ? ' (suggested)' : o === opt ? ' (my choice)' : '') + ': ' + dash(o.text) + (lost ? cost.replace(/\.$/, lost + '.') : cost));
       });
     }
     var odds = opt ? (opt.mats.length ? { p: opt.swap ? opt.pAdd : opt.p, what: opt.swap ? 'to reroll it into a target' : 'to remove junk' } : null) : step.odds;
@@ -4653,7 +4695,8 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
     if (labels.length && step.kind !== 'done') L.push('The app then asks what happened: ' + labels.join(' / '));
     if (cc && !step.options) {
       L.push('What each choice still costs: ' + cc.map(function (x) {
-        return x.label + ', ' + finishText(x) + (x.kind === 'restart' && isFinite(x.finish) ? ' plus ' + basesTxt(x.bases) : x.kind === 'astrid' ? ' (the rune: ' + fmt(x.now) + ')' : '');
+        return x.label + ', ' + finishText(x) + (x.kind === 'restart' && isFinite(x.finish) ? ' plus ' + basesTxt(x.bases) : x.kind === 'astrid' ? ' (the rune: ' + fmt(x.now) + ')' : '') +
+          (x.kind !== 'skip' && x.lose >= 0.2 && x.loseName ? ' (' + inTenWithout(x.lose) + ' ' + x.loseName + ')' : '');
       }).join('; ') + '.');
     }
     return L;
@@ -4677,21 +4720,24 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
     var L = ['', 'COST (rough: the app counts every eligible tier as equally likely; ' + LG_NAME[app.league] + ' prices from poe.ninja, ' + PRICES.date + ')'];
     var sp = spentSoFar(c), now = steps[0];
     if (sp.steps) {
-      L.push((now.kind === 'done' ? 'This craft cost me ' : 'Spent so far: ') + (sp.div > 0 || sp.bases ? spentCore(sp) : 'nothing the app could price') +
+      L.push((now.kind === 'done' ? 'This craft cost me ' : 'Spent so far: ') + (sp.div > 1e-9 || sp.bases || now.kind !== 'done' ? spentCore(sp) : sp.known ? 'nothing' : 'nothing the app could price') +
         ' (the steps I recorded in the app, at these prices; hand edits not counted)' + spentTail(sp, true) + '.');
     }
     if (now.kind === 'done') return L;
     var happy = E.planCost(design, steps), cp = E.costPlan(design, st, { steps: steps });
     if (happy.stopsAt === 0) { L.push('The next step is my call: the app prices each choice on it (below).'); return L; }
     if (!happy.restart) {
-      L.push('To finish if every roll lands: ' + aboutTxt(happy.div) + (happy.base ? ', plus a magic base' : '') +
+      L.push('To finish if every roll lands: ' + sumTxt(happy.div, happy.known) + (happy.base ? ', plus a magic base' : '') +
         (happy.stopsAt !== null ? ', up to step ' + (n0 + happy.stopsAt) + ', where the app needs my call' : '') + (happy.known ? '' : ' (some prices unknown)') + '.');
     }
     if (cp.capped) L.push('To finish on average: very high (' + cappedText(cp) + ').');
-    else if (avgShown(happy, cp)) {
-      L.push('To finish on average, following the app’s steps after each miss: ' + aboutTxt(cp.avg.div) + (happy.restart ? ' from a new base' : '') +
-        (happy.restart || cp.avg.bases >= 1.5 ? ', plus ' + basesTxt(cp.avg.bases) : '') + (cp.avg.unknown ? ' (some prices unknown)' : '') + '.' +
-        (cp.risk ? ' ' + riskText(cp.risk, n0) : ''));
+    else {
+      if (avgShown(happy, cp)) {
+        L.push('To finish on average, following the app’s steps after each miss: ' + aboutTxt(cp.avg.div) + (happy.restart ? ' from a new base' : '') +
+          (happy.stopsAt !== null ? ', up to step ' + (n0 + happy.stopsAt) + ', where the app needs my call' : '') +
+          (happy.restart || cp.avg.bases >= 1.5 ? ', plus ' + basesTxt(cp.avg.bases) : '') + (cp.avg.unknown ? ' (some prices unknown)' : '') + '.' +
+          (cp.risk ? ' ' + riskText(cp.risk, n0) : ''));
+      }
       var sk = cp.avg.skipped.filter(function (x) { return x.p >= 0.2 && !(st.skip && st.skip[x.f]); }).slice(0, 2);
       if (sk.length) {
         L.push('Following the steps, ' + inTenEnd(sk[0].p, true) + ' without ' + sk[0].name + (sk[1] ? ', and ' + inTenEnd(sk[1].p, false) + ' without ' + sk[1].name : '') +
