@@ -492,7 +492,8 @@
             how: 'A magic item holds one prefix and one suffix, so this ' + SIDE[s] + ' blocks a target. A new base is usually the cheapest fix. An Orb of Annulment removes one of the two mods at random (50%).',
             mats: [{ k: 'annul', n: 'Orb of Annulment', opt: true }],
             odds: { p: 1 / Math.max(1, A.sides[0].mods.length + A.sides[1].mods.length), what: 'for the Annulment to hit it' },
-            outcomes: [{ label: 'Start a new base', o: { type: 'restart' } }, { label: 'Annul removed it', o: { type: 'remove', id: bad.id } }, { label: 'Annul removed the other mod', edit: true }],
+            outcomes: [{ label: 'Start a new base', o: { type: 'restart' } }, { label: 'Annul removed it', o: { type: 'remove', id: bad.id }, uses: [{ k: 'annul', n: 'Orb of Annulment' }] },
+              { label: 'Annul removed the other mod', edit: true, uses: [{ k: 'annul', n: 'Orb of Annulment' }] }],
             project: { type: 'restart' }
           };
         }
@@ -897,14 +898,12 @@
         how: list(S.unfilled.map(tName)) + (S.unfilled.length > 1 ? ' still need' : ' still needs') + ' a slot, but the ' + SIDE[s] + ' slots are taken' + (junkNames.length ? ' by junk: ' + list(junkNames) + '.' : '.'),
         mats: rec.mats, odds: rec.mats.length ? { p: rec.swap ? rec.pAdd : rec.p, what: rec.swap ? 'to reroll it into a target' : 'to remove junk' } : null,
         options: options, recommended: rec.key, warn: warn,
-        note: why === 'restart' ? 'With ' + (A.hits ? 'only one' : 'none') + ' of your mods on the item, a new base costs less than any fix here' + (best0 ? ' (the cheapest averages ' + approx(best0.exp) + ')' : '') + '. Every option is still open.'
-          : why === 'settle' ? 'Every fix here averages more than 50 div' + (best0 ? ' (the cheapest: ' + approx(best0.exp) + ')' : '') + ', so skipping one target is the practical call. The other options are still listed.'
-          : 'The cheapest fix averages ' + approx(best0.exp) + '. Starting over would mean rolling the ' + A.hits + ' mods you have again, with the same chance of junk, so fixing it is usually the better bet.',
+        note: why === 'restart' ? 'With ' + (A.hits ? 'only one' : 'none') + ' of your mods on the item, a new base costs less than any fix here. Every option is still open.'
+          : why === 'settle' ? 'Every fix here is dear, so skipping one target is the practical call. The other options are still listed.'
+          : 'Starting over would mean rolling the ' + A.hits + ' mods you have again, with the same chance of junk, so fixing it is usually the better bet.',
         outcomes: rec.outcomes, project: rec.project
       };
     }
-
-    function approx(v) { return v >= 10 ? 'about ' + Math.round(v) + ' div' : v >= 1 ? 'about ' + (Math.round(v * 10) / 10) + ' div' : 'under 1 div'; }
 
     function finishStep(design, st, A, cat) {
       var done = st.done || {};
@@ -1056,11 +1055,465 @@
       return out;
     }
 
+    /* ---------- cost estimates ----------
+       "If every roll lands" is the plan's required mats, priced once (planCost). "On average" is what the steps cost
+       from an item to the end if you follow the planner's own advice after every miss, solved exactly as a Markov
+       chain over item states (costPlan):
+       - a node is an item state (mods sorted, ids renumbered); its step is nextStep(design, state)
+       - rolls (aimed augment, Regal, slam, sacrifice, the Chaos Orb after Whittling) draw from the same pool the step's
+         odds come from, every tier counting equally. A drawn tier of a wanted family at or above the target tier is
+         that target (progress, even when the step aimed at another one); anything else is junk on its side
+       - an alloy or a Perfect/corrupted essence deletes each of the side's removable mods equally often
+       - a desecration lands the target with the step's own odds (six reveals with Echoes), else desecrated junk
+       - a removal does the suggested option: Annulment removes each removable mod equally often, Omen of Light is
+         certain, Whittling removes the lowest mod and its Chaos Orb draws from the pool, Skip skips, a new base restarts
+       - a base that missed restarts; base, essence, rune and finish steps are certain
+       Each visit pays the required (not optional) mats of the step or of its suggested option. Magic bases are counted,
+       never priced. Restarts stay out of the solve: every value is a + r·X, with X the value of a fresh base. */
+    var COST_MAXN = 400;   // states per chain; past it a chain is rebuilt, or (within one query) cut and flagged
+    var ROLL_FLOOR = { aug: 44, regal: 50, slam: 35, sacrifice: 0 };
+    var FRESH = { rarity: 'none', mods: [], done: {}, skip: {} };
+    var chains = new Map();
+    function nowMs() { return typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now(); }
+    /* The cost functions price at design.league and plan with it too (byPrice reads LEAGUE). */
+    function inLeague(design, fn) {
+      var saved = LEAGUE;
+      LEAGUE = design.league === 'roa' ? 'roa' : 'fr';
+      try { return fn(); } finally { LEAGUE = saved; }
+    }
+    function mkey(m) {
+      return [m.s, m.mi === null || m.mi === undefined ? -1 : m.mi, m.pseudo ? 1 : 0, m.mark || 'auto', m.crafted ? 1 : 0, m.desec ? 1 : 0, m.fract ? 1 : 0].join('|');
+    }
+    /* Same item, same node: mods sorted by what they are, ids renumbered, analysis fields dropped. */
+    function canon(st) {
+      var mods = st.mods.map(function (m) { return { k: mkey(m), m: m }; }).sort(function (a, b) { return a.k < b.k ? -1 : a.k > b.k ? 1 : 0; }).map(function (x, i) {
+        var m = x.m, o = { id: 'k' + i, s: m.s, mi: m.mi === undefined ? null : m.mi, mark: m.mark || 'auto' };
+        if (m.pseudo) o.pseudo = m.pseudo;
+        if (m.crafted) o.crafted = true;
+        if (m.desec) o.desec = true;
+        if (m.fract) o.fract = true;
+        return o;
+      });
+      var out = { rarity: st.rarity, mods: mods, done: {}, skip: {} };
+      Object.keys(st.done || {}).forEach(function (k) { if (st.done[k]) out.done[k] = true; });
+      Object.keys(st.skip || {}).forEach(function (f) { if (st.skip[f]) out.skip[f] = true; });
+      if (st.corrupted) out.corrupted = true;
+      return out;
+    }
+    function skey(c) {
+      return c.rarity + '#' + c.mods.map(mkey).join(',') + '#' + Object.keys(c.skip).sort().join('.') + '#' + Object.keys(c.done).sort().join('.') + (c.corrupted ? '#x' : '');
+    }
+    function dsig(d) {
+      return JSON.stringify([d.base, d.ilvl, d.league === 'roa' ? 'roa' : 'fr', !!d.runeforge, !!d.astrid, d.targets.map(function (side) { return side.map(function (t) { return t ? t.mi : null; }); })]);
+    }
+    function junkOf(s, desec) { var m = { id: 'j', s: s, mi: null, pseudo: 'junk', mark: 'junk' }; if (desec) m.desec = true; return m; }
+    function suggestedOpt(step) { return step.options ? step.options.find(function (o) { return o.key === step.recommended; }) || step.options[0] : null; }
+    function required(mats) { return (mats || []).filter(function (m) { return !m.opt; }); }
+
+    /* One chain per design (and league), grown as states are asked for. */
+    function buildChain(design) {
+      var lg = design.league === 'roa' ? 'roa' : 'fr';
+      var cat = catalog(design.base, design.ilvl);
+      var tfam = [];
+      design.targets.forEach(function (side) { side.forEach(function (t) { if (t && tfam.indexOf(t.f) < 0) tfam.push(t.f); }); });
+      var C = { design: design, lg: lg, cat: cat, tfam: tfam, nodes: [], index: new Map(), queue: [], cut: false, solved: null, memo: new Map() };
+      C.node = function (st) {
+        var c = canon(st), k = skey(c);
+        var id = C.index.get(k);
+        if (id !== undefined) return id;
+        id = C.nodes.length;
+        C.index.set(k, id);
+        C.nodes.push({ st: c, out: null, cost: 0, unknown: 0, base: 0, restart: 0, end: null });
+        C.queue.push(id);
+        return id;
+      };
+      C.priced = function (mats) { return matsCost(required(mats), lg); };
+      function rolled(st, f, s, l) {
+        var t = (design.targets[s] || []).find(function (y) { return y && y.f === f && !(st.skip && st.skip[y.f]); });
+        return t && l >= t.lv ? { id: 'r', s: s, mi: t.mi, mark: 'auto' } : junkOf(s, false);
+      }
+      function openSides(st) {
+        var n = [0, 0];
+        st.mods.forEach(function (m) { n[m.s] += 1; });
+        return [0, 1].filter(function (s) { return (st.rarity === 'magic' ? Math.min(1, cat.caps[s]) : cat.caps[s]) - n[s] > 0; });
+      }
+      /* Every outcome of doing `step` (or its option `op`) from st, with its chance: [[p, state | 'restart']]. */
+      C.outcomes = function (st, step, op) {
+        var res = [];
+        function draw(from, sides, floor, type) {
+          var present = new Set();
+          from.mods.forEach(function (m) { if (m.mi !== null && m.mi !== undefined) present.add(MODS[m.mi].f); });
+          var W = weights(cat, sides, floor, present, false);
+          if (!W.total) return false;
+          var g = new Map();
+          W.per.forEach(function (tiers, f) {
+            tiers.forEach(function (t) {
+              var m = rolled(from, f, FAMS[f].s, t.l), k = mkey(m);
+              if (!g.has(k)) g.set(k, { m: m, n: 0 });
+              g.get(k).n += 1;
+            });
+          });
+          g.forEach(function (v) { res.push([v.n / W.total, apply(from, { type: type, mods: [v.m] })]); });
+          return true;
+        }
+        function uniform(list) { list.forEach(function (o) { res.push([1 / list.length, apply(st, o)]); }); }
+        if (op) {
+          if (op.key === 'restart') return [[1, 'restart']];
+          if (op.key === 'annul') { uniform(op.outcomes.filter(function (o) { return o.o; }).map(function (o) { return o.o; })); return res; }
+          if (op.key === 'annul1') { uniform(st.mods.map(function (m) { return { type: 'remove', id: m.id }; })); return res; }
+          if (op.key === 'whittle' || op.key === 'whittleE') {
+            var after = apply(st, { type: 'remove', id: op.project.type === 'craft' ? op.project.remove : op.project.id });
+            var open = openSides(after);
+            if (!draw(after, open.indexOf(1 - step.side) > -1 ? open : [step.side], 0, 'add')) res.push([1, after]);
+            return res;
+          }
+          return [[1, apply(st, op.project)]];   // Omen of Light, Skip
+        }
+        switch (step.kind) {
+          case 'fixMagic': return [[1, 'restart']];
+          case 'aug': if (step.odds && draw(st, [step.side], ROLL_FLOOR.aug, 'add')) return res; break;
+          case 'slam': case 'sacrifice': if (draw(st, [step.side], ROLL_FLOOR[step.kind], 'add')) return res; break;
+          case 'regal': if (draw(st, openSides(Object.assign({}, st, { rarity: 'rare' })), ROLL_FLOOR.regal, 'rare')) return res; break;
+          case 'craft':
+            var list = (step.outcomes || []).filter(function (o) { return o.o && o.o.type === 'craft'; }).map(function (o) { return o.o; });
+            if (list.length) { uniform(list); return res; }
+            break;
+          case 'desec':
+            var p = step.odds ? step.odds.p : 1;
+            if (p > 0) res.push([p, apply(st, step.project)]);
+            if (p < 1) res.push([1 - p, apply(st, { type: 'add', mods: [junkOf(step.side, true)] })]);
+            return res;
+          default: break;
+        }
+        return [[1, apply(st, step.project)]];
+      };
+      function expand(id) {
+        var N = C.nodes[id];
+        if (N.out) return;
+        N.out = [];
+        if (C.nodes.length > COST_MAXN) { N.end = 'cut'; C.cut = true; return; }
+        var step = nextStep(design, clone(N.st));
+        if (step.kind === 'done') { N.end = 'done'; return; }
+        var op = suggestedOpt(step);
+        if (step.kind === 'fixMagic' || (op && op.key === 'restart')) { N.restart = 1; return; }
+        if (!op && !step.project) { N.end = 'stop'; return; }   // a stop, or the rune offer that waits for your call
+        if (step.kind === 'base') N.base = 1;
+        var pr = C.priced(op ? op.mats : step.mats);
+        N.cost = pr.sum; N.unknown = pr.known ? 0 : 1;
+        var agg = new Map();
+        C.outcomes(N.st, step, op).forEach(function (x) {
+          if (x[0] <= 1e-12) return;
+          var to = C.node(x[1]);
+          agg.set(to, (agg.get(to) || 0) + x[0]);
+        });
+        agg.forEach(function (p, to) { if (!(to === id && p >= 0.999)) N.out.push([p, to]); });
+        if (!N.out.length) { N.end = 'stop'; N.cost = 0; }   // nothing it does changes the item: stuck here
+      }
+      /* Expand queued nodes until none are left (true) or the deadline passes (false). Resumable. */
+      C.pump = function (deadline) {
+        while (C.queue.length) {
+          if (deadline && nowMs() > deadline) return false;
+          expand(C.queue.pop());
+        }
+        return true;
+      };
+      /* Columns: 0 spend, 1 chance of ending in a restart, 2 magic bases, 3 visits to a step with an unknown price,
+         4 chance of ending at a stop, 5.. chance of ending with each target family skipped. One dense solve. */
+      C.solve = function () {
+        if (C.solved && C.solved.n === C.nodes.length) return C.solved;
+        var n = C.nodes.length, K = 5 + tfam.length, W = n + K;
+        var M = new Array(n);
+        for (var i = 0; i < n; i++) {
+          var N = C.nodes[i], row = new Float64Array(W);
+          row[i] = 1;
+          (N.out || []).forEach(function (x) { row[x[1]] -= x[0]; });
+          var a = N.cost;
+          if (N.end === 'cut') {
+            a = 0;
+            plan(design, N.st).forEach(function (x) { var o = suggestedOpt(x); a += C.priced(o ? o.mats : x.mats).sum; });
+          }
+          row[n] = a; row[n + 1] = N.restart; row[n + 2] = N.base; row[n + 3] = N.unknown;
+          if (N.end === 'stop') row[n + 4] = 1;
+          if (N.end) tfam.forEach(function (f, j) { if (N.st.skip[f]) row[n + 5 + j] = 1; });
+          M[i] = row;
+        }
+        for (var c = 0; c < n; c++) {
+          var piv = c;
+          for (var r = c + 1; r < n; r++) if (Math.abs(M[r][c]) > Math.abs(M[piv][c])) piv = r;
+          if (piv !== c) { var tmp = M[c]; M[c] = M[piv]; M[piv] = tmp; }
+          var d = M[c][c];
+          if (Math.abs(d) < 1e-12) continue;   // a loop with no way out: its states come out Infinity
+          var rc = M[c];
+          for (var r2 = 0; r2 < n; r2++) {
+            if (r2 === c) continue;
+            var fct = M[r2][c] / d;
+            if (!fct) continue;
+            var rr = M[r2];
+            for (var k = c; k < W; k++) rr[k] -= fct * rc[k];
+          }
+        }
+        var V = [];
+        for (var k2 = 0; k2 < K; k2++) {
+          var v = new Float64Array(n);
+          for (var i2 = 0; i2 < n; i2++) v[i2] = Math.abs(M[i2][i2]) < 1e-12 ? Infinity : M[i2][n + k2] / M[i2][i2];
+          V.push(v);
+        }
+        C.solved = { n: n, V: V };
+        C.memo.clear();
+        return C.solved;
+      };
+      return C;
+    }
+    function chainFor(design, peek) {
+      var k = dsig(design);
+      var C = chains.get(k);
+      if (C && C.nodes.length > COST_MAXN && !C.queue.length) { chains.delete(k); C = null; }   // grew too big over a session: start again
+      if (C) { chains.delete(k); chains.set(k, C); return C; }
+      if (peek) return null;
+      C = buildChain(design);
+      chains.set(k, C);
+      while (chains.size > 3) chains.delete(chains.keys().next().value);
+      return C;
+    }
+    /* A node's value with restarts folded in: here + r · fresh / (1 − r(fresh)). */
+    function valuer(C) {
+      var S = C.solve();
+      var f0 = C.index.get(skey(canon(FRESH)));
+      var r0 = S.V[1][f0];
+      var capped = !(r0 < 0.995);   // 200+ magic bases per finish: "very high"
+      var fresh = S.V.map(function (v) { return v[f0] / (1 - r0); });
+      return {
+        capped: capped, fresh: fresh, r: function (id) { return S.V[1][id]; },
+        col: function (id, k) { var r = S.V[1][id]; return S.V[k][id] + (r > 1e-12 ? r * fresh[k] : 0); }
+      };
+    }
+    /* These states are already explored and solved: answering takes no exploring and no solve. */
+    function ready(C, states) {
+      if (C.queue.length || !C.solved || C.solved.n !== C.nodes.length) return false;
+      return [FRESH].concat(states).every(function (x) { var id = C.index.get(skey(canon(x))); return id !== undefined && C.nodes[id].out; });
+    }
+    /* Get the chain ready for these states within the time budget (ms); false when it needs another slice. */
+    function prepare(C, states, opts) {
+      C.node(FRESH);
+      states.forEach(function (s) { C.node(s); });
+      return C.pump(opts.budget ? nowMs() + opts.budget : 0);
+    }
+
+    /* If every roll lands: the steps' required mats priced once (the suggested option's on a removal). */
+    function planCost(design, steps) {
+      var lg = design.league === 'roa' ? 'roa' : 'fr';
+      var div = 0, known = true, base = false, stopsAt = null;
+      steps.forEach(function (x, i) {
+        var op = suggestedOpt(x);
+        var r = matsCost(required(op ? op.mats : x.mats), lg);
+        div += r.sum; if (!r.known) known = false;
+        if (x.kind === 'base') base = true;
+        if (stopsAt === null && x.kind !== 'done' && !x.project && !x.options) stopsAt = i;
+      });
+      return { div: div, known: known, base: base, stopsAt: stopsAt, restart: !!(steps[steps.length - 1] || {}).endsHere };
+    }
+    /* What it costs to finish from st: { happy, avg, risk, capped, fresh, states, cut }, or null when `quick` can't
+       answer without exploring, or a `budget` slice ran out (call again to carry on). */
+    function costPlan(design, st, opts) {
+      opts = opts || {};
+      return inLeague(design, function () {
+        var C = chainFor(design, opts.quick);
+        if (!C) return null;
+        var k0 = skey(canon(st));
+        if (C.solved && C.solved.n === C.nodes.length && C.memo.has(k0)) return C.memo.get(k0);
+        var steps = opts.steps || plan(design, st);
+        var path = [st], s = st;
+        steps.forEach(function (x) { if (x.project && x.project.type !== 'restart') { s = apply(s, x.project); path.push(s); } });
+        if (opts.quick && !ready(C, path)) return null;
+        if (!prepare(C, path, opts)) return null;
+        var val = valuer(C);
+        var id0 = C.node(st);
+        var happy = planCost(design, steps);
+        var capped = (val.capped && val.r(id0) > 1e-9) || !isFinite(val.col(id0, 0));
+        var avg = capped ? null : {
+          div: val.col(id0, 0), bases: val.col(id0, 2), unknown: val.col(id0, 3) > 1e-9, stop: val.col(id0, 4),
+          skipped: C.tfam.map(function (f, j) { return { f: f, name: famName(f), p: val.col(id0, 5 + j) }; })
+            .filter(function (x) { return x.p >= 0.005; }).sort(function (a, b) { return b.p - a.p; })
+        };
+        /* The step that adds the most to the average beyond its own price: what its misses cost. */
+        var risk = null;
+        if (avg) {
+          var i = 0;
+          steps.forEach(function (x, si) {
+            if (!x.project || x.project.type === 'restart') return;
+            var before = C.node(path[i]), after = C.node(path[i + 1]);
+            i += 1;
+            var p = x.odds ? x.odds.p : 1;
+            if (p >= 0.995 || x.kind === 'base') return;
+            var op = suggestedOpt(x);
+            var extra = val.col(before, 0) - C.priced(op ? op.mats : x.mats).sum - val.col(after, 0);
+            if (!risk || extra > risk.extra) risk = { i: si, kind: x.kind, title: x.title, p: p, extra: extra, st: path[i - 1], step: x };
+          });
+          if (risk && risk.extra >= 5 && risk.extra >= 0.25 * avg.div) {
+            risk.share = risk.extra / avg.div;
+            risk.miss = missOf(design, risk.st, risk.step);
+            delete risk.st; delete risk.step;
+          } else risk = null;
+        }
+        var res = { happy: happy, avg: avg, risk: risk, capped: capped, fresh: val.capped ? null : { div: val.fresh[0], bases: val.fresh[2] }, states: C.nodes.length, cut: C.cut };
+        C.memo.set(k0, res);
+        return res;
+      });
+    }
+    /* What the planner does after a typical miss on a slam, augment or desecration: junk where the roll was. */
+    function missOf(design, st, step) {
+      if (['slam', 'aug', 'desec'].indexOf(step.kind) < 0 || step.side === undefined) return { type: 'route' };
+      var nx = nextStep(design, apply(st, { type: 'add', mods: [junkOf(step.side, step.kind === 'desec')] }));
+      if (nx.kind === 'fixMagic') return { type: 'restart' };
+      if (nx.kind !== 'remove') return { type: 'route' };
+      var op = suggestedOpt(nx);
+      if (op.key === 'restart') return { type: 'restart' };
+      if (op.key === 'settle') return { type: 'skip', what: op.label.replace(/^Skip /, '') };
+      var need = required(op.mats);
+      return { type: 'fix', key: op.key, label: op.label, mats: need, each: matsCost(need, design.league === 'roa' ? 'roa' : 'fr').sum };
+    }
+    /* The choices a step offers that are worth pricing side by side, or null. */
+    function choicesOf(step) {
+      if (step.options) return step.options.map(function (o) { return { key: o.key, label: o.label, op: o, kind: o.key === 'restart' ? 'restart' : o.key === 'settle' ? 'skip' : 'fix' }; });
+      if (step.kind === 'fixMagic') {
+        return [{ key: 'restart', label: 'Start a new base', kind: 'restart', op: { key: 'restart', mats: [] } },
+          { key: 'annul1', label: 'Orb of Annulment', kind: 'fix', op: { key: 'annul1', mats: [{ k: 'annul', n: 'Orb of Annulment' }] } }];
+      }
+      if ((step.kind === 'stop' || step.kind === 'rune') && !step.project && step.outcomes && step.outcomes.length > 1) {
+        return step.outcomes.filter(function (o) { return o.astrid || o.o; }).map(function (o) {
+          var kind = o.astrid ? 'astrid' : o.o.type === 'restart' ? 'restart' : 'skip';
+          return { key: kind === 'skip' ? 'skip:' + o.o.f : kind, label: o.label, out: o, kind: kind };
+        });
+      }
+      return null;
+    }
+    /* What each choice still costs to finish: [{ key, label, kind, now, known, keeps, finish, bases, stop }]. */
+    function choiceCosts(design, st, step, opts) {
+      var list = choicesOf(step);
+      if (!list) return null;
+      opts = opts || {};
+      return inLeague(design, function () {
+        var C = chainFor(design, opts.quick);
+        if (!C) return null;
+        var ck = 'c|' + skey(canon(st)) + '|' + list.map(function (x) { return x.key; }).join(',');
+        if (C.solved && C.solved.n === C.nodes.length && C.memo.has(ck)) return C.memo.get(ck);
+        var branches = list.map(function (x) {
+          if (x.kind === 'restart' || x.kind === 'astrid') return [];
+          if (x.out) return [[1, apply(st, x.out.o)]];
+          return C.outcomes(st, step, x.op);
+        });
+        var states = [];
+        branches.forEach(function (b) { b.forEach(function (y) { if (y[1] !== 'restart') states.push(y[1]); }); });
+        if (opts.quick && !ready(C, states)) return null;
+        if (!prepare(C, states, opts)) return null;
+        var astrid = null;
+        if (list.some(function (x) { return x.kind === 'astrid'; })) {
+          astrid = costPlan(Object.assign({}, design, { astrid: true }), st, { budget: opts.budget, quick: opts.quick });
+          if (!astrid) return null;
+        }
+        var val = valuer(C);
+        var out = list.map(function (x, i) {
+          var nowp = x.kind === 'astrid' ? C.priced([{ k: 'Astrid\'s Creativity' }]) : x.op && x.op.mats.length ? C.priced(x.op.mats) : { sum: 0, known: true };
+          var r = { key: x.key, label: x.label, kind: x.kind, now: nowp.sum, known: nowp.known, keeps: x.kind !== 'skip' };
+          if (x.kind === 'restart') {
+            r.finish = val.capped ? Infinity : val.fresh[0]; r.bases = val.capped ? Infinity : val.fresh[2]; r.stop = val.capped ? 0 : val.fresh[4];
+            return r;
+          }
+          if (x.kind === 'astrid') { var a = astrid.avg; r.finish = a ? a.div : Infinity; r.bases = a ? a.bases : Infinity; r.stop = a ? a.stop : 0; return r; }
+          var fin = nowp.sum, b = 0, stop = 0;
+          branches[i].forEach(function (y) {
+            var p = y[0];
+            if (y[1] === 'restart') { fin += p * val.fresh[0]; b += p * val.fresh[2]; stop += p * val.fresh[4]; return; }
+            var id = C.node(y[1]);
+            fin += p * val.col(id, 0); b += p * val.col(id, 2); stop += p * val.col(id, 4);
+          });
+          r.finish = val.capped && !isFinite(fin) ? Infinity : fin; r.bases = b; r.stop = stop;
+          return r;
+        });
+        C.memo.set(ck, out);
+        return out;
+      });
+    }
+    /* The shopping list for the steps: the base to buy, the items if every roll lands (merged, in order of first use),
+       what a likely miss calls for, and the optional items. */
+    function shoppingList(design, st, steps) {
+      return inLeague(design, function () {
+        steps = steps || plan(design, st);
+        var lg = design.league === 'roa' ? 'roa' : 'fr';
+        var rows = [], byK = {}, optional = [], optK = {}, misses = [];
+        var s = st, base = null;
+        steps.forEach(function (x, i) {
+          if (x.kind === 'base') base = x.spec;
+          var op = suggestedOpt(x);
+          var mats = (op ? op.mats : x.mats) || [];
+          var retried = ['slam', 'aug', 'desec'].indexOf(x.kind) > -1 && x.odds && x.odds.p < 0.995;
+          mats.forEach(function (m) {
+            if (m.opt) { if (!optK[m.k]) { optK[m.k] = 1; optional.push({ k: m.k, n: m.n, each: price(m.k, lg) }); } return; }
+            var r = byK[m.k];
+            if (!r) { r = byK[m.k] = { k: m.k, n: m.n, q: 0, each: price(m.k, lg), approx: !!m.approx, chance: null }; rows.push(r); }
+            r.q += m.q || 1;
+            if (retried && !r.chance) r.chance = { i: i, p: x.odds.p };
+          });
+          if (retried) {
+            var mo = missOf(design, s, x);
+            if (mo.type !== 'route') misses.push(Object.assign({ i: i }, mo));
+          }
+          if (x.project && x.project.type !== 'restart') s = apply(s, x.project);
+        });
+        rows.forEach(function (r) { r.total = r.each === null ? null : r.each * r.q; });
+        return { base: base, rows: rows, misses: misses, optional: optional };
+      });
+    }
+    /* What a recorded outcome used, as price keys and counts ({ sp: [[key, qty]], b: magic bases }), or null. */
+    function spendOf(step, opt, outcome) {
+      if (!outcome || outcome.astrid) return null;
+      if (step.kind === 'base') return { sp: [], b: 1 };
+      if (outcome.o && (outcome.o.type === 'restart' || outcome.o.type === 'skip')) return { sp: [], b: 0 };
+      if (step.kind === 'finish') {
+        // a finishing step that was done used its items, the optional ones too (the Divine Orb); Skip used nothing
+        return outcome.label === 'Skip' ? { sp: [], b: 0 } : { sp: (step.mats || []).map(function (x) { return [x.k, x.q || 1]; }), b: 0 };
+      }
+      var mats = outcome.uses || (opt ? opt.mats : step.mats) || [];
+      return { sp: required(mats).map(function (x) { return [x.k, x.q || 1]; }), b: 0 };
+    }
+    /* An entry saved before spend was recorded: what its step used, if the step still matches its title. */
+    function deriveSpend(design, h) {
+      if (h.e) return null;
+      var from = h.ps || h.st;
+      if (!from) return null;
+      return inLeague(design, function () {
+        var step = nextStep(design, clone(from));
+        var cut = h.t.indexOf(' · ');
+        var title = cut > -1 ? h.t.slice(0, cut) : h.t, optLabel = cut > -1 ? h.t.slice(cut + 3) : null;
+        if (step.title !== title) return null;
+        var opt = null;
+        if (step.options) {
+          if (optLabel === null) return { sp: [], b: 0 };   // Skip or Start a new base: the app leaves those out of the title
+          opt = step.options.find(function (o) { return o.label === optLabel; });
+          if (!opt) return null;
+        }
+        var outs = (opt ? opt.outcomes : step.outcomes) || [];
+        var o = outs.find(function (x) { var l = x.label.replace(/…$/, ''); return h.o === l || String(h.o || '').indexOf(l + ':') === 0; });
+        return o ? spendOf(step, opt, o) : null;
+      });
+    }
+    /* Spend lists summed and priced at a league: { div, bases, known, unknown: [keys] }. */
+    function spentOn(list, league) {
+      var q = {}, bases = 0;
+      list.forEach(function (x) { if (!x) return; bases += x.b || 0; (x.sp || []).forEach(function (p) { q[p[0]] = (q[p[0]] || 0) + p[1]; }); });
+      var div = 0, unknown = [];
+      Object.keys(q).forEach(function (k) { var v = price(k, league); if (v === null) unknown.push(k); else div += v * q[k]; });
+      return { div: div, bases: bases, known: !unknown.length, unknown: unknown };
+    }
+    function costReset() { chains.clear(); }
+
     return {
       MODS: MODS, FAMS: FAMS, CLASS: CLASS, BASE: BASE,
       catalog: catalog, tierOptions: tierOptions, methods: methods, famName: famName, modText: modText,
       analyze: analyze, plan: plan, apply: apply, nextStep: nextStep, summary: summary, slamOddsFor: slamOddsFor,
       oddsLabel: oddsLabel, price: price, matsCost: matsCost, labelTier: labelTier, newId: newId, SIDE: SIDE, SIDE_CAP: SIDE_CAP, findBases: findBases, socketable: socketable, suggest: suggest,
+      planCost: planCost, costPlan: costPlan, choicesOf: choicesOf, choiceCosts: choiceCosts, shoppingList: shoppingList,
+      spendOf: spendOf, deriveSpend: deriveSpend, spentOn: spentOn, costReset: costReset,
       setLeague: setLeague, hardness: function (design, st, t) { var c = catalog(design.base, design.ilvl); return hardness(c, analyze(c, design, st), t); }
     };
   }

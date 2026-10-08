@@ -406,6 +406,37 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
 .opt .ol{font-weight:500;line-height:1.3}
 .opt .oc{font-family:var(--font-mono);font-size:.76rem;color:var(--muted);white-space:nowrap;text-align:right}
 .opt .ot{grid-column:2/-1;font-size:.86rem;color:var(--muted);line-height:1.4}
+/* cost: the block above the steps, "to finish" on each choice, the shopping list */
+.cost{margin:.75rem 0 .25rem;padding:.7rem .85rem .75rem;border:1px solid var(--line);border-radius:6px;background:var(--surface)}
+.cost-head{display:flex;align-items:center;justify-content:space-between;gap:.5rem;margin-bottom:.35rem}
+.cost-body{display:grid;gap:.3rem}
+.cost-line{font-size:.95rem;line-height:1.4}
+.cost-line b,.oc .ofin b,.shop-tot b{font-family:var(--font-mono);font-weight:500;color:var(--brass)}
+.cost-body[aria-busy="true"] .cost-avg,.cost-skip,.cost-more summary,.cost-more p,.card .spent{color:var(--muted)}
+.cost-skip,.cost-spent{font-size:.88rem;line-height:1.45}
+.cost-spent{border-top:1px dashed var(--line-2);padding-top:.35rem}
+.cost-more summary{cursor:pointer;font-size:.86rem}
+.cost-more p{font-size:.86rem;line-height:1.45;margin-top:.3rem}
+.card .spent{font-size:.9rem;line-height:1.45}
+.opt .oc{display:grid;justify-items:end;gap:.05rem}
+.oc .ofin{color:var(--fg)}
+.oc .otry{color:var(--muted)}
+.cmp{list-style:none;margin:0;padding:0;display:grid;gap:.35rem}
+.cmp li{display:flex;flex-wrap:wrap;justify-content:space-between;gap:.1rem .8rem;font-size:.92rem}
+.cmp .oc{font-family:var(--font-mono);font-size:.78rem;color:var(--muted);display:flex;gap:.6rem;flex-wrap:wrap}
+.cmp-note{font-size:.9rem;line-height:1.45;padding-left:.6rem;border-left:2px solid var(--brass)}
+.shop{margin-top:.6rem;padding-top:.6rem;border-top:1px solid var(--line);display:grid;gap:.45rem}
+.shop h4{font-size:1rem;margin:.35rem 0 0;display:flex;flex-wrap:wrap;gap:.1rem .5rem;align-items:baseline}
+.shop h4 span{font-family:var(--font-mono);font-size:.74rem;color:var(--muted);font-weight:400}
+.shop .sm{font-size:.86rem;color:var(--muted);line-height:1.45}
+.shop-base{font-size:.95rem}
+.shop-list{list-style:none;margin:0;padding:0;display:grid;gap:.3rem}
+.shop-list li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:.1rem .8rem;font-size:.92rem}
+.shop-list .sp{font-family:var(--font-mono);font-size:.78rem;color:var(--muted);white-space:nowrap;text-align:right}
+.shop-list small{display:block;color:var(--muted);font-size:.8rem}
+.shop-tot{font-size:.92rem;border-top:1px dashed var(--line-2);padding-top:.4rem}
+.shop-foot{display:flex;gap:.45rem;flex-wrap:wrap}
+@media (max-width:480px){.opt .oc{grid-column:2/-1;justify-items:start;display:flex;flex-wrap:wrap;gap:.1rem .6rem;white-space:normal;text-align:left}}
 .rec{font-family:var(--font-mono);font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--brass);border:1px solid var(--brass-dim);border-radius:3px;padding:0 .3rem;margin-left:.35rem;vertical-align:.12em;white-space:nowrap}
 .q{font-family:var(--font-mono);font-size:.68rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
 .outs{display:flex;flex-wrap:wrap;gap:.45rem}

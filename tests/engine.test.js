@@ -374,3 +374,236 @@ test('stable mod ids exist for every mod', () => {
   assert.equal(DATA.ids.length, DATA.mods.length);
   assert.equal(new Set(DATA.ids).size, DATA.ids.length);
 });
+
+/* ---------- cost estimates ---------- */
+const fresh = () => ({ rarity: 'none', mods: [], done: {}, skip: {} });
+const close = (a, b, tol, msg) => assert.ok(Math.abs(a - b) <= tol * Math.max(1, Math.abs(b)), (msg || '') + ' ' + a + ' vs ' + b);
+const reqMats = (step) => { const o = step.options && step.options.find((x) => x.key === step.recommended); return (o ? o.mats : step.mats).filter((m) => !m.opt); };
+function walkTo(design, kind) {
+  const steps = E.plan(design, fresh());
+  const i = steps.findIndex((s) => s.kind === kind);
+  let s = fresh();
+  for (let j = 0; j < i; j++) s = E.apply(s, steps[j].project);
+  return { st: s, step: steps[i], i };
+}
+
+test('cost: if every roll lands is the plan’s required mats, priced once; misses drive the average', () => {
+  const { design } = glovesDesign();
+  const steps = E.plan(design, fresh());
+  const want = steps.reduce((a, s) => a + E.matsCost(reqMats(s), 'fr').sum, 0);
+  const cp = E.costPlan(design, fresh());
+  close(cp.happy.div, want, 1e-9);
+  assert.ok(cp.happy.base && cp.happy.known && cp.happy.stopsAt === null);
+  assert.ok(cp.avg.div > cp.happy.div * 10, 'misses dominate');
+  assert.ok(cp.avg.bases >= 1);
+  assert.equal(steps[cp.risk.i].kind, 'slam');
+  assert.equal(cp.risk.miss.type, 'fix');
+  const at = E.apply(walkTo(design, 'slam').st, { type: 'add', mods: [junk(1)] });
+  const fixStep = E.nextStep(design, at);
+  close(cp.risk.miss.each, fixStep.options.find((o) => o.key === fixStep.recommended).cost, 1e-9);
+  assert.ok(cp.avg.skipped.some((x) => x.name === 'Maximum Mana' && x.p > 0.5), 'reports the target the steps usually skip');
+});
+
+test('cost: a desecration retried after Omen of Light matches the closed form', () => {
+  const { design } = glovesDesign();
+  const { st, step } = walkTo(design, 'desec');
+  const hit = E.apply(st, step.project);
+  const miss = E.apply(st, { type: 'add', mods: [Object.assign(junk(step.side), { desec: true })] });
+  const fix = E.nextStep(design, miss);
+  assert.equal(fix.recommended, 'light');
+  const cL = fix.options.find((o) => o.key === 'light').cost, cD = E.matsCost(reqMats(step), 'fr').sum, p = step.odds.p;
+  close(E.costPlan(design, st).avg.div, (cD + (1 - p) * cL) / p + E.costPlan(design, hit).avg.div, 1e-9);
+});
+
+test('cost: restarts compound, and each choice prices what it still costs', () => {
+  const { cat, design } = glovesDesign();
+  const f = E.costPlan(design, fresh());
+  const st = { rarity: 'rare', mods: [mod(cat, 0, '+# to maximum Life', 'T1'), junk(1), junk(1)], done: {}, skip: {} };
+  const cp = E.costPlan(design, st);
+  assert.ok(cp.happy.restart);
+  close(cp.avg.div, f.avg.div, 1e-9); close(cp.avg.bases, f.avg.bases, 1e-9);
+  const step = E.nextStep(design, st);
+  const cc = E.choiceCosts(design, st, step);
+  assert.deepEqual(cc.map((c) => c.key), step.options.map((o) => o.key));
+  close(cc.find((c) => c.key === 'restart').finish, f.avg.div, 1e-9);
+  assert.equal(cc.find((c) => c.kind === 'skip').keeps, false);
+  cc.forEach((c) => assert.ok(isFinite(c.finish) && c.finish >= 0));
+  // the suggested fix after a missed slam is what the plan's own average says
+  const at = E.apply(walkTo(design, 'slam').st, { type: 'add', mods: [junk(1)] });
+  const rs = E.nextStep(design, at);
+  close(E.choiceCosts(design, at, rs).find((c) => c.key === rs.recommended).finish, E.costPlan(design, at).avg.div, 1e-9);
+});
+
+test('cost: after a missed desecration, Omen of Light beats a random Annulment and a new base', () => {
+  const { design } = crown();
+  const { st, step } = walkTo(design, 'desec');
+  const miss = E.apply(st, { type: 'add', mods: [Object.assign(junk(step.side), { desec: true })] });
+  const cc = E.choiceCosts(design, miss, E.nextStep(design, miss));
+  const by = Object.fromEntries(cc.map((c) => [c.key, c]));
+  assert.ok(by.light.finish < by.annul.finish / 10, 'a random Annulment can take a good suffix');
+  assert.ok(by.light.finish < by.restart.finish);
+  assert.ok(by.restart.bases >= 1);
+});
+
+test('cost: a base that missed compares a new base with an Orb of Annulment', () => {
+  const { cat, design } = glovesDesign();
+  const st = { rarity: 'magic', mods: [junk(0), mod(cat, 1, '+#% to Cold Resistance', 'T2')], done: {}, skip: {} };
+  const step = E.nextStep(design, st);
+  assert.equal(step.kind, 'fixMagic');
+  const cc = E.choiceCosts(design, st, step);
+  assert.deepEqual(cc.map((c) => c.key), ['restart', 'annul1']);
+  close(cc[1].now, E.price('annul', 'fr'), 1e-9);
+});
+
+test('cost: the rune offer prices planning it with Astrid’s Creativity', () => {
+  const d = twoAlloyGloves(false);
+  const steps = E.plan(d, fresh());
+  let s = fresh();
+  for (let j = 0; j < steps.length - 1; j++) s = E.apply(s, steps[j].project);
+  const offer = E.nextStep(d, s);
+  assert.ok(offer.outcomes[0].astrid);
+  assert.equal(E.costPlan(d, fresh()).happy.stopsAt, steps.length - 1, 'the plan stops at the offer');
+  const cc = E.choiceCosts(d, s, offer);
+  const a = cc.find((c) => c.kind === 'astrid');
+  close(a.finish, E.costPlan(Object.assign({}, d, { astrid: true }), s).avg.div, 1e-9);
+  assert.ok(cc.find((c) => c.kind === 'restart').stop > 0.5, 'a new base stops at the same place');
+});
+
+test('cost: a certain plan averages what it costs if every roll lands', () => {
+  const cp = E.costPlan(leggings(false, false), fresh());
+  close(cp.avg.div, cp.happy.div, 1e-9);
+  assert.equal(cp.risk, null);
+});
+
+test('cost: the order of the boxes doesn’t change the totals', () => {
+  const { design } = crown();
+  const sig = (d) => { const c = E.costPlan(d, fresh()); return [c.happy.div.toFixed(6), c.avg.div.toFixed(6), c.avg.bases.toFixed(6)].join('|'); };
+  const want = sig(design);
+  const [a, b, c] = design.targets[1];
+  for (const S of [[b, a, c], [c, b, a], [a, c, b]]) assert.equal(sig(Object.assign({}, design, { targets: [design.targets[0], S] })), want);
+});
+
+test('cost: unknown prices are flagged, not guessed', () => {
+  const cat = E.catalog('Warden Bow', 82);
+  const F = cat.sides[0].find((f) => f.t === '+# to Accuracy Rating' && E.tierOptions(cat, f.f).some((o) => o.label === 'Essence'));
+  const o = E.tierOptions(cat, F.f).find((x) => x.label === 'Essence');
+  const d = (lg) => ({ cls: 'bow', base: 'Warden Bow', ilvl: 82, league: lg, targets: [[{ f: F.f, lv: o.l, mi: o.mi }], [tgt(cat, 1, '#% increased Attack Speed')]] });
+  const roa = E.costPlan(d('roa'), fresh()), fr = E.costPlan(d('fr'), fresh());
+  assert.equal(roa.happy.known, false); assert.equal(roa.avg.unknown, true);
+  assert.equal(fr.happy.known, true); assert.equal(fr.avg.unknown, false);
+  assert.ok(isFinite(roa.avg.div));
+});
+
+test('cost: cached, sliced and repeatable', () => {
+  const { design } = glovesDesign();
+  E.costReset();
+  assert.equal(E.costPlan(design, fresh(), { quick: true }), null);
+  let r = null, slices = 0;
+  while (!r) { r = E.costPlan(design, fresh(), { budget: 0.5 }); slices++; }
+  assert.ok(slices > 1, 'a small budget takes more than one slice');
+  const again = E.costPlan(design, fresh(), { quick: true });
+  assert.ok(again && again.avg.div === r.avg.div);
+  E.costReset();
+  assert.equal(E.costPlan(design, fresh()).avg.div, r.avg.div);
+});
+
+test('cost: random designs give finite, sane numbers', () => {
+  let x = 7;
+  const rnd = () => { x = (x * 1103515245 + 12345) & 0x7fffffff; return x / 0x7fffffff; };
+  const classes = DATA.classes.map((c) => c.id);
+  for (let k = 0; k < 40; k++) {
+    const cls = classes[Math.floor(rnd() * classes.length)];
+    const b = DATA.bases.filter((y) => y.c === cls).sort((p, q) => q.lv - p.lv)[0];
+    const cat = E.catalog(b.n, 82);
+    const targets = [0, 1].map((s) => {
+      const fams = cat.sides[s].filter((F) => F.tiers.length).slice(), out = [];
+      for (let i = 0; i < Math.min(cat.caps[s], 1 + Math.floor(rnd() * 3)) && fams.length; i++) {
+        const F = fams.splice(Math.floor(rnd() * fams.length), 1)[0];
+        const t = F.tiers[Math.min(F.tiers.length - 1, Math.floor(rnd() * 3))];
+        out.push({ f: F.f, mi: t.mi, lv: t.l });
+      }
+      return out;
+    });
+    const d = { cls, base: b.n, ilvl: 82, league: rnd() < 0.5 ? 'fr' : 'roa', astrid: rnd() < 0.3, targets };
+    const cp = E.costPlan(d, fresh());
+    assert.ok(isFinite(cp.happy.div) && cp.happy.div >= 0, b.n);
+    if (cp.avg) assert.ok(isFinite(cp.avg.div) && cp.avg.div >= 0 && cp.avg.bases >= 0 && cp.avg.stop >= -1e-9 && cp.avg.stop <= 1 + 1e-9, b.n);
+    assert.equal(cp.cut, false, b.n + ' fits in the state limit');
+  }
+});
+
+test('cost: speed, as a multiple of one plan()', () => {
+  const { design } = glovesDesign();
+  const t = () => Number(process.hrtime.bigint()) / 1e6;
+  E.plan(design, fresh()); E.costReset();
+  let t0 = t();
+  for (let i = 0; i < 5; i++) E.plan(design, fresh());
+  const one = (t() - t0) / 5;
+  t0 = t(); E.costPlan(design, fresh()); const cold = t() - t0;
+  t0 = t();
+  for (let i = 0; i < 20; i++) E.costPlan(design, fresh(), { quick: true });
+  const hit = (t() - t0) / 20;
+  assert.ok(cold < 80 * one, 'cold ' + cold + ' vs plan ' + one);
+  assert.ok(hit < 0.2 * one, 'cached ' + hit + ' vs plan ' + one);
+});
+
+test('cost: the shopping list merges the steps’ items and names what a miss calls for', () => {
+  const { design } = glovesDesign();
+  const sl = E.shoppingList(design, fresh());
+  assert.equal(sl.base.find((r) => r.k === 'Base').v, GLOVES);
+  const regal = sl.rows.find((r) => r.k === 'pregal');
+  assert.equal(regal.q, 1);
+  close(regal.total, E.price('pregal', 'fr'), 1e-9);
+  assert.equal(sl.rows.find((r) => r.k === 'scrap').q, 4);
+  assert.ok(sl.rows.find((r) => r.k === 'gexalt').chance.p < 0.1, 'the slam is chancy: bring spares');
+  assert.ok(sl.misses.some((m) => m.type === 'fix' && /Annulment/.test(m.label)));
+  assert.ok(sl.optional.some((o) => o.k === 'divine'), 'the Divine Orb is optional');
+  assert.ok(!sl.rows.some((r) => r.k === 'divine'));
+});
+
+test('spend: what an outcome records', () => {
+  const { design } = glovesDesign();
+  const steps = E.plan(design, fresh());
+  assert.deepEqual(E.spendOf(steps[0], null, steps[0].outcomes[0]), { sp: [], b: 1 }, 'the base: one magic base, no div');
+  assert.deepEqual(E.spendOf(steps[0], null, steps[0].outcomes[1]), { sp: [], b: 1 }, 'My base has other mods too');
+  const slam = steps.find((s) => s.kind === 'slam');
+  assert.deepEqual(E.spendOf(slam, null, slam.outcomes[0]).sp, [['o_dex_ex', 1], ['gexalt', 1]], 'no optional Omen of Greater Exaltation');
+  const fin = steps.find((s) => s.kind === 'finish' && s.key === 'quality');
+  assert.deepEqual(E.spendOf(fin, null, fin.outcomes[0]).sp, [['scrap', 4]]);
+  assert.deepEqual(E.spendOf(fin, null, fin.outcomes[1]), { sp: [], b: 0 }, 'a finish step’s Skip');
+  const div = steps.find((s) => s.kind === 'finish' && s.key === 'divine');
+  assert.deepEqual(E.spendOf(div, null, div.outcomes[0]).sp, [['divine', 1]], 'Done on the optional Divine step used the orb');
+  const at = E.apply(walkTo(design, 'slam').st, { type: 'add', mods: [junk(1)] });
+  const rs = E.nextStep(design, at);
+  const annul = rs.options.find((o) => o.key === 'annul');
+  assert.deepEqual(E.spendOf(rs, annul, annul.outcomes[0]).sp, [['o_dex_an', 1], ['annul', 1]]);
+  const settle = rs.options.find((o) => o.key === 'settle');
+  assert.deepEqual(E.spendOf(rs, settle, settle.outcomes[0]), { sp: [], b: 0 });
+  assert.equal(E.spendOf(rs, null, { label: 'Plan it with Astrid’s Creativity', astrid: true }), null);
+  const { cat } = glovesDesign();
+  const fm = E.nextStep(design, { rarity: 'magic', mods: [junk(0), mod(cat, 1, '+#% to Cold Resistance', 'T2')], done: {}, skip: {} });
+  assert.deepEqual(E.spendOf(fm, null, fm.outcomes.find((o) => o.label === 'Annul removed it')).sp, [['annul', 1]], 'the Orb of Annulment was used');
+});
+
+test('spend: an old entry with no spend is rebuilt from its title', () => {
+  const { design } = glovesDesign();
+  const at = E.apply(walkTo(design, 'slam').st, { type: 'add', mods: [junk(1)] });
+  const rs = E.nextStep(design, at);
+  const annul = rs.options.find((o) => o.key === 'annul');
+  const h = { t: rs.title + ' · ' + annul.label, o: annul.outcomes[0].label, st: at, ps: at };
+  assert.deepEqual(E.deriveSpend(design, h), E.spendOf(rs, annul, annul.outcomes[0]));
+  assert.deepEqual(E.deriveSpend(design, { t: rs.title, o: 'Start a new base', st: at, ps: at }), { sp: [], b: 0 }, 'Skip or new base: nothing');
+  assert.equal(E.deriveSpend(design, { t: 'Some old title', o: 'Done', st: at, ps: at }), null, 'a step that no longer matches: not counted');
+  const s = E.spentOn([{ sp: [['o_dex_an', 1], ['annul', 1]], b: 0 }, { sp: [], b: 1 }], 'fr');
+  close(s.div, E.price('o_dex_an', 'fr') + E.price('annul', 'fr'), 1e-9);
+  assert.equal(s.bases, 1);
+});
+
+test('removal notes no longer quote the old flat averages', () => {
+  const { cat, design } = glovesDesign();
+  const notes = [];
+  notes.push(E.nextStep(design, { rarity: 'rare', mods: [mod(cat, 0, '+# to maximum Life', 'T1'), junk(1), junk(1)], done: {}, skip: {} }).note);
+  const at = E.apply(walkTo(design, 'slam').st, { type: 'add', mods: [junk(1)] });
+  notes.push(E.nextStep(design, at).note);
+  notes.forEach((t) => assert.ok(t && !/\d+(\.\d+)? div/.test(t), t));
+});

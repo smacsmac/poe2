@@ -122,7 +122,43 @@ async function addTarget(page, side, i, query, famText) {
     await page.click('.tabs [data-go="design"]');
     await page.click('#d-route [data-act="copy-craft"]');
     assert.equal(await page.evaluate(() => window.__copied), forgeText, 'both pages copy the same text');
+    assert.match(forgeText, /\nCOST \(rough: /);
+    assert.match(forgeText, /Spent so far: about [\d.]+ (div|ex) \(the steps I recorded in the app/);
+    assert.match(forgeText, /\(suggested\): .+ About [\d.]+ (div|ex) a try; about [\d,.]+ (div|ex) to finish\./);
     await page.click('.tabs [data-go="plan"]');
+
+    // Cost: if every roll lands, the average with misses, spent so far; each choice says what it still costs to finish
+    await page.waitForSelector('#p-cost-body[aria-busy="false"]');
+    const costText = await page.locator('#p-cost-body').innerText();
+    assert.match(costText, /if every roll lands/);
+    assert.match(costText, /~[\d,.]+ (div|ex) on average, following the steps/);
+    assert.match(costText, /Spent so far: about [\d.]+ (div|ex), plus the item you started with\./);
+    for (const t of await page.locator('.opt .ofin').allInnerTexts()) assert.match(t, /to finish|until it stops again|Very high/);
+    assert.match(await page.locator('.opt[data-k="restart"] .otry').innerText(), /^\+ (a magic base|about \d+ magic bases)$/);
+    assert.match(await page.locator('.card .spent').innerText(), /That’s gone whichever you choose, so compare what each choice still costs\.$/);
+    // The shopping list: the items for the steps, what a miss calls for, a copy
+    await page.click('#p-cost [data-act="shop"]');
+    assert.equal(await page.getAttribute('#p-cost [data-act="shop"]', 'aria-expanded'), 'true');
+    const shopH = await page.locator('#shop h4').allInnerTexts();
+    assert.ok(shopH.some((t) => /^For the steps/.test(t)), 'items for the steps');
+    assert.ok(!shopH.some((t) => /^The base/.test(t)), 'the item started rare: no base to buy');
+    await page.screenshot({ path: `${OUT}/${scheme}-cost.png`, fullPage: true });
+    await page.click('[data-act="shop-copy"]');
+    assert.match(await page.locator('#toast').innerText(), /Copied the shopping list\./);
+    assert.match(await page.evaluate(() => window.__copied), /^Shopping list: Blacksteel Gauntlets, item level 82\n/);
+    await page.click('[data-act="shop-close"]');
+    assert.equal(await page.locator('#shop').count(), 0);
+    // A save from before spend was recorded is priced from the steps' titles, the same way
+    const spentLine = await page.locator('.cost-spent').innerText();
+    await page.waitForTimeout(400);
+    await page.evaluate(() => {
+      const k = 'poe2-crafting-playbook-app-v2', raw = JSON.parse(localStorage.getItem(k));
+      Object.values(raw.crafts).forEach((c) => (c.h || []).forEach((h) => { delete h.sp; delete h.b; }));
+      localStorage.setItem(k, JSON.stringify(raw));
+    });
+    await page.reload();
+    await page.waitForSelector('#p-cost-body[aria-busy="false"]');
+    assert.equal(await page.locator('.cost-spent').innerText(), spentLine, 'old entries are priced from their titles');
 
     // A hand edit re-plans at once and shows as one "Edited the item" line; Undo next to Clear item takes it back
     await page.locator('.have:not(.empty) [data-act="have-del"]').last().click();
@@ -199,6 +235,10 @@ async function addTarget(page, side, i, query, famText) {
   await q.locator('.srow', { hasText: 'Socketed Augment' }).locator('[data-act="have-del"]').click();
   await q.click('#p-steps [data-act="setup-done"]');
   assert.match(await q.locator('.card h3').textContent(), /Use Astrid’s Creativity for Effect of Socketed Augment Items/);
+  // The rune offer compares what each way on still costs
+  await q.waitForSelector('#p-cost-body[aria-busy="false"]');
+  assert.match(await q.locator('.cmp .oc[data-ck="astrid"] .otry').innerText(), /^the rune: /);
+  assert.match(await q.locator('.cmp .oc[data-ck="astrid"] .ofin').innerText(), /to finish|Very high/);
   await q.screenshot({ path: `${OUT}/dark-astrid.png`, fullPage: true });
   await q.click('.card [data-act="out"][data-i="0"]');
   assert.match(await q.locator('#toast').innerText(), /Astrid’s Creativity is on/);
@@ -239,6 +279,13 @@ async function addTarget(page, side, i, query, famText) {
   assert.deepEqual(await p.locator('.league-row [data-lg]').allInnerTexts(), ['FR', 'RoA'], 'short league names on a phone');
   assert.equal(await p.locator('#saved').innerText(), 'Saved');
   await p.screenshot({ path: `${OUT}/phone-plan.png`, fullPage: true });
+  // The shopping list fits a phone too
+  await p.locator('#p-cost [data-act="shop"]').tap();
+  await p.waitForSelector('#shop');
+  const [sw3, w3] = await p.evaluate(() => [document.documentElement.scrollWidth, window.innerWidth]);
+  assert.ok(sw3 <= w3, 'no sideways scroll with the shopping list open');
+  await p.screenshot({ path: `${OUT}/phone-cost.png`, fullPage: true });
+  await p.locator('[data-act="shop-close"]').tap();
   await p.click('.tabbar [data-go="design"]');
   await p.fill('#find-q', 'cryptic leg');
   await p.screenshot({ path: `${OUT}/phone-find.png` });

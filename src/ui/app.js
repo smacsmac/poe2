@@ -42,6 +42,17 @@
     if (ex < 0.95) return '<1 ex';
     return Math.max(1, Math.round(ex)) + ' ex';
   }
+  /* A rough figure: two significant figures from 100 div up ("2,600 div"), else as fmt. */
+  function est(v) {
+    if (!isFinite(v)) return 'very high';
+    if (v * PRICES.exPerDiv[app.league] < 0.95) return 'under 1 ex';
+    if (v >= 100000) return 'over 100,000 div';
+    if (v >= 100) { var p = Math.pow(10, Math.floor(Math.log10(v)) - 1); return (Math.round(v / p) * p).toLocaleString('en-US') + ' div'; }
+    return fmt(v);
+  }
+  /* An average: "~" in front of a number. */
+  function avgTxt(v) { var t = est(v); return /^\d/.test(t) ? '~' + t : t; }
+  function basesTxt(n) { return n < 1.5 ? 'a magic base' : 'about ' + Math.round(n) + ' magic bases'; }
   function plural(n, w, ws) { return n + ' ' + (n === 1 ? w : (ws || w + 's')); }
   function ago(t) {
     var s = Math.max(0, (Date.now() - t) / 1000);
@@ -68,7 +79,7 @@
   function famOf(mi) { return MODS[mi].f; }
 
   /* ---------- state ---------- */
-  var app = { view: 'design', league: 'fr', curId: null, crafts: {}, pk: null, ui: { opt: null, optFor: null, doneAll: false, open: {}, confirmDel: null, confirmReset: false } };
+  var app = { view: 'design', league: 'fr', curId: null, crafts: {}, pk: null, ui: { opt: null, optFor: null, doneAll: false, open: {}, confirmDel: null, confirmReset: false, costTok: 0, costTimer: null, shop: false, costMore: false } };
 
   function defaultBase(cls) {
     var name = DEFAULT_BASE[cls];
@@ -150,17 +161,26 @@
     return { rarity: o.r || 'none', mods: (o.m || []).map(unpackMod), done: o.d || {}, skip: skip };
   }
   function packCraft(c) {
-    var meta = { hdrop: c.hdrop || 0, h0: c.h0 || null };
+    var meta = { hdrop: c.hdrop || 0, h0: c.h0 || null, hs: c.hs ? clone(c.hs) : null };
     var hist = trimHist(c.hist.map(function (h) { return Object.assign({}, h); }), 40, meta);
     return JSON.parse(JSON.stringify({
       v: 2, id: c.id, cls: c.cls, base: c.base, ilvl: c.ilvl, rf: !!c.runeforge, as: c.astrid ? 1 : undefined,
       t: c.targets.map(function (side) { return side.map(function (t) { return t ? { k: DATA.ids[t.mi] } : null; }); }),
       st: packSt(c.st), ps: packSt(c.planSt), sl: !!c.stale,
-      h: hist.map(function (h) { return { t: h.t, o: h.o, e: h.e ? 1 : 0, st: packSt(h.st), ps: packSt(h.ps), sl: false, a: h.as === undefined ? undefined : (h.as ? 1 : 0), u: h.su }; }),
+      h: hist.map(function (h) {
+        return { t: h.t, o: h.o, e: h.e ? 1 : 0, st: packSt(h.st), ps: packSt(h.ps), sl: false, a: h.as === undefined ? undefined : (h.as ? 1 : 0), u: h.su,
+          sp: Array.isArray(h.sp) ? h.sp : undefined, b: h.b ? 1 : undefined };
+      }),
       su: c.su | 0,
-      hd: meta.hdrop || undefined, h0: meta.hdrop ? packSt(meta.h0) : undefined,
+      hd: meta.hdrop || undefined, h0: meta.hdrop ? packSt(meta.h0) : undefined, hs: meta.hs || undefined,
       at: c.at, dev: c.dev
     }));
+  }
+  function okCount(v) { return typeof v === 'number' && isFinite(v) && v >= 0; }
+  function spendOk(sp) { return Array.isArray(sp) && sp.every(function (q) { return Array.isArray(q) && typeof q[0] === 'string' && okCount(q[1]); }); }
+  function foldedOk(hs) {
+    return !!hs && typeof hs === 'object' && !!hs.sp && typeof hs.sp === 'object' && okCount(hs.b) && okCount(hs.x) &&
+      Object.keys(hs.sp).every(function (k) { return okCount(hs.sp[k]); });
   }
   function unpackCraft(o) {
     if (!o || !o.cls || !CLS[o.cls] || !BASES[o.cls]) return null;
@@ -173,9 +193,11 @@
         var x = { t: h.t, o: h.o, e: !!h.e, st: unpackSt(h.st), ps: unpackSt(h.ps), sl: false };
         if (h.a !== undefined) x.as = !!h.a;
         if (h.u !== undefined) x.su = h.u;
+        if (spendOk(h.sp)) x.sp = h.sp;
+        if (h.b) x.b = 1;
         return x;
       }),
-      hdrop: o.hd || 0, h0: unpackSt(o.h0),
+      hdrop: o.hd || 0, h0: unpackSt(o.h0), hs: foldedOk(o.hs) ? o.hs : null,
       at: o.at || 0, dev: o.dev || ''
     };
     fitTargets(c);
@@ -869,7 +891,8 @@
     var k = app.ui.optFor === key ? app.ui.opt : step.recommended;
     return step.options.find(function (o) { return o.key === k; }) || step.options[0];
   }
-  function renderNow(c, step, n) {
+  function renderNow(c, step, n, K) {
+    var chs = K && K.choices;
     var opt = curOption(c, step);
     var mats = opt ? opt.mats : step.mats;
     var outs = opt ? opt.outcomes : step.outcomes;
@@ -881,19 +904,27 @@
     if (step.spec) h += '<dl class="spec">' + step.spec.map(function (r) { return '<dt>' + esc(r.k) + '</dt><dd>' + esc(r.v) + '</dd>'; }).join('') + '</dl>';
     (step.warn || []).forEach(function (w) { h += '<p class="warn2">' + esc(w) + '</p>'; });
     if (step.options) {
+      if (chs) h += choicesSpent(K);
       h += '<p class="q">Choose how</p><div class="opts" role="radiogroup" aria-label="Ways to make room">';
-      step.options.forEach(function (o) {
-        var on = o === opt;
-        var costTxt = o.mats.length ? fmt(o.cost) + ' a try · ~' + fmt(o.exp) + ' avg' : 'free';
+      step.options.forEach(function (o, i) {
+        var on = o === opt, ch = chs ? chs[i] : null;
+        var cell = ch ? choiceCell(ch, K.cc ? K.cc[i] : null) : esc(o.mats.length ? fmt(o.cost) + ' a try' : 'free');
         h += '<button type="button" class="opt" role="radio" aria-checked="' + on + '" data-act="opt" data-k="' + o.key + '"><span class="dot"></span>' +
-          '<span class="ol">' + esc(o.label) + (o.key === step.recommended ? '<span class="rec">Suggested</span>' : '') + '</span><span class="oc">' + esc(costTxt) + '</span>' +
+          '<span class="ol">' + esc(o.label) + (o.key === step.recommended ? '<span class="rec">Suggested</span>' : '') + '</span><span class="oc"' + (ch ? ' data-ck="' + ch.key + '"' : '') + '>' + cell + '</span>' +
           '<span class="ot">' + esc(o.text) + '</span></button>';
       });
       h += '</div>';
+      if (chs) h += choicesFoot(K, step);
     }
     if (odds) {
       h += '<div class="odds"><span class="big">' + esc(E.oddsLabel(odds.p)) + '</span><span class="what">' + esc(odds.what) + '</span>' +
         (odds.alt ? '<span class="alt">With a ' + esc(odds.alt.label) + ': ' + esc(E.oddsLabel(odds.alt.p)) + ', at a much higher price per try.</span>' : '') + '</div>';
+    }
+    // A base that missed, or a stop or rune offer: what each way on still costs
+    if (chs && !step.options) {
+      h += choicesSpent(K) + '<p class="q">What each choice still costs</p><ul class="cmp">' + chs.map(function (ch, i) {
+        return '<li><span class="cl">' + esc(ch.label) + '</span><span class="oc" data-ck="' + ch.key + '">' + choiceCell(ch, K.cc ? K.cc[i] : null) + '</span></li>';
+      }).join('') + '</ul>' + choicesFoot(K, step);
     }
     if (mats && mats.length) h += '<div><p class="q" style="margin-bottom:.35rem">Use</p><ul class="mats">' + mats.map(matLine).join('') + '</ul>' + perTry(mats) + '</div>';
     if (step.note) h += '<p class="note">' + esc(dash(step.note)) + '</p>';
@@ -1024,9 +1055,261 @@
     h += setupLi(2, 'What’s on it?', b2, s2);
     return h;
   }
+  /* ---------- cost: the Forge's cost block, what each choice still costs, spent so far, the shopping list ----------
+     "If every roll lands" prices the steps once; "on average" follows the steps after every miss (E.costPlan). Both
+     are rough: every tier counts as equally likely, and magic bases are counted, never priced. The average can take a
+     few frames on a new design, so the page renders at once and the figures are patched in when ready. */
+  var LG_NAME = { fr: 'Forbidden Rites', roa: 'Runes of Aldur' };
+  var deriveCache = new WeakMap();
+  /* An entry saved before spend was recorded: priced from its step's title, cached per entry and design. */
+  function derivedSpend(c, h) {
+    var d = designOf(c), sig = JSON.stringify(d);
+    var hit = deriveCache.get(h);
+    if (hit && hit.sig === sig) return hit.v;
+    var v = E.deriveSpend(d, h);
+    deriveCache.set(h, { sig: sig, v: v });
+    return v;
+  }
+  /* What the recorded steps used, priced at the league shown: { div, bases, known, unpriced, started, steps }. */
+  function spentSoFar(c) {
+    var list = [], unpriced = 0;
+    if (c.hs) { list.push({ sp: Object.keys(c.hs.sp).map(function (k) { return [k, c.hs.sp[k]]; }), b: c.hs.b }); unpriced += c.hs.x || 0; }
+    else if (c.hdrop) unpriced += c.hdrop;   // a save trimmed before spend was kept
+    c.hist.forEach(function (h) {
+      if (h.e) return;
+      if (Array.isArray(h.sp)) { list.push(h); return; }
+      var d = derivedSpend(c, h);
+      if (d) list.push(d); else unpriced += 1;
+    });
+    var r = E.spentOn(list, app.league);
+    return { div: r.div, bases: r.bases, known: r.known, unpriced: unpriced, started: startState(c).rarity !== 'none', steps: doneCount(c) };
+  }
+  function spentCore(sp) {
+    var b = sp.bases ? (sp.bases === 1 ? '1 magic base' : sp.bases + ' magic bases') : '';
+    var d = sp.div > 0 ? 'about ' + fmt(sp.div) : '';
+    return d && b ? d + ' and ' + b : d || b || 'nothing yet';
+  }
+  function spentLine(sp) {
+    return 'Spent so far: ' + spentCore(sp) + (sp.started ? ', plus the item you started with' : '') +
+      (sp.unpriced ? ', not counting ' + plural(sp.unpriced, 'earlier step') : '') + (sp.known ? '' : ' (some prices unknown)');
+  }
+  function inTenEnd(p, first) {
+    var n = Math.round(p * 10);
+    if (first) return n >= 10 ? 'nearly every craft ends' : 'about ' + Math.max(1, n) + ' in 10 crafts end';
+    return n >= 10 ? 'nearly every one' : Math.max(1, n) + ' in 10';
+  }
+  function missText(m) {
+    if (!m) return '';
+    if (m.type === 'fix') return 'each miss there is fixed with ' + m.label + ' (' + fmt(m.each) + ' a try).';
+    if (m.type === 'restart') return 'a miss there means a new magic base.';
+    if (m.type === 'skip') return 'a miss there means skipping ' + m.what + '.';
+    return 'a miss there makes later steps dearer.';
+  }
+  function riskText(risk, n0) {
+    return (risk.share >= 0.5 ? 'Most' : 'Much') + ' of that comes from step ' + (n0 + risk.i) + ', ' + risk.title + ' (' + E.oddsLabel(risk.p) + '): ' + missText(risk.miss);
+  }
+  /* The cost block's lines. K: { happy, cp, n0, done, spent, st }. */
+  function costBody(K) {
+    var h = '', happy = K.happy, cp = K.cp, sp = K.spent;
+    if (K.done) {
+      return '<p class="cost-line">' + (sp.steps ? 'This craft cost <b>' + esc(spentCore(sp)) + '</b>, counting the steps you recorded.' : 'No steps recorded here, so nothing to add up.') + '</p>';
+    }
+    if (!happy.restart) {
+      h += '<p class="cost-line"><b>' + esc(est(happy.div)) + '</b> if every roll lands' + (happy.base ? ', plus the magic base' : '') +
+        (happy.stopsAt !== null ? ', up to step ' + (K.n0 + happy.stopsAt) + ', where the plan needs your call' : '') + (happy.known ? '' : ' (some prices unknown)') + '</p>';
+    }
+    var more = false;
+    if (!cp) h += '<p class="cost-line cost-avg">Working out the average with misses…</p>';
+    else if (cp.capped) { h += '<p class="cost-line cost-avg"><b>Very high</b> on average: it would take more than 200 magic bases</p>'; more = true; }
+    else if (happy.restart) {
+      h += '<p class="cost-line cost-avg"><b>' + esc(avgTxt(cp.avg.div)) + '</b> on average from a new base, following the steps, plus ' + basesTxt(cp.avg.bases) + (cp.avg.unknown ? ' (some prices unknown)' : '') + '</p>';
+      more = true;
+    } else if (cp.avg.div > Math.max(1.1 * happy.div, happy.div + 0.5)) {
+      var stop = Math.round(cp.avg.stop * 10);
+      h += '<p class="cost-line cost-avg"><b>' + esc(avgTxt(cp.avg.div)) + '</b> on average, following the steps' + (cp.avg.bases >= 1.5 ? ', and about ' + Math.round(cp.avg.bases) + ' magic bases' : '') +
+        (happy.stopsAt !== null ? ', up to there' : cp.avg.stop >= 0.05 ? '; ' + (stop >= 10 ? 'nearly every craft stops early and needs your call' : 'about ' + Math.max(1, stop) + ' in 10 crafts stop early and need your call') : '') +
+        (cp.avg.unknown ? ' (some prices unknown)' : '') + '</p>';
+      more = true;
+    }
+    if (cp && cp.avg) {
+      var sk = cp.avg.skipped.filter(function (x) { return x.p >= 0.2 && !(K.st.skip && K.st.skip[x.f]); }).slice(0, 2);
+      if (sk.length) {
+        h += '<p class="cost-skip">Following the steps, ' + inTenEnd(sk[0].p, true) + ' without ' + modHTML(sk[0].name) +
+          (sk[1] ? ', and ' + inTenEnd(sk[1].p, false) + ' without ' + modHTML(sk[1].name) : '') + ': when every fix is dear, the steps skip a target instead.</p>';
+      }
+    }
+    if (sp.steps) h += '<p class="cost-spent">' + esc(spentLine(sp)) + '.</p>';
+    if (more) {
+      h += '<details class="cost-more"' + (app.ui.costMore ? ' open' : '') + '><summary>What drives the average</summary>' +
+        (cp.risk ? '<p>' + esc(riskText(cp.risk, K.n0)) + '</p>' : '') +
+        '<p>Every tier counts as equally likely, and the average assumes you follow the steps after a miss. Magic bases are bought on trade and aren’t priced.' +
+        (cp.cut ? ' This item has so many possible outcomes that the average is rougher than usual.' : '') + '</p></details>';
+    }
+    return h;
+  }
+  /* One choice's figures: what it still costs to finish, and its price now. x is its E.choiceCosts entry, or null while
+     the average is worked out. */
+  function choiceCell(ch, x) {
+    var fin, sub;
+    if (!x) {
+      fin = '… to finish';
+      sub = ch.kind === 'restart' ? '+ a magic base' : ch.kind === 'skip' ? 'free' : ch.kind === 'astrid' ? 'the rune: ' + fmt(E.price('Astrid\'s Creativity', app.league))
+        : fmt(E.matsCost(ch.op.mats.filter(function (m) { return !m.opt; }), app.league).sum) + ' a try';
+    } else if (!isFinite(x.finish)) { fin = '<b>Very high</b>'; sub = '200+ magic bases'; }
+    else {
+      fin = '<b>' + esc(avgTxt(x.finish)) + '</b> ' + (x.stop >= 0.5 ? 'until it stops again' : 'to finish');
+      sub = x.kind === 'restart' ? '+ ' + basesTxt(x.bases) : x.kind === 'astrid' ? 'the rune: ' + fmt(x.now)
+        : x.now > 0 ? fmt(x.now) + ' a try' + (x.known ? '' : ' (some prices unknown)') : 'free';
+    }
+    return '<span class="ofin">' + fin + '</span><span class="otry">' + esc(sub) + '</span>';
+  }
+  /* At most one line under the choices: a cheaper way to keep every target than the suggested one, or what keeping
+     the target costs over skipping it. */
+  function costHint(cc, rec) {
+    if (!cc) return '';
+    var keep = cc.filter(function (x) { return x.keeps && isFinite(x.finish) && x.stop < 0.5; }).sort(function (a, b) { return a.finish - b.finish; });
+    var sug = rec ? cc.find(function (x) { return x.key === rec; }) : null;
+    if (sug && sug.keeps && keep[0] && keep[0] !== sug && keep[0].finish <= 0.8 * sug.finish) {
+      return esc(keep[0].label) + ' averages less from here: ' + esc(avgTxt(keep[0].finish)) + ' to finish, against ' + esc(avgTxt(sug.finish)) + ' for the suggested choice.';
+    }
+    var skip = cc.find(function (x) { return x.kind === 'skip'; });
+    if (skip && keep[0] && keep[0].finish - skip.finish >= Math.max(5, skip.finish)) {
+      return 'Keeping ' + modHTML(skip.label.replace(/^Skip /, '')) + ' costs about ' + esc(est(keep[0].finish - skip.finish)) + ' more than skipping it, on average.';
+    }
+    return '';
+  }
+  function recOf(step) { return step.kind === 'fixMagic' ? 'restart' : step.recommended || null; }
+  /* The cost figures for the open craft, from the plan already drawn: cheap parts now, the average if it's ready. */
+  function costState(c, design, steps, stage) {
+    var now = steps[0];
+    var K = { design: design, steps: steps, st: c.planSt, n0: SETUP + doneCount(c) + 1, done: now.kind === 'done', spent: spentSoFar(c), happy: E.planCost(design, steps), cp: null, cc: null, choices: null };
+    if (K.done) return K;
+    K.cp = E.costPlan(design, c.planSt, { steps: steps, quick: true });
+    K.choices = !stage ? E.choicesOf(now) : null;
+    if (K.choices) K.cc = E.choiceCosts(design, c.planSt, now, { quick: true });
+    return K;
+  }
+  function costReady(K) { return K.done || (!!K.cp && (!K.choices || !!K.cc)); }
+  /* Work the average out a slice at a time (the page stays responsive), then patch the figures in. */
+  function scheduleCost(c, K) {
+    var tok = app.ui.costTok, st = clone(K.st);
+    function run() {
+      if (tok !== app.ui.costTok || cur() !== c || app.view !== 'plan') return;
+      if (!K.cp) K.cp = E.costPlan(K.design, st, { steps: K.steps, budget: 12 });
+      if (K.cp && K.choices && !K.cc) K.cc = E.choiceCosts(K.design, st, K.steps[0], { budget: 12 });
+      if (!costReady(K)) { app.ui.costTimer = setTimeout(run, 0); return; }
+      patchCost(K);
+    }
+    app.ui.costTimer = setTimeout(run, 0);
+  }
+  /* Text only: never replaces a button, so focus, scroll and a click in progress are safe. */
+  function patchCost(K) {
+    var body = $('p-cost-body');
+    if (body) { body.innerHTML = costBody(K); body.setAttribute('aria-busy', 'false'); }
+    if (K.choices && K.cc) {
+      K.choices.forEach(function (ch, i) {
+        var el = document.querySelector('#p-steps .oc[data-ck="' + ch.key + '"]');
+        if (el) el.innerHTML = choiceCell(ch, K.cc[i]);
+      });
+      var hint = $('p-hint');
+      if (hint) { var t = costHint(K.cc, recOf(K.steps[0])); hint.innerHTML = t; hint.hidden = !t; }
+    }
+    var sa = $('shop-avg');
+    if (sa) sa.innerHTML = shopTotal(shopData(K));
+  }
+  function costSection(K) {
+    var h = '<section class="cost" id="p-cost" aria-labelledby="p-cost-h"><div class="cost-head"><h3 id="p-cost-h" class="eyebrow">' + (K.done ? 'Cost' : 'Cost · rough') + '</h3>' +
+      (K.done ? '' : '<button type="button" class="btn small quiet" data-act="shop" aria-expanded="' + !!app.ui.shop + '" aria-controls="shop">' + ico('u-list') + 'Shopping list</button>') + '</div>' +
+      '<div class="cost-body" id="p-cost-body" aria-busy="' + !costReady(K) + '">' + costBody(K) + '</div>';
+    if (app.ui.shop && !K.done) h += shopPanel(shopData(K));
+    return h + '</section>';
+  }
+  /* The spent line and, on a step with choices, what each one still costs. */
+  function choicesSpent(K) {
+    var sp = K.spent;
+    return '<p class="spent">' + (sp.steps ? esc(spentLine(sp)) + '. That’s gone whichever you choose, so compare what each choice still costs.' : 'Compare what each choice still costs to finish.') + '</p>';
+  }
+  function choicesFoot(K, step) {
+    var t = costHint(K.cc, recOf(step));
+    return '<p class="cmp-note" id="p-hint"' + (t ? '' : ' hidden') + '>' + t + '</p>' +
+      '<p class="fine">To finish: what’s left to spend from here on average, following the steps after this choice.</p>';
+  }
+
+  /* ---------- the shopping list ---------- */
+  function shopData(K) {
+    var restart = K.happy.restart;
+    var st0 = restart ? blankSt() : K.st, steps0 = restart ? E.plan(K.design, st0) : K.steps;
+    return { K: K, restart: restart, sl: E.shoppingList(K.design, st0, steps0), happy: restart ? E.planCost(K.design, steps0) : K.happy, n0: K.n0 + (restart ? 1 : 0) };
+  }
+  function specOf(base, k) { var r = (base || []).find(function (x) { return x.k === k; }); return r ? r.v : ''; }
+  function shopTotal(D) {
+    var cp = D.K.cp;
+    return 'About <b>' + esc(est(D.happy.div)) + '</b> if every roll lands' + (D.sl.base ? ', plus the base' : '') + ' · ' +
+      (!cp ? 'working out the average with misses…' : cp.capped ? 'very high on average (more than 200 magic bases).' : '<b>' + esc(avgTxt(cp.avg.div)) + '</b> on average with misses.');
+  }
+  function shopRowName(r) { return r.n + (r.approx ? ' (the Anvil shows the exact amount)' : ''); }
+  function shopPanel(D) {
+    var sl = D.sl, h = '<div class="shop" id="shop">';
+    h += '<p class="sm">' + LG_NAME[app.league] + ' prices, ' + esc(PRICES.date) + '. Counts are for one go at each step: bring spares for the chancy ones.</p>';
+    if (D.restart) h += '<p class="sm">The steps start again from a new base, so this list is for a fresh start.</p>';
+    if (sl.base) {
+      h += '<h4>The base <span>buy it on trade</span></h4><p class="shop-base">Magic ' + esc(specOf(sl.base, 'Base')) + ', item level ' + esc(specOf(sl.base, 'Item level')) + '</p>' +
+        '<p class="sm">Prefix: ' + modHTML(specOf(sl.base, 'Prefix')) + ' · Suffix: ' + modHTML(specOf(sl.base, 'Suffix')) + '. Not priced here.</p>';
+    }
+    if (sl.rows.length) {
+      h += '<h4>For the steps <span>about ' + esc(est(D.happy.div)) + '</span></h4><ul class="shop-list">' + sl.rows.map(function (r) {
+        return '<li><span class="sn">' + r.q + ' × ' + esc(shopRowName(r)) + (r.chance ? '<small>Step ' + (D.n0 + r.chance.i) + ' is ' + esc(E.oddsLabel(r.chance.p)) + ' a try: bring spares</small>' : '') + '</span>' +
+          '<span class="sp">' + esc(r.total === null ? 'price unknown' : fmt(r.total)) + '</span></li>';
+      }).join('') + '</ul>';
+    }
+    if (sl.misses.length) {
+      h += '<h4>If a roll misses <span>buy these when you need them</span></h4><ul class="shop-list">' + sl.misses.map(function (m) {
+        var what = m.type === 'fix' ? esc(m.label) : m.type === 'restart' ? 'a miss means a new magic base' : 'a miss means skipping ' + modHTML(m.what);
+        var cost = m.type === 'fix' ? fmt(m.each) + ' each time' : m.type === 'restart' ? '—' : 'free';
+        return '<li><span class="sn">Step ' + (D.n0 + m.i) + ': ' + what + '</span><span class="sp">' + esc(cost) + '</span></li>';
+      }).join('') + '</ul>';
+    }
+    if (sl.optional.length) {
+      h += '<h4>Optional</h4><p class="sm">' + sl.optional.map(function (o) { return esc(o.n) + ' (' + esc(o.each === null ? 'price unknown' : fmt(o.each)) + ')'; }).join(', ') + '</p>';
+    }
+    h += '<p class="shop-tot" id="shop-avg">' + shopTotal(D) + '</p>';
+    h += '<div class="shop-foot"><button type="button" class="btn small" data-act="shop-copy">' + ico('u-copy') + 'Copy list</button><button type="button" class="btn small quiet" data-act="shop-close">Close</button></div>';
+    return h + '</div>';
+  }
+  /* The shopping list as plain text, worked out in full (it runs on a click). */
+  function shopText(c) {
+    var design = designOf(c), steps = E.plan(design, c.planSt);
+    var K = { design: design, steps: steps, st: c.planSt, n0: SETUP + doneCount(c) + 1, happy: E.planCost(design, steps), cp: E.costPlan(design, c.planSt, { steps: steps }) };
+    var D = shopData(K), sl = D.sl, L = [];
+    L.push('Shopping list: ' + c.base + ', item level ' + c.ilvl);
+    L.push(LG_NAME[app.league] + ' prices, ' + PRICES.date + ' (poe.ninja). Rough estimates.');
+    if (D.restart) L.push('The steps start again from a new base, so this list is for a fresh start.');
+    if (sl.base) {
+      L.push('', 'The base (buy it on trade, not priced here):');
+      L.push('- Magic ' + specOf(sl.base, 'Base') + ', item level ' + specOf(sl.base, 'Item level') + ', prefix: ' + specOf(sl.base, 'Prefix') + ', suffix: ' + specOf(sl.base, 'Suffix'));
+    }
+    if (sl.rows.length) {
+      L.push('', 'For the steps (about ' + est(D.happy.div) + ' if every roll lands):');
+      sl.rows.forEach(function (r) {
+        L.push('- ' + r.q + ' × ' + shopRowName(r) + ': ' + (r.total === null ? 'price unknown' : fmt(r.total)) + (r.chance ? ' (step ' + (D.n0 + r.chance.i) + ' is ' + E.oddsLabel(r.chance.p) + ' a try: bring spares)' : ''));
+      });
+    }
+    if (sl.misses.length) {
+      L.push('', 'If a roll misses (buy these when you need them):');
+      sl.misses.forEach(function (m) {
+        L.push('- Step ' + (D.n0 + m.i) + ': ' + (m.type === 'fix' ? m.label + ', ' + fmt(m.each) + ' each time' : m.type === 'restart' ? 'a miss means a new magic base' : 'a miss means skipping ' + m.what));
+      });
+    }
+    if (sl.optional.length) L.push('', 'Optional: ' + sl.optional.map(function (o) { return o.n + ' (' + (o.each === null ? 'price unknown' : fmt(o.each)) + ')'; }).join(', '));
+    var cp = K.cp;
+    L.push('', !cp || cp.capped ? 'On average, following the steps: very high (it would take more than 200 magic bases).'
+      : 'On average, following the steps: about ' + est(cp.avg.div) + (sl.base || D.restart ? ', plus ' + basesTxt(cp.avg.bases) : '') + '.');
+    return L.join('\n');
+  }
   function renderPlanSteps() {
     var c = cur();
     var el = $('p-steps');
+    app.ui.costTok += 1; clearTimeout(app.ui.costTimer);   // a newer render: any average still being worked out is for an old one
     if (!targetCount(c)) {
       $('p-grid').classList.remove('started');
       el.innerHTML = '<div class="steps-head"><h2>Steps</h2></div><div class="empty-steps"><h3>Choose your targets first</h3><p>Add the mods you want on the Design screen, and the steps show up here.</p>' +
@@ -1045,6 +1328,7 @@
     var left = steps.filter(function (s) { return s.kind !== 'done'; }).length;
     var stage = setupStage(c);
     app.ui.nowKey2 = c.id + '|' + stage + '|' + n;
+    var K = costState(c, design, steps, stage);
     var meta = now.kind === 'done' ? 'All done' : stage === 1 ? 'Start with step 1: choose your starting item' : stage === 2 ? 'Step 2: fill in what’s on your item' : 'Step ' + n + ' · about ' + plural(left, 'step') + ' to go';
     var h = '<div class="steps-head"><div><h2>Steps</h2><p class="meta">' + meta + '</p></div><div class="steps-tools">' + copyBtn('small') +
       // On narrow screens the steps come first: a jump to the item card (step 2 has its own until the craft starts)
@@ -1052,6 +1336,7 @@
       (c.hist.length ? '<button type="button" class="btn small" data-act="undo" title="Undo: ' + esc(undoLabel(c)) + '">' + ico('u-undo') + 'Undo</button>' : '') +
       (!c.hist.length ? '' : app.ui.confirmReset ? '<span class="muted" style="font-size:.9rem">Clear progress?</span><button type="button" class="btn small danger" data-act="reset-yes">Start over</button><button type="button" class="btn small quiet" data-act="reset-no">Keep</button>'
         : '<button type="button" class="btn small quiet" data-act="reset">Start over</button>') + '</div></div>';
+    h += costSection(K);
     h += '<ol class="timeline">' + setupSteps(c, stage);
     var showFrom = app.ui.doneAll ? 0 : Math.max(0, rows.length - 3);
     if (showFrom > 0) h += '<li class="st"><span></span><button type="button" class="done-toggle" data-act="done-all">' + ico('u-chev') + 'Show ' + plural(showFrom, 'earlier step') + '</button></li>';
@@ -1061,7 +1346,7 @@
       else h += '<li class="st done"><div class="st-n" aria-hidden="true"><span>' + r.n + '</span></div><div class="st-b"><b><span class="vh">Step ' + r.n + ': </span>' + esc(r.t) + '</b><span>' + esc(r.o || '') + '</span></div></li>';
     });
     // While a setup step is current, the plan's first step waits its turn like the others
-    if (!stage) h += '<li class="st now"><div class="st-n" aria-hidden="true"><span>' + n + '</span></div><div class="st-b">' + renderNow(c, now, n) + '</div></li>';
+    if (!stage) h += '<li class="st now"><div class="st-n" aria-hidden="true"><span>' + n + '</span></div><div class="st-b">' + renderNow(c, now, n, K) + '</div></li>';
     (stage ? steps : steps.slice(1)).forEach(function (s, i) {
       var num = n + i + (stage ? 0 : 1);
       var open = !!app.ui.open[num];
@@ -1075,6 +1360,7 @@
     if (lastS && lastS.endsHere) h += '<p class="fine">If you start over, the plan begins again from a fresh base.</p>';
     h += '<p class="fine">Later steps assume each roll lands. When one doesn’t, tell the current step what happened and the rest re-plans.</p>';
     el.innerHTML = h;
+    if (!costReady(K)) scheduleCost(c, K);
     updateTabStep(now.kind === 'done' ? '✓' : outs ? String(n) : null);
   }
   function copyBtn(cls) {
@@ -1096,7 +1382,7 @@
   /* Re-rendering replaces the buttons, so remember which one had focus and give it back afterwards. After a step's
      outcome, focus goes to the new current step instead, so a second Enter can't record the next one by mistake. */
   var FOCUS_ATTRS = ['data-v', 'data-s', 'data-id', 'data-k', 'data-f', 'data-n'];
-  var FOCUS_ALT = { reset: 'reset-yes', 'reset-no': 'reset', 'reset-yes': null, 'done-all': null };
+  var FOCUS_ALT = { reset: 'reset-yes', 'reset-no': 'reset', 'reset-yes': null, 'done-all': null, 'shop-close': 'shop' };
   function focusKey() {
     var a = document.activeElement;
     if (!a || !a.closest || !a.getAttribute) return null;
@@ -1157,6 +1443,9 @@
       } else {
         var x = h.shift();
         if (!x.e && meta) {
+          // what the dropped step used stays counted in spent so far (hs), or as a step that can't be priced (x)
+          if (!meta.hs) meta.hs = { sp: {}, b: 0, x: meta.hdrop || 0 };
+          if (Array.isArray(x.sp)) { x.sp.forEach(function (q) { meta.hs.sp[q[0]] = (meta.hs.sp[q[0]] || 0) + q[1]; }); meta.hs.b += x.b ? 1 : 0; } else meta.hs.x += 1;
           if (!meta.hdrop) meta.h0 = x.st || blankSt();
           meta.hdrop = (meta.hdrop || 0) + 1;
         }
@@ -1192,8 +1481,11 @@
     renderPlan();
     return true;
   }
-  function commit(c, stepTitle, label, newSt) {
-    pushHist(c, { t: stepTitle, o: label });
+  /* A recorded outcome keeps what it used (price keys and counts, so it reprices with the league) and whether it was a
+     magic base. [] means nothing was used; entries saved before this have no sp and are priced from their title. */
+  function withSpend(e, sp) { e.sp = sp ? sp.sp : []; if (sp && sp.b) e.b = 1; return e; }
+  function commit(c, stepTitle, label, newSt, sp) {
+    pushHist(c, withSpend({ t: stepTitle, o: label }, sp));
     c.st = newSt; c.planSt = clone(newSt); c.stale = false; c.su = 3;
     app.ui.optFor = null; app.ui.open = {}; app.ui.confirmReset = false;
     touch(c);
@@ -1217,6 +1509,7 @@
     var o = outs[i];
     if (!o) return;
     var title = step.title + (opt && opt.key !== 'settle' && opt.key !== 'restart' ? ' · ' + opt.label : '');
+    var sp = E.spendOf(step, opt, o);
     if (o.astrid) {
       pushHist(c, { t: 'Edited the item', o: 'Turned on Astrid’s Creativity', e: true, as: !!c.astrid });
       c.astrid = true; app.ui.confirmReset = false;
@@ -1225,7 +1518,7 @@
       return;
     }
     if (o.edit) {
-      pushHist(c, { t: step.title, o: o.label });
+      pushHist(c, withSpend({ t: step.title, o: o.label }, sp));
       if (step.kind === 'base') c.st = { rarity: 'magic', mods: [], done: {}, skip: (c.st && c.st.skip) || {} };
       c.su = 3;
       replan(c);
@@ -1241,12 +1534,12 @@
           var st = c.planSt;
           if (o.pick.remove) st = E.apply(st, { type: 'remove', id: o.pick.remove });
           st = E.apply(st, { type: o.pick.rare ? 'rare' : 'add', mods: [mod] });
-          commit(c, title, (o.label.replace(/…$/, '')) + ': ' + (mod.pseudo ? 'junk' : E.famName(famOf(mod.mi))), st);
+          commit(c, title, (o.label.replace(/…$/, '')) + ': ' + (mod.pseudo ? 'junk' : E.famName(famOf(mod.mi))), st, sp);
         }
       });
       return;
     }
-    commit(c, title, o.label, E.apply(c.planSt, o.o));
+    commit(c, title, o.label, E.apply(c.planSt, o.o), sp);
   }
   function undo() {
     var c = cur();
@@ -1523,7 +1816,11 @@
     if (s.odds && s.odds.p < 0.995) bits.push(E.oddsLabel(s.odds.p));
     return s.title + (bits.length ? ': ' + bits.join(' · ') : '');
   }
-  function stepDetail(c, step) {
+  function finishText(x) {
+    if (!isFinite(x.finish)) return 'very high to finish (it would take more than 200 magic bases)';
+    return 'about ' + est(x.finish) + (x.stop >= 0.5 ? ' until it stops again' : ' to finish');
+  }
+  function stepDetail(c, step, cc) {
     var L = [step.title];
     if (step.how) L.push(dash(step.how));
     (step.spec || []).forEach(function (r) { L.push(r.k + ': ' + r.v); });
@@ -1531,9 +1828,13 @@
     var opt = curOption(c, step);
     if (step.options) {
       L.push('Ways to do it:');
-      step.options.forEach(function (o) {
-        L.push('- ' + o.label + (o.key === step.recommended ? ' (suggested)' : o === opt ? ' (my choice)' : '') + ': ' + dash(o.text) +
-          (o.mats.length ? ' About ' + fmt(o.cost) + ' a try, ' + fmt(o.exp) + ' on average.' : ' Free.'));
+      step.options.forEach(function (o, i) {
+        var x = cc && cc[i];
+        var cost = !x ? (o.mats.length ? ' About ' + fmt(o.cost) + ' a try.' : ' Free.')
+          : x.kind === 'fix' ? ' About ' + fmt(x.now) + ' a try; ' + finishText(x) + '.'
+            : x.kind === 'skip' ? ' Free now; ' + finishText(x) + ' without ' + o.label.replace(/^Skip /, '') + '.'
+              : ' Free now; ' + finishText(x) + ' from a new base, plus ' + basesTxt(x.bases) + '.';
+        L.push('- ' + o.label + (o.key === step.recommended ? ' (suggested)' : o === opt ? ' (my choice)' : '') + ': ' + dash(o.text) + cost);
       });
     }
     var odds = opt ? (opt.mats.length ? { p: opt.swap ? opt.pAdd : opt.p, what: opt.swap ? 'to reroll it into a target' : 'to remove junk' } : null) : step.odds;
@@ -1547,6 +1848,11 @@
     var outs = (opt ? opt.outcomes : step.outcomes) || [];
     var labels = outs.map(function (o) { return o.label.replace(/…$/, ''); }).filter(function (x, i, a) { return a.indexOf(x) === i; });
     if (labels.length && step.kind !== 'done') L.push('The app then asks what happened: ' + labels.join(' / '));
+    if (cc && !step.options) {
+      L.push('What each choice still costs: ' + cc.map(function (x) {
+        return x.label + ', ' + finishText(x) + (x.kind === 'restart' ? ' plus ' + basesTxt(x.bases) : x.kind === 'astrid' ? ' (the rune: ' + fmt(x.now) + ')' : '');
+      }).join('; ') + '.');
+    }
     return L;
   }
   function haveText(m, t, cat) {
@@ -1562,6 +1868,33 @@
     if (m.desec) bits.push('desecrated');
     if (m.fract) bits.push('fractured');
     return modText(m.mi) + ': ' + bits.join(', ');
+  }
+  /* The COST section of the chat text: spent so far, if every roll lands, on average, and what drives it. */
+  function costText(c, design, st, steps, n0) {
+    var L = ['', 'COST (rough: the app counts every eligible tier as equally likely; ' + LG_NAME[app.league] + ' prices from poe.ninja, ' + PRICES.date + ')'];
+    var sp = spentSoFar(c), now = steps[0];
+    if (sp.steps) {
+      L.push((now.kind === 'done' ? 'This craft cost me ' : 'Spent so far: ') + spentCore(sp) + ' (the steps I recorded in the app, at these prices; hand edits not counted)' +
+        (sp.started ? ', plus the item I started with' : '') + (sp.unpriced ? ', not counting ' + plural(sp.unpriced, 'earlier step') : '') + '.');
+    }
+    if (now.kind === 'done') return L;
+    var happy = E.planCost(design, steps), cp = E.costPlan(design, st, { steps: steps });
+    if (!happy.restart) {
+      L.push('To finish if every roll lands: about ' + est(happy.div) + (happy.base ? ', plus a magic base' : '') +
+        (happy.stopsAt !== null ? ', up to step ' + (n0 + happy.stopsAt) + ', where the app needs my call' : '') + (happy.known ? '' : ' (some prices unknown)') + '.');
+    }
+    if (cp.capped) L.push('To finish on average: very high (it would take more than 200 magic bases).');
+    else {
+      L.push('To finish on average, following the app’s steps after each miss: about ' + est(cp.avg.div) + (happy.restart ? ' from a new base' : '') +
+        (happy.restart || cp.avg.bases >= 1.5 ? ', plus ' + basesTxt(cp.avg.bases) : '') + (cp.avg.unknown ? ' (some prices unknown)' : '') + '.' +
+        (cp.risk ? ' ' + riskText(cp.risk, n0) : ''));
+      var sk = cp.avg.skipped.filter(function (x) { return x.p >= 0.2 && !(st.skip && st.skip[x.f]); }).slice(0, 2);
+      if (sk.length) {
+        L.push('Following the steps, ' + inTenEnd(sk[0].p, true) + ' without ' + sk[0].name + (sk[1] ? ', and ' + inTenEnd(sk[1].p, false) + ' without ' + sk[1].name : '') +
+          ' (the app skips a target when every fix averages over about 50 div by its own rough estimate).');
+      }
+    }
+    return L;
   }
   /* One craft (never the others) as plain text: the base, what's wanted and how, the item now, the steps so far and next. */
   function craftText(c) {
@@ -1622,11 +1955,14 @@
       });
     }
     if (targetCount(c)) {
-      var steps = E.plan(design, clone(c.st || blankSt()));
+      var st0 = clone(c.st || blankSt());
+      var steps = E.plan(design, st0);
       var n = SETUP + outs + 1;
       var now = steps[0];
+      L = L.concat(costText(c, design, st0, steps, n));
+      var cc = now.kind !== 'done' && E.choicesOf(now) ? E.choiceCosts(design, st0, now) : null;
       L.push('', now.kind === 'done' ? 'DONE' : 'NEXT STEP (step ' + n + ')');
-      L = L.concat(stepDetail(c, now));
+      L = L.concat(stepDetail(c, now, cc));
       if (steps.length > 1) {
         L.push('', 'AFTER THAT (the plan assumes each roll lands)');
         steps.slice(1).forEach(function (st, i) { L.push((n + i + 1) + '. ' + stepOutline(st)); });
@@ -1649,25 +1985,27 @@
     if (ret && ret.focus) { try { ret.focus(); } catch (e) { /* ignore */ } }
     return ok;
   }
-  function copyCraft() {
-    var text = craftText(cur());
-    var done = function () { toast('Copied this craft as text. Paste it into a chat (Claude, ChatGPT…) and ask your question.', 5500); };
-    var fallback = function () { if (copyByCommand(text)) done(); else openCopyBox(text); };
+  /* Copy text: the Clipboard API, then execCommand, then a box to copy it from by hand. */
+  function copyText(text, okMsg, box) {
+    var done = function () { toast(okMsg, 5500); };
+    var fallback = function () { if (copyByCommand(text)) done(); else openCopyBox(text, box); };
     try {
       if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(text).then(done, fallback); return; }
     } catch (e) { /* the clipboard API threw: try the other ways */ }
     fallback();
   }
+  function copyCraft() { copyText(craftText(cur()), 'Copied this craft as text. Paste it into a chat (Claude, ChatGPT…) and ask your question.'); }
   /* When the browser won't let the app copy (some embedded pages do that), show the text to copy by hand. */
-  function openCopyBox(text) {
+  function openCopyBox(text, box) {
+    box = box || {};
     hideToast();
     copyRet = document.activeElement;
     var el = $('copybox');
     el.hidden = false;
     el.innerHTML = '<div class="modal-card copy-card" role="dialog" aria-modal="true" aria-labelledby="cb-t">' +
-      '<div class="pk-head"><div><h2 id="cb-t">Copy this craft</h2><p>Your browser didn’t let the app copy it. Select the text and copy it, then paste it into your chat.</p></div>' +
+      '<div class="pk-head"><div><h2 id="cb-t">' + esc(box.title || 'Copy this craft') + '</h2><p>Your browser didn’t let the app copy it. Select the text and copy it, then ' + esc(box.then || 'paste it into your chat') + '.</p></div>' +
       '<button type="button" class="x" data-act="cb-close" aria-label="Close">' + ico('u-x') + '</button></div>' +
-      '<div class="cb-body"><textarea id="cb-text" readonly spellcheck="false" aria-label="This craft as text">' + esc(text) + '</textarea></div>' +
+      '<div class="cb-body"><textarea id="cb-text" readonly spellcheck="false" aria-label="' + esc(box.label || 'This craft as text') + '">' + esc(text) + '</textarea></div>' +
       '<div class="pk-foot"><button type="button" class="btn small" data-act="cb-select">Select all</button><button type="button" class="btn small quiet sp" data-act="cb-close">Close</button></div></div>';
     setTimeout(selectCopyText, 0);
   }
@@ -1792,11 +2130,14 @@
       case 'undo': undo(); break;
       case 'reset': app.ui.confirmReset = true; renderPlan(); break;
       case 'reset-no': app.ui.confirmReset = false; renderPlan(); break;
-      case 'reset-yes': app.ui.confirmReset = false; c.st = blankSt(); c.planSt = clone(c.st); c.hist = []; c.hdrop = 0; c.h0 = null; c.su = 0; c.stale = false; app.ui.doneAll = false; touch(c); renderPlan(); break;
+      case 'reset-yes': app.ui.confirmReset = false; c.st = blankSt(); c.planSt = clone(c.st); c.hist = []; c.hdrop = 0; c.h0 = null; c.hs = null; c.su = 0; c.stale = false; app.ui.doneAll = false; touch(c); renderPlan(); break;
       case 'done-all': app.ui.doneAll = true; renderPlan(); break;
       case 'more': (function (n) { app.ui.open[n] = !app.ui.open[n]; renderPlan(); })(+a.getAttribute('data-n')); break;
       case 'new-craft': newCraft(); break;
       case 'copy-craft': copyCraft(); break;
+      case 'shop': app.ui.shop = !app.ui.shop; renderPlan(); break;
+      case 'shop-close': app.ui.shop = false; renderPlan(); break;
+      case 'shop-copy': copyText(shopText(c), 'Copied the shopping list.', { title: 'Copy the shopping list', label: 'The shopping list as text', then: 'paste it where you need it' }); break;
       case 'cb-close': closeCopyBox(); break;
       case 'cb-select': selectCopyText(); break;
       case 'pk-close': closePicker(); break;
@@ -1822,6 +2163,8 @@
       })(a.getAttribute('data-id')); break;
     }
   });
+  // "What drives the average" keeps its open state across re-renders
+  document.addEventListener('toggle', function (e) { if (e.target && e.target.classList && e.target.classList.contains('cost-more')) app.ui.costMore = e.target.open; }, true);
   document.addEventListener('change', function (e) {
     var c = cur();
     var t = e.target;
