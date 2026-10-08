@@ -1,7 +1,7 @@
 {
   "name": "poe2-crafting-playbook",
   "version": "0.2.0",
-  "appVersion": 2,
+  "appVersion": 3,
   "private": true,
   "description": "Design a Path of Exile 2 item, get a step-by-step crafting plan that re-plans as you go, and look up every crafting material.",
   "scripts": {

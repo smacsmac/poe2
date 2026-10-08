@@ -156,9 +156,6 @@ async function addTarget(page, side, i, query, famText) {
     await page.click('[data-act="shop-close"]');
     assert.equal(await page.locator('#p-cost').count(), 0);
     assert.equal(await page.evaluate(() => document.activeElement.getAttribute('data-act')), 'shop', 'focus goes back to the button');
-    // A line of Path of Exile 2 story heads the Forge, a different one each visit
-    const lore = await page.locator('#p-lore').innerText();
-    assert.ok(lore.length > 20, 'a story line');
     // A save from before spend was recorded is priced from the steps' titles, the same way
     await page.waitForTimeout(400);
     await page.evaluate(() => {
@@ -169,7 +166,6 @@ async function addTarget(page, side, i, query, famText) {
     await page.reload();
     await choicesReady();
     assert.equal(await page.locator('.card .spent').innerText(), spentCard, 'old entries are priced from their titles');
-    assert.notEqual(await page.locator('#p-lore').innerText(), lore, 'a different story line after a reload');
 
     // A hand edit re-plans at once and shows as one "Edited the item" line; Undo next to Clear item takes it back
     await page.locator('.have:not(.empty) [data-act="have-del"]').last().click();
@@ -283,6 +279,17 @@ async function addTarget(page, side, i, query, famText) {
   await p.locator('#p-steps [data-act="suggest"]').tap();
   assert.match(await p.locator('.now-on').innerText(), /On it now: Maximum Life/);
   assert.match(await p.locator('.st.now .card-k').textContent(), /Now · step 3/, 'Suggest fills in the item, so step 3 is next');
+  // Step 3 says what to buy; the tier you got can be set, then Bought it records the base and the plan goes on
+  assert.match(await p.locator('.st.now .card h3').innerText(), /^Buy a magic /);
+  assert.match(await p.locator('.buy-mods').innerText(), /Maximum Life/);
+  assert.match(await p.locator('.st.next h4').first().innerText(), /Step 4:/, 'the plan follows the purchase');
+  await p.locator('.buy-mods select').first().selectOption({ label: 'T2' });
+  assert.match(await p.locator('#p-card .have:not(.empty) .h-text').first().innerText(), /maximum Life/);
+  await p.locator('[data-act="buy-done"]').tap();
+  assert.match(await p.locator('.st.now .card-k').textContent(), /Now · step 4/);
+  assert.match(await p.locator('.st.done:not(.setup-done)').first().innerText(), /Buy a magic [\s\S]*Bought it: Maximum Life T2/);
+  await p.locator('.steps-tools [data-act="undo"]').tap();
+  assert.match(await p.locator('.st.now .card h3').innerText(), /^Buy a magic /, 'Undo brings the purchase back');
   assert.ok(await p.locator('#p-steps .to-item').isVisible(), 'a jump to the item card on a phone');
   const [sw, w] = await p.evaluate(() => [document.documentElement.scrollWidth, window.innerWidth]);
   assert.ok(sw <= w, 'no sideways scroll on a phone');
@@ -297,6 +304,22 @@ async function addTarget(page, side, i, query, famText) {
   assert.ok(sw3 <= w3, 'no sideways scroll with the shopping list open');
   await p.screenshot({ path: `${OUT}/phone-cost.png`, fullPage: true });
   await p.locator('[data-act="shop-close"]').tap();
+  // The Story screen: the story at five lengths, and a fact at a time
+  await p.locator('.tabbar [data-go="story"]').tap();
+  const lens = await p.locator('#s-len button').allInnerTexts();
+  assert.deepEqual(lens, ['50 words', '100 words', '250 words', '500 words', '1,000 words']);
+  for (const [i, target] of [[0, 50], [2, 250], [4, 1000]]) {
+    await p.locator('#s-len button').nth(i).tap();
+    const words = (await p.locator('#s-text').innerText()).trim().split(/\s+/).length;
+    assert.ok(Math.abs(words - target) <= target * 0.2, target + ' words: got ' + words);
+  }
+  const fact = await p.locator('#s-fact').innerText();
+  assert.ok(fact.length > 20, 'a fact');
+  await p.locator('[data-act="story-fact"]').tap();
+  assert.notEqual(await p.locator('#s-fact').innerText(), fact, 'another fact');
+  const [sw4, w4] = await p.evaluate(() => [document.documentElement.scrollWidth, window.innerWidth]);
+  assert.ok(sw4 <= w4, 'no sideways scroll on the Story screen');
+  await p.screenshot({ path: `${OUT}/phone-story.png`, fullPage: true });
   await p.click('.tabbar [data-go="design"]');
   await p.fill('#find-q', 'cryptic leg');
   await p.screenshot({ path: `${OUT}/phone-find.png` });

@@ -10,6 +10,7 @@
       <button type="button" class="tab" data-go="design">Design</button>
       <button type="button" class="tab" data-go="plan">Forge <span class="n" id="tab-step" hidden></span></button>
       <button type="button" class="tab" data-go="ref">Reference</button>
+      <button type="button" class="tab" data-go="story">Story</button>
     </nav>
     <div class="bar-tools">
       <div class="league-wrap"><span class="league-lbl" aria-hidden="true">Prices</span><div class="league" role="group" aria-label="Prices from league"><button type="button" data-lg="fr" aria-pressed="true" title="Prices from the Forbidden Rites league"><span class="lg-l">Forbidden Rites</span><span class="lg-s">FR</span></button><button type="button" data-lg="roa" aria-pressed="false" title="Prices from the Runes of Aldur league"><span class="lg-l">Runes of Aldur</span><span class="lg-s">RoA</span></button></div></div>
@@ -57,7 +58,6 @@
         <p class="eyebrow">Part 2 of 2 · Forge</p>
         <h1 id="p-title">Craft it step by step</h1>
       </div>
-      <p class="lore"><span class="eyebrow">Path of Exile 2 story</span> <span id="p-lore"></span></p>
     </div>
     <div class="plan-grid" id="p-grid">
       <div class="have-col" id="p-item"></div>
@@ -228,12 +228,33 @@
       </div>
     </footer>
   </section>
+  <!-- STORY -->
+  <section id="v-story" class="view story" aria-labelledby="s-title" hidden>
+    <div class="view-head">
+      <div>
+        <p class="eyebrow">Path of Exile 2</p>
+        <h1 id="s-title">The story so far</h1>
+      </div>
+      <p>New to the story? Pick how much you want to read. Every length covers the whole tale up to patch 0.5, so the longer ones spoil more of the campaign.</p>
+    </div>
+    <div class="story-wrap">
+      <div class="lenpick" id="s-len" role="group" aria-label="How much to read"></div>
+      <article class="story-text" id="s-text" aria-live="polite"></article>
+      <aside class="story-fact" aria-labelledby="s-fact-h">
+        <p class="eyebrow" id="s-fact-h">Did you know?</p>
+        <p id="s-fact"></p>
+        <button type="button" class="btn small quiet" data-act="story-fact">Another one</button>
+      </aside>
+      <p class="fine">Written from poe2wiki.net, poewiki.net and pathofexile.com, and fact-checked in October 2026 (patch 0.5).</p>
+    </div>
+  </section>
 </main>
 
 <nav class="tabbar" aria-label="Screens">
   <button type="button" data-go="design"><svg aria-hidden="true"><use href="#u-design"/></svg>Design</button>
   <button type="button" data-go="plan"><svg aria-hidden="true"><use href="#u-hammer"/></svg>Forge</button>
   <button type="button" data-go="ref"><svg aria-hidden="true"><use href="#u-book"/></svg>Reference</button>
+  <button type="button" data-go="story"><svg aria-hidden="true"><use href="#u-scroll"/></svg>Story</button>
 </nav>
 
 <div class="modal" id="picker" hidden></div>

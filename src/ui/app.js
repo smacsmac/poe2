@@ -172,9 +172,9 @@
       st: packSt(c.st), ps: packSt(c.planSt), sl: !!c.stale,
       h: hist.map(function (h) {
         return { t: h.t, o: h.o, e: h.e ? 1 : 0, st: packSt(h.st), ps: packSt(h.ps), sl: false, a: h.as === undefined ? undefined : (h.as ? 1 : 0), u: h.su,
-          sp: Array.isArray(h.sp) ? h.sp : undefined, b: h.b ? 1 : undefined };
+          sp: Array.isArray(h.sp) ? h.sp : undefined, b: h.b ? 1 : undefined, y: h.bu ? 1 : undefined, buy: h.buy ? 1 : undefined };
       }),
-      su: c.su | 0,
+      su: c.su | 0, bu: c.bu ? 1 : undefined,
       hd: meta.hdrop || undefined, h0: meta.hdrop ? packSt(meta.h0) : undefined, hs: meta.hs || undefined,
       at: c.at, dev: c.dev
     }));
@@ -196,6 +196,8 @@
         var x = { t: h.t, o: h.o, e: !!h.e, st: unpackSt(h.st), ps: unpackSt(h.ps), sl: false };
         if (h.a !== undefined) x.as = !!h.a;
         if (h.u !== undefined) x.su = h.u;
+        if (h.y) x.bu = true;
+        if (h.buy) x.buy = 1;
         if (spendOk(h.sp)) x.sp = h.sp;
         if (h.b) x.b = 1;
         return x;
@@ -209,6 +211,7 @@
     c.stale = false;
     // Saves from before the setup steps: a craft already under way has its setup done
     c.su = o.su !== undefined ? o.su : underWay(c) ? 3 : 0;
+    c.bu = !!o.bu;
     return c;
   }
 
@@ -237,7 +240,7 @@
       var raw = JSON.parse(txt || 'null');
       if (!raw || typeof raw !== 'object') return;
       if (raw.league === 'fr' || raw.league === 'roa') app.league = raw.league;
-      if (raw.view === 'design' || raw.view === 'plan' || raw.view === 'ref') app.view = raw.view;
+      if (raw.view === 'design' || raw.view === 'plan' || raw.view === 'ref' || raw.view === 'story') app.view = raw.view;
       Object.keys(raw.crafts || {}).forEach(function (id) { var c = unpackCraft(raw.crafts[id]); if (c) app.crafts[id] = c; });
       if (raw.cur && app.crafts[raw.cur]) app.curId = raw.cur;
     } catch (e) { /* ignore a bad cache */ }
@@ -358,13 +361,14 @@
   function go(view, opts) {
     app.view = view;
     if (view !== 'design') closeFind(false);
-    ['design', 'plan', 'ref'].forEach(function (v) { $('v-' + v).hidden = v !== view; });
+    ['design', 'plan', 'ref', 'story'].forEach(function (v) { $('v-' + v).hidden = v !== view; });
     document.querySelectorAll('[data-go]').forEach(function (b) {
       if (b.classList.contains('brand')) return;
       if (b.getAttribute('data-go') === view) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current');
     });
     if (view === 'plan') { app.ui.nowKey = null; renderPlan(); }
     if (view === 'design') renderDesign();
+    if (view === 'story') renderStory();
     if (!opts || !opts.keepScroll) {
       window.scrollTo(0, 0);
       var h1 = document.querySelector('#v-' + view + ' h1');
@@ -1085,7 +1089,9 @@
       if (d) list.push(d); else unpriced += 1;
     });
     var r = E.spentOn(list, app.league);
-    return { div: r.div, bases: r.bases, known: r.known, unpriced: unpriced, started: startState(c).rarity !== 'none', steps: doneCount(c) };
+    var first = c.hdrop ? null : c.hist[firstOutcome(c)];
+    var boughtIt = !!(first && first.buy && first.b);   // a bought magic base is the item you started with, counted once
+    return { div: r.div, bases: r.bases, known: r.known, unpriced: unpriced, started: startState(c).rarity !== 'none' && !boughtIt, steps: doneCount(c) };
   }
   function spentCore(sp) {
     var b = sp.bases ? (sp.bases === 1 ? '1 magic base' : sp.bases + ' magic bases') : '';
@@ -1217,12 +1223,13 @@
   }
   function recOf(step) { return step.kind === 'fixMagic' ? 'restart' : step.recommended || null; }
   /* The cost figures for the open craft, from the plan already drawn: cheap parts now, the average if it's ready. */
-  function costState(c, design, steps, stage) {
+  function costState(c, design, steps, stage, buy) {
     var now = steps[0];
-    var K = { design: design, steps: steps, st: c.planSt, n0: SETUP + doneCount(c) + 1, done: now.kind === 'done', open: !!app.ui.shop, spent: spentSoFar(c), happy: E.planCost(design, steps), cp: null, cc: null, choices: null };
+    // with a purchase pending, the plan's steps are numbered after it, and the shopping list starts with it
+    var K = { design: design, steps: steps, st: c.planSt, n0: SETUP + doneCount(c) + 1 + (buy ? 1 : 0), done: now.kind === 'done', open: !!app.ui.shop, spent: spentSoFar(c), happy: E.planCost(design, steps), cp: null, cc: null, choices: null, buy: buy ? buyInfo(c) : null };
     if (K.done) return K;
     if (K.open) K.cp = E.costPlan(design, c.planSt, { steps: steps, quick: true });   // the average is only shown in the open cost box
-    K.choices = !stage ? E.choicesOf(now) : null;
+    K.choices = !stage && !buy ? E.choicesOf(now) : null;
     if (K.choices) K.cc = E.choiceCosts(design, c.planSt, now, { quick: true });
     return K;
   }
@@ -1256,6 +1263,64 @@
     var sa = $('shop-avg');
     if (sa) sa.innerHTML = shopTotal(shopData(K));
   }
+  /* ---------- buying the item Suggest filled in ----------
+     After Suggest the item card shows what to look for, but nothing is bought yet: step 3 says what to buy, lets you set
+     the tiers you actually got, and "Bought it" records it (a magic base counts in spent so far). */
+  function buying(c) { return !!c.bu && !!c.st && (c.st.rarity === 'magic' || c.st.rarity === 'rare'); }
+  function buyIlvl(c) {
+    var b = E.nextStep(designOf(c), blankSt(c.st && c.st.skip));
+    return b.kind === 'base' && b.spec ? specOf(b.spec, 'Item level') : c.ilvl + '+';
+  }
+  function buyModName(m, cat) {
+    if (m.pseudo) return 'Any ' + SIDE[m.s] + (m.pseudo === 'any' ? ' (junk for the crafted mod to delete)' : '');
+    var tl = tierLab(cat, m.mi);
+    return E.famName(famOf(m.mi)) + (tl.charAt(0) === 'T' ? ' ' + tl + (m.est ? ' or better' : '') : m.crafted ? ' (from an essence)' : '');
+  }
+  function buyInfo(c) {
+    var cat = catOf(c), side = function (s) { var ms = c.st.mods.filter(function (m) { return m.s === s; }); return ms.length ? listAnd(ms.map(function (m) { return buyModName(m, cat); })) : 'anything'; };
+    return { rar: c.st.rarity, ilvl: buyIlvl(c), pre: side(0), suf: side(1) };
+  }
+  function buyTitle(c) { return 'Buy a ' + c.st.rarity + ' ' + c.base; }
+  function buyCard(c, n) {
+    var cat = catOf(c), rar = c.st.rarity;
+    var h = '<div class="card buy-card"><div class="card-k"><span class="eyebrow">Now · step ' + n + ' · Base</span></div>';
+    h += '<h3 tabindex="-1">Buy a <span class="rar-' + rar + '">' + rar + '</span> ' + esc(c.base) + '</h3>';
+    h += '<p class="how">Look for one on trade at item level ' + esc(buyIlvl(c)) + ' with these mods. They’re what Suggest put on your item, and a higher tier is just as good.</p>';
+    h += '<ul class="buy-mods">' + c.st.mods.map(function (m) {
+      if (m.pseudo || m.mi === null || m.mi === undefined) return '<li><span>' + esc(buyModName(m, cat)) + '</span></li>';
+      var opts = E.tierOptions(cat, famOf(m.mi)).filter(function (o) { return o.kind === 'roll'; });
+      var name = modHTML(E.famName(famOf(m.mi)));
+      if (!opts.length || !opts.some(function (o) { return o.mi === m.mi; })) return '<li><span>' + name + (m.crafted ? ' <span class="muted">(from an essence)</span>' : '') + '</span></li>';
+      return '<li><span>' + name + '</span><label class="buy-tier"><span class="vh">Tier of ' + esc(E.famName(famOf(m.mi))) + ' you bought</span><select data-act="buy-tier" data-id="' + esc(m.id) + '">' +
+        opts.map(function (o) { return '<option value="' + o.mi + '"' + (o.mi === m.mi ? ' selected' : '') + '>' + esc(o.label + (o.mi === m.mi && m.est ? ' or better' : '')) + '</option>'; }).join('') + '</select></label></li>';
+    }).join('') + '</ul>';
+    h += '<p class="note">Bought one with different tiers? Set them above before you press Bought it, and the steps follow. Different mods? Change them on your item.</p>';
+    h += '<p class="q">When you have it</p><div class="outs"><button type="button" class="out first" data-act="buy-done">Bought it</button>' +
+      '<button type="button" class="out other" data-act="buy-roll">I’ll make it myself instead</button></div>';
+    return h + '</div>';
+  }
+  function buyDone() {
+    var c = cur();
+    if (!buying(c)) return;
+    var cat = catOf(c), st = clone(c.st);
+    st.mods.forEach(function (m) { delete m.est; });   // what you bought is what's on it now
+    var got = st.mods.map(function (m) { return buyModName(m, cat); });
+    pushHist(c, withSpend({ t: buyTitle(c), o: 'Bought it' + (got.length ? ': ' + got.join(', ') : ''), buy: 1 }, { sp: [], b: st.rarity === 'magic' ? 1 : 0 }));
+    c.bu = false; c.st = st; c.planSt = clone(st); c.su = 3; c.stale = false;
+    app.ui.optFor = null; app.ui.open = {}; app.ui.confirmReset = false;
+    touch(c); renderPlan();
+  }
+  function buyRoll() {
+    var c = cur();
+    if (manualEdit(c, function () { c.st = { rarity: 'none', mods: [], done: {}, skip: (c.st && c.st.skip) || {} }; c.bu = false; }, 'Making it myself')) {
+      toast('The steps now start from a normal base and roll the magic one.');
+    }
+  }
+  function buyTier(id, mi) {
+    var c = cur(), m = c.st && c.st.mods.find(function (x) { return x.id === id; });
+    if (!m || isNaN(mi)) return;
+    manualEdit(c, function () { m.mi = mi; delete m.est; }, E.famName(famOf(mi)) + ' ' + tierLab(catOf(c), mi));
+  }
   /* The button in the steps toolbar that opens the cost box (cost, spent so far and the shopping list). */
   function costBtn(K) {
     return '<button type="button" class="btn small quiet" data-act="shop" aria-expanded="' + !!app.ui.shop + '" aria-controls="p-cost">' + ico('u-list') + (K.done ? 'Cost' : 'Cost & shopping list') + '</button>';
@@ -1284,14 +1349,15 @@
   function shopData(K) {
     var restart = K.happy.restart;
     var st0 = restart ? blankSt() : K.st, steps0 = restart ? E.plan(K.design, st0) : K.steps;
-    return { K: K, restart: restart, sl: E.shoppingList(K.design, st0, steps0), happy: restart ? E.planCost(K.design, steps0) : K.happy, n0: K.n0 + (restart ? 1 : 0) };
+    return { K: K, restart: restart, sl: E.shoppingList(K.design, st0, steps0), happy: restart ? E.planCost(K.design, steps0) : K.happy, n0: K.n0 + (restart ? 1 : 0),
+      buy: restart ? null : K.buy };
   }
   function specOf(base, k) { var r = (base || []).find(function (x) { return x.k === k; }); return r ? r.v : ''; }
   function shopTotal(D) {
     var cp = D.K.cp;
     if (D.happy.stopsAt === 0) return 'The next step is your call: each choice on it says what it still costs to finish.';
     var sum = sumTxt(D.happy.div, D.happy.known);
-    return (sum === 'not priced' ? 'Not priced' : 'About <b>' + esc(est(D.happy.div)) + '</b>') + ' if every roll lands' + (D.sl.base ? ', plus the base' : '') + (D.happy.stopsAt !== null ? ', up to your call' : '') +
+    return (sum === 'not priced' ? 'Not priced' : 'About <b>' + esc(est(D.happy.div)) + '</b>') + ' if every roll lands' + (D.sl.base || D.buy ? ', plus the base' : '') + (D.happy.stopsAt !== null ? ', up to your call' : '') +
       (D.happy.known ? '' : ' (some prices unknown)') +
       (!cp ? ' · working out the average with misses…' : cp.capped ? ' · very high on average (' + cappedText(cp) + ').'
         : avgShown(D.K.happy, cp) ? ' · <b>' + esc(avgTxt(cp.avg.div)) + '</b> on average with misses' + (cp.avg.bases >= 1.5 ? ', and ' + basesTxt(cp.avg.bases) : '') + (cp.avg.unknown ? ' (some prices unknown)' : '') + '.' : '.');
@@ -1304,6 +1370,9 @@
     if (sl.base) {
       h += '<h4>The base <span>buy it on trade</span></h4><p class="shop-base">Magic ' + esc(specOf(sl.base, 'Base')) + ', item level ' + esc(specOf(sl.base, 'Item level')) + '</p>' +
         '<p class="sm">Prefix: ' + modHTML(specOf(sl.base, 'Prefix')) + ' · Suffix: ' + modHTML(specOf(sl.base, 'Suffix')) + '. Not priced here.</p>';
+    } else if (D.buy) {
+      h += '<h4>The base <span>buy it on trade</span></h4><p class="shop-base">' + rarHTML(D.buy.rar) + ' ' + esc(D.K.design.base) + ', item level ' + esc(D.buy.ilvl) + '</p>' +
+        '<p class="sm">Prefix: ' + modHTML(D.buy.pre) + ' · Suffix: ' + modHTML(D.buy.suf) + '. Not priced here.</p>';
     }
     if (sl.rows.length) {
       h += '<h4>For the steps <span>' + esc(sumTxt(D.happy.div, D.happy.known)) + (D.happy.known ? '' : ' (some prices unknown)') + (D.happy.stopsAt !== null ? ', up to your call' : '') + '</span></h4><ul class="shop-list">' + sl.rows.map(function (r) {
@@ -1328,7 +1397,8 @@
   /* The shopping list as plain text, worked out in full (it runs on a click). */
   function shopText(c) {
     var design = designOf(c), steps = E.plan(design, c.planSt);
-    var K = { design: design, steps: steps, st: c.planSt, n0: SETUP + doneCount(c) + 1, happy: E.planCost(design, steps), cp: E.costPlan(design, c.planSt, { steps: steps }) };
+    var buy = steps[0].kind !== 'done' && !setupStage(c) && buying(c);
+    var K = { design: design, steps: steps, st: c.planSt, n0: SETUP + doneCount(c) + 1 + (buy ? 1 : 0), happy: E.planCost(design, steps), cp: E.costPlan(design, c.planSt, { steps: steps }), buy: buy ? buyInfo(c) : null };
     var D = shopData(K), sl = D.sl, L = [];
     L.push('Shopping list: ' + c.base + ', item level ' + c.ilvl);
     L.push(LG_NAME[app.league] + ' prices, ' + PRICES.date + ' (poe.ninja). Rough estimates.');
@@ -1336,6 +1406,9 @@
     if (sl.base) {
       L.push('', 'The base (buy it on trade, not priced here):');
       L.push('- Magic ' + specOf(sl.base, 'Base') + ', item level ' + specOf(sl.base, 'Item level') + ', prefix: ' + specOf(sl.base, 'Prefix') + ', suffix: ' + specOf(sl.base, 'Suffix'));
+    } else if (D.buy) {
+      L.push('', 'The base (buy it on trade, not priced here):');
+      L.push('- ' + RAR[D.buy.rar] + ' ' + c.base + ', item level ' + D.buy.ilvl + ', prefix: ' + D.buy.pre + ', suffix: ' + D.buy.suf);
     }
     if (sl.rows.length) {
       L.push('', 'For the steps (' + sumTxt(D.happy.div, D.happy.known) + ' if every roll lands' + (D.happy.stopsAt !== null ? ', up to the step where I choose how to go on' : '') + (D.happy.known ? '' : ', some prices unknown') + '):');
@@ -1355,7 +1428,7 @@
     else if (cp.capped) L.push('', 'On average, following the steps: very high (' + cappedText(cp) + ').');
     else if (avgShown(K.happy, cp)) {
       L.push('', 'On average, following the steps' + (D.happy.stopsAt !== null ? ' up to that choice' : '') + ': ' + aboutTxt(cp.avg.div) +
-        (sl.base || D.restart || cp.avg.bases >= 1.5 ? ', plus ' + basesTxt(cp.avg.bases) : '') + (cp.avg.unknown ? ' (some prices unknown)' : '') + '.');
+        (sl.base || D.buy || D.restart || cp.avg.bases >= 1.5 ? ', plus ' + basesTxt(cp.avg.bases) : '') + (cp.avg.unknown ? ' (some prices unknown)' : '') + '.');
     }
     return L.join('\n');
   }
@@ -1380,8 +1453,11 @@
     var now = steps[0];
     var left = steps.filter(function (s) { return s.kind !== 'done'; }).length;
     var stage = setupStage(c);
-    app.ui.nowKey2 = c.id + '|' + stage + '|' + n;
-    var K = costState(c, design, steps, stage);
+    // Suggest filled in an item to buy: buying it is the current step, and the plan follows it
+    var buy = !stage && now.kind !== 'done' && buying(c);
+    if (buy) left += 1;
+    app.ui.nowKey2 = c.id + '|' + stage + '|' + n + (buy ? 'b' : '');
+    var K = costState(c, design, steps, stage, buy);
     var meta = now.kind === 'done' ? 'All done' : stage === 1 ? 'Start with step 1: choose your starting item' : stage === 2 ? 'Step 2: fill in what’s on your item' : 'Step ' + n + ' · about ' + plural(left, 'step') + ' to go';
     var h = '<div class="steps-head"><div><h2>Steps</h2><p class="meta">' + meta + '</p></div><div class="steps-tools">' + costBtn(K) + copyBtn('small') +
       // On narrow screens the steps come first: a jump to the item card (step 2 has its own until the craft starts)
@@ -1399,8 +1475,9 @@
       else h += '<li class="st done"><div class="st-n" aria-hidden="true"><span>' + r.n + '</span></div><div class="st-b"><b><span class="vh">Step ' + r.n + ': </span>' + esc(r.t) + '</b><span>' + esc(r.o || '') + '</span></div></li>';
     });
     // While a setup step is current, the plan's first step waits its turn like the others
-    if (!stage) h += '<li class="st now"><div class="st-n" aria-hidden="true"><span>' + n + '</span></div><div class="st-b">' + renderNow(c, now, n, K) + '</div></li>';
-    (stage ? steps : steps.slice(1)).forEach(function (s, i) {
+    if (buy) h += '<li class="st now"><div class="st-n" aria-hidden="true"><span>' + n + '</span></div><div class="st-b">' + buyCard(c, n) + '</div></li>';
+    else if (!stage) h += '<li class="st now"><div class="st-n" aria-hidden="true"><span>' + n + '</span></div><div class="st-b">' + renderNow(c, now, n, K) + '</div></li>';
+    (stage || buy ? steps : steps.slice(1)).forEach(function (s, i) {
       var num = n + i + (stage ? 0 : 1);
       var open = !!app.ui.open[num];
       h += '<li class="st next"><div class="st-n" aria-hidden="true"><span>' + num + '</span></div><div class="st-b"><h4><span class="vh">Step ' + num + ': </span>' + esc(s.title) + '</h4>' +
@@ -1508,7 +1585,7 @@
     return h;
   }
   function pushHist(c, entry) {
-    entry.st = clone(c.st); entry.ps = clone(c.planSt); entry.sl = false; entry.su = c.su | 0;
+    entry.st = clone(c.st); entry.ps = clone(c.planSt); entry.sl = false; entry.su = c.su | 0; entry.bu = !!c.bu;
     c.hist.push(entry);
     trimHist(c.hist, 60, c);
   }
@@ -1522,12 +1599,12 @@
   }
   function manualEdit(c, fn, label) {
     if (!c.st) c.st = blankSt();
-    var before = { st: clone(c.st), ps: clone(c.planSt), su: c.su | 0 }, sig = stSig(c.st) + '#' + before.su;
+    var before = { st: clone(c.st), ps: clone(c.planSt), su: c.su | 0, bu: !!c.bu }, sig = stSig(c.st) + '#' + before.su + '#' + before.bu;
     hideToast();
     fn();
     c.su = (c.su | 0) | 1;   // any change to the item answers step 1
-    if (stSig(c.st) + '#' + c.su === sig) { c.st = before.st; replan(c); renderPlan(); return false; }
-    c.hist.push({ t: 'Edited the item', o: label || '', e: true, st: before.st, ps: before.ps, sl: false, su: before.su });
+    if (stSig(c.st) + '#' + c.su + '#' + !!c.bu === sig) { c.st = before.st; replan(c); renderPlan(); return false; }
+    c.hist.push({ t: 'Edited the item', o: label || '', e: true, st: before.st, ps: before.ps, sl: false, su: before.su, bu: before.bu });
     trimHist(c.hist, 60, c);
     app.ui.confirmReset = false;
     replan(c);
@@ -1602,6 +1679,7 @@
     c.st = x.st; c.planSt = x.ps;
     if (x.as !== undefined) c.astrid = x.as;
     if (x.su !== undefined) c.su = x.su;
+    c.bu = !!x.bu;
     replan(c);
     app.ui.optFor = null; app.ui.confirmReset = false;
     touch(c); renderPlan();
@@ -1624,13 +1702,14 @@
     var perSide = [0, 1].map(function (s) { return mods.filter(function (m) { return m.s === s; }).length; });
     var doIt = function () {
       c.st = { rarity: (perSide[0] > 1 || perSide[1] > 1) ? 'rare' : mods.length ? 'magic' : 'none', mods: mods, done: {}, skip: (c.st && c.st.skip) || {} };
+      c.bu = false;   // an item you already have: nothing to buy
     };
     manualEdit(c, doIt, 'Copy targets in');
     toast('Copied your targets in. Press ✕ on any you don’t have, and add what else is on it.');
   }
   function startBlank() {
     var c = cur();
-    if (manualEdit(c, function () { c.st = { rarity: 'none', mods: [], done: {}, skip: (c.st && c.st.skip) || {} }; }, 'Clear item')) toast('Cleared the item. Undo brings it back.');
+    if (manualEdit(c, function () { c.st = { rarity: 'none', mods: [], done: {}, skip: (c.st && c.st.skip) || {} }; c.bu = false; }, 'Clear item')) toast('Cleared the item. Undo brings it back.');
   }
   function listAnd(a) { return a.length < 2 ? a.join('') : a.slice(0, -1).join(', ') + ' and ' + a[a.length - 1]; }
   /* Fill the item with what's worth having on a bought base of the chosen rarity, as the plan sees it. */
@@ -1641,7 +1720,7 @@
     var design = designOf(c);
     var mods = E.suggest(design, rar, c.st.skip);
     if (!mods) { toast('Nothing to suggest yet. Add your targets on the Design screen first.'); return; }
-    manualEdit(c, function () { c.st.mods = mods; c.su = (c.su | 0) | 3; }, 'Suggest');
+    manualEdit(c, function () { c.st.mods = mods; c.su = (c.su | 0) | 3; c.bu = true; }, 'Suggest');
     var parts = mods.map(function (m) {
       return m.pseudo ? 'any ' + SIDE[m.s] + ' (junk for the crafted mod to delete)' : E.famName(famOf(m.mi)) + (m.crafted ? ' (from an essence)' : '');
     });
@@ -1665,6 +1744,7 @@
     if (!RAR[v]) return;
     var had = c.st ? c.st.mods.slice() : [];
     var changed = manualEdit(c, function () {
+      if (c.st.rarity !== v) c.bu = false;   // a different kind of item than the one Suggest filled in
       c.st.rarity = v;
       if (v === 'none') c.st.mods = [];
       if (v === 'magic') {
@@ -2019,13 +2099,23 @@
       var steps = E.plan(design, st0);
       var n = SETUP + outs + 1;
       var now = steps[0];
-      L = L.concat(costText(c, design, st0, steps, n));
-      var cc = now.kind !== 'done' && E.choicesOf(now) ? E.choiceCosts(design, st0, now) : null;
-      L.push('', now.kind === 'done' ? 'DONE' : 'NEXT STEP (step ' + n + ')');
-      L = L.concat(stepDetail(c, now, cc));
-      if (steps.length > 1) {
+      var buy = now.kind !== 'done' && !setupStage(c) && buying(c);
+      L = L.concat(costText(c, design, st0, steps, n + (buy ? 1 : 0)));
+      if (buy) {
+        // Suggest filled in an item to buy: buying it is the next step, then the plan
+        var bi = buyInfo(c);
+        L.push('', 'NEXT STEP (step ' + n + ')', buyTitle(c), 'Look for one on trade at item level ' + bi.ilvl + '. Prefix: ' + bi.pre + '. Suffix: ' + bi.suf + '. A higher tier is just as good.',
+          'The app then asks: Bought it (with the tiers I got) / I’ll make it myself instead');
         L.push('', 'AFTER THAT (the plan assumes each roll lands)');
-        steps.slice(1).forEach(function (st, i) { L.push((n + i + 1) + '. ' + stepOutline(st)); });
+        steps.forEach(function (st, i) { L.push((n + i + 1) + '. ' + stepOutline(st)); });
+      } else {
+        var cc = now.kind !== 'done' && E.choicesOf(now) ? E.choiceCosts(design, st0, now) : null;
+        L.push('', now.kind === 'done' ? 'DONE' : 'NEXT STEP (step ' + n + ')');
+        L = L.concat(stepDetail(c, now, cc));
+        if (steps.length > 1) {
+          L.push('', 'AFTER THAT (the plan assumes each roll lands)');
+          steps.slice(1).forEach(function (st, i) { L.push((n + i + 1) + '. ' + stepOutline(st)); });
+        }
       }
     }
     return L.join('\n');
@@ -2190,12 +2280,16 @@
       case 'undo': undo(); break;
       case 'reset': app.ui.confirmReset = true; renderPlan(); break;
       case 'reset-no': app.ui.confirmReset = false; renderPlan(); break;
-      case 'reset-yes': app.ui.confirmReset = false; c.st = blankSt(); c.planSt = clone(c.st); c.hist = []; c.hdrop = 0; c.h0 = null; c.hs = null; c.su = 0; c.stale = false; app.ui.doneAll = false; touch(c); renderPlan(); break;
+      case 'reset-yes': app.ui.confirmReset = false; c.st = blankSt(); c.planSt = clone(c.st); c.hist = []; c.hdrop = 0; c.h0 = null; c.hs = null; c.su = 0; c.bu = false; c.stale = false; app.ui.doneAll = false; touch(c); renderPlan(); break;
       case 'done-all': app.ui.doneAll = true; renderPlan(); break;
       case 'more': (function (n) { app.ui.open[n] = !app.ui.open[n]; renderPlan(); })(+a.getAttribute('data-n')); break;
       case 'new-craft': newCraft(); break;
       case 'copy-craft': copyCraft(); break;
       case 'shop': app.ui.shop = !app.ui.shop; renderPlan(); break;
+      case 'buy-done': buyDone(); break;
+      case 'story-len': story.n = +a.getAttribute('data-n'); saveStory(); renderStory(); a = document.querySelector('#s-len [data-n="' + story.n + '"]'); if (a) a.focus(); break;
+      case 'story-fact': nextFact(); break;
+      case 'buy-roll': buyRoll(); break;
       case 'shop-close': app.ui.shop = false; renderPlan(); break;
       case 'shop-copy': copyText(shopText(c), 'Copied the shopping list.', { title: 'Copy the shopping list', label: 'The shopping list as text', then: 'paste it where you need it' }); break;
       case 'cb-close': closeCopyBox(); break;
@@ -2228,6 +2322,7 @@
   document.addEventListener('change', function (e) {
     var c = cur();
     var t = e.target;
+    if (t.getAttribute && t.getAttribute('data-act') === 'buy-tier') { buyTier(t.getAttribute('data-id'), parseInt(t.value, 10)); return; }
     if (t.id === 'd-base') { c.base = t.value; revalidate(c, c.base); touch(c); renderDesign(); return; }
     if (t.id === 'd-ilvl') {
       var v = Math.max(1, Math.min(100, parseInt(t.value, 10) || 82));
@@ -2269,8 +2364,12 @@
     refreshBadges();
   }
 
-  /* ---------- a line of Path of Exile 2 story above the Forge, a different one each visit ---------- */
-  var LORE_KEY = 'poe2-crafting-playbook-lore';
+  /* ---------- the Story screen: the Path of Exile 2 story at five lengths, and a fact at a time ---------- */
+  var LORE_KEY = 'poe2-crafting-playbook-lore';   // { n: length picked, f: last fact shown } (an older value is just the fact)
+  /* Written from poe2wiki.net, poewiki.net and pathofexile.com and fact-checked (October 2026, patch 0.5). */
+  var STORY = [
+    { words: 50, title: 'In 50 words', paragraphs: ['STORY_PLACEHOLDER'] }
+  ];
   /* Basic story facts, checked against poe2wiki.net, poewiki.net and pathofexile.com (October 2026). */
   var LORE = [
     "Wraeclast is the continent where both Path of Exile games are set. It’s a cursed, hostile land: few people remain alive there, and fewer still remain sane.",
@@ -2305,14 +2404,32 @@
     "Ascendancy classes are earned in two trials: the Maraketh desert’s Trial of the Sekhemas, ending with Zarokh, the Temporal, and the Trial of Chaos, whose final foe is the Trialmaster.",
     "Since patch 0.5, the endgame’s Ritual story has the spirit Aoife ask for help: the King in the Mists holds her body, binding her to the Wildwood, so freeing her means facing him."
   ];
-  function showLore() {
-    var el = $('p-lore');
-    if (!el || !LORE.length) return;
-    var last = -1, i = Math.floor(Math.random() * LORE.length);
-    try { last = parseInt(localStorage.getItem(LORE_KEY), 10); } catch (e) { /* storage blocked: any fact will do */ }
-    if (LORE.length > 1 && i === last) i = (i + 1) % LORE.length;
-    try { localStorage.setItem(LORE_KEY, String(i)); } catch (e) { /* storage blocked */ }
-    el.textContent = LORE[i];
+  var story = { n: 100, f: -1 };
+  function loadStory() {
+    try {
+      var raw = localStorage.getItem(LORE_KEY);
+      var o = raw && raw.charAt(0) === '{' ? JSON.parse(raw) : { f: parseInt(raw, 10) };
+      if (o && STORY.some(function (x) { return x.words === o.n; })) story.n = o.n;
+      if (o && o.f >= 0 && o.f < LORE.length) story.f = o.f;
+    } catch (e) { /* storage blocked or a bad value: the defaults will do */ }
+    if (!STORY.some(function (x) { return x.words === story.n; })) story.n = STORY[0].words;
+  }
+  function saveStory() { try { localStorage.setItem(LORE_KEY, JSON.stringify(story)); } catch (e) { /* storage blocked */ } }
+  /* A different fact from the last one shown, this visit or the one before. */
+  function nextFact() {
+    if (!LORE.length) return;
+    var i = Math.floor(Math.random() * LORE.length);
+    if (LORE.length > 1 && i === story.f) i = (i + 1) % LORE.length;
+    story.f = i; saveStory();
+    $('s-fact').textContent = LORE[i];
+  }
+  function renderStory() {
+    var v = STORY.find(function (x) { return x.words === story.n; }) || STORY[0];
+    $('s-len').innerHTML = STORY.map(function (x) {
+      return '<button type="button" data-act="story-len" data-n="' + x.words + '" aria-pressed="' + (x === v) + '">' + x.words.toLocaleString('en-US') + ' words</button>';
+    }).join('');
+    $('s-text').innerHTML = '<h2 class="vh">' + esc(v.title) + '</h2>' + v.paragraphs.map(function (p) { return '<p>' + esc(p) + '</p>'; }).join('');
+    if (!$('s-fact').textContent) nextFact();
   }
 
   /* ---------- boot ---------- */
@@ -2325,10 +2442,10 @@
   document.querySelectorAll('[data-lg]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-lg') === app.league)); });
   var h0 = (location.hash || '').replace('#', '');
   if (h0 === 'forge') h0 = 'plan';
-  if (h0 === 'plan' || h0 === 'design' || h0 === 'ref' || h0 === 'reference') app.view = h0 === 'reference' ? 'ref' : h0;
+  if (h0 === 'plan' || h0 === 'design' || h0 === 'ref' || h0 === 'reference' || h0 === 'story') app.view = h0 === 'reference' ? 'ref' : h0;
   window.App = { get: function () { return app; }, league: function () { return app.league; }, toast: toast, go: go, craftText: function () { return craftText(cur()); } };
   initFind();
-  showLore();
+  loadStory();
   go(app.view, { keepScroll: true });
   renderAll();
   initDb();
