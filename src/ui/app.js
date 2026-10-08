@@ -917,6 +917,8 @@
      and it updates live as the item changes. */
   var SETUP = 2;
   var RAR = { none: 'Normal', magic: 'Magic', rare: 'Rare' };
+  /* A rarity word in the game's colour: magic blue, rare yellow (normal stays plain). */
+  function rarHTML(v) { return v === 'none' ? RAR[v] : '<span class="rar-' + v + '">' + RAR[v] + '</span>'; }
   var RAR_SUB = { none: 'Nothing yet, or a plain base', magic: 'One prefix and one suffix', rare: 'A craft in progress' };
   function firstOutcome(c) { for (var i = 0; i < c.hist.length; i++) if (!c.hist[i].e) return i; return -1; }
   /* What the item was when the first step was recorded (the end of the setup), or the item now before that. */
@@ -992,14 +994,14 @@
     var h = '';
     if (doneCount(c)) {
       var s0 = startState(c);
-      h += '<li class="st done setup-done"><div class="st-n" aria-hidden="true"><span>1</span></div><div class="st-b"><b><span class="vh">Step 1: </span>Started with</b><span>' + esc(s0.rarity === 'none' ? 'Nothing yet' : RAR[s0.rarity] + ' ' + c.base) + '</span></div></li>';
+      h += '<li class="st done setup-done"><div class="st-n" aria-hidden="true"><span>1</span></div><div class="st-b"><b><span class="vh">Step 1: </span>Started with</b><span>' + (s0.rarity === 'none' ? 'Nothing yet' : rarHTML(s0.rarity) + ' ' + esc(c.base)) + '</span></div></li>';
       h += '<li class="st done setup-done"><div class="st-n" aria-hidden="true"><span>2</span></div><div class="st-b"><b><span class="vh">Step 2: </span>What was on it</b><span>' + esc(s0.rarity === 'none' ? 'Nothing yet: step 3 got the base' : modsLine(s0)) + '</span></div></li>';
       return h;
     }
     var rar = c.st.rarity;
     var b1 = '<p class="sm">Pick the item you have, or the one you’ll buy (step 2 can suggest it). The steps below follow your choice.</p>' +
       '<div class="pick3" role="group" aria-label="Item to start with">' + ['none', 'magic', 'rare'].map(function (v) {
-        return '<button type="button" data-act="rarity" data-v="' + v + '" aria-pressed="' + (!!(c.su & 1) && rar === v) + '"><b>' + RAR[v] + '</b><small>' + RAR_SUB[v] + '</small></button>';
+        return '<button type="button" data-act="rarity" data-v="' + v + '" aria-pressed="' + (!!(c.su & 1) && rar === v) + '"><b>' + rarHTML(v) + '</b><small>' + RAR_SUB[v] + '</small></button>';
       }).join('') + '</div>';
     h += setupLi(1, 'What kind of item would you like to start with?', b1, stage === 1 ? 'now' : 'ok');
     var b2, s2;
