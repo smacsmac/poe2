@@ -607,3 +607,50 @@ test('removal notes no longer quote the old flat averages', () => {
   notes.push(E.nextStep(design, at).note);
   notes.forEach((t) => assert.ok(t && !/\d+(\.\d+)? div/.test(t), t));
 });
+
+test('cost: a loop the steps can never leave is capped, and so are the choices that lead back into it', () => {
+  const { cat, design } = glovesDesign();
+  const d = Object.assign({}, design, { runeforge: false, targets: [[design.targets[0][0], design.targets[0][1]], [tgt(cat, 1, '+#% to Cold Resistance', 'T2')]] });
+  const st = { rarity: 'rare', mods: [mod(cat, 0, '+# to maximum Life', 'T1'), mod(cat, 0, '+# to maximum Mana', 'T2'), mod(cat, 1, '+#% to Cold Resistance', 'T6', { fract: true })], done: {}, skip: {} };
+  const step = E.nextStep(d, st);
+  assert.equal(step.kind, 'desec');
+  assert.equal(step.odds.p, 0, 'the fractured lower tier blocks the desecration');
+  const cp = E.costPlan(d, st);
+  assert.ok(cp.capped && cp.loop && cp.avg === null);
+  const miss = E.apply(st, { type: 'add', mods: [Object.assign(junk(1), { desec: true })] });
+  const cc = E.choiceCosts(d, miss, E.nextStep(d, miss));
+  const by = Object.fromEntries(cc.map((c) => [c.key, c]));
+  assert.equal(by.light.finish, Infinity, 'it leads back to the same desecration');
+  assert.ok(isFinite(by.settle.finish) && isFinite(by.restart.finish));
+});
+
+test('cost: a step that waits for your call isn’t priced as if it were done', () => {
+  const d = twoAlloyGloves(false);
+  const steps = E.plan(d, fresh());
+  const offer = steps[steps.length - 1];
+  const before = steps.slice(0, -1).reduce((a, s) => a + E.matsCost(reqMats(s), 'fr').sum, 0);
+  const happy = E.planCost(d, steps);
+  close(happy.div, before, 1e-9, 'the rune and the alloy belong to a choice');
+  assert.ok(E.matsCost(reqMats(offer), 'fr').sum > 1, 'the offer has items of its own');
+  let s = fresh();
+  for (let j = 0; j < steps.length - 1; j++) s = E.apply(s, steps[j].project);
+  assert.equal(E.costPlan(d, s).happy.stopsAt, 0);
+  assert.equal(E.shoppingList(d, s).rows.length, 0);
+});
+
+test('cost: when a fresh base never finishes, every choice that restarts is Infinity, never a huge number', () => {
+  const cat = E.catalog('Portent Amulet', 75);
+  const des = (s) => cat.sides[s].filter((F) => !F.tiers.length && F.lich.length);
+  const t = (F) => ({ f: F.f, mi: F.lich[0].mi, lv: F.lich[0].l });
+  const d = { cls: 'amulet', base: 'Portent Amulet', ilvl: 75, league: 'fr', targets: [des(0).slice(0, 2).map(t), des(1).slice(0, 1).map(t)] };
+  assert.ok(E.costPlan(d, fresh()).capped);
+  const st = { rarity: 'magic', mods: [mod(cat, 0, '+# to maximum Life')], done: {}, skip: {} };
+  const step = E.nextStep(d, st);
+  assert.equal(step.kind, 'fixMagic');
+  E.choiceCosts(d, st, step).forEach((c) => assert.equal(c.finish, Infinity, c.key));
+});
+
+test('spend: an entry without a title isn’t priced (and doesn’t throw)', () => {
+  const { design } = glovesDesign();
+  assert.equal(E.deriveSpend(design, { o: 'Done', st: fresh(), ps: fresh() }), null);
+});

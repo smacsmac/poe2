@@ -1218,14 +1218,23 @@
         return true;
       };
       /* Columns: 0 spend, 1 chance of ending in a restart, 2 magic bases, 3 visits to a step with an unknown price,
-         4 chance of ending at a stop, 5.. chance of ending with each target family skipped. One dense solve. */
+         4 chance of ending at a stop, 5 chance of ending in a loop the steps never leave, 6.. chance of ending with each
+         target family skipped. One dense solve. */
       C.solve = function () {
         if (C.solved && C.solved.n === C.nodes.length) return C.solved;
-        var n = C.nodes.length, K = 5 + tfam.length, W = n + K;
+        var n = C.nodes.length, K = 6 + tfam.length, W = n + K;
+        // States that can't reach an end (done, stop, restart, cut) are stuck in a loop: they end there, in column 5
+        var rev = C.nodes.map(function () { return []; }), reach = new Uint8Array(n), todo = [];
+        C.nodes.forEach(function (N, i) {
+          (N.out || []).forEach(function (x) { rev[x[1]].push(i); });
+          if (N.end || N.restart || !N.out) { reach[i] = 1; todo.push(i); }
+        });
+        while (todo.length) rev[todo.pop()].forEach(function (j) { if (!reach[j]) { reach[j] = 1; todo.push(j); } });
         var M = new Array(n);
         for (var i = 0; i < n; i++) {
           var N = C.nodes[i], row = new Float64Array(W);
           row[i] = 1;
+          if (!reach[i]) { row[n + 5] = 1; M[i] = row; continue; }
           (N.out || []).forEach(function (x) { row[x[1]] -= x[0]; });
           var a = N.cost;
           if (N.end === 'cut') {
@@ -1234,7 +1243,7 @@
           }
           row[n] = a; row[n + 1] = N.restart; row[n + 2] = N.base; row[n + 3] = N.unknown;
           if (N.end === 'stop') row[n + 4] = 1;
-          if (N.end) tfam.forEach(function (f, j) { if (N.st.skip[f]) row[n + 5 + j] = 1; });
+          if (N.end) tfam.forEach(function (f, j) { if (N.st.skip[f]) row[n + 6 + j] = 1; });
           M[i] = row;
         }
         for (var c = 0; c < n; c++) {
@@ -1267,7 +1276,6 @@
     function chainFor(design, peek) {
       var k = dsig(design);
       var C = chains.get(k);
-      if (C && C.nodes.length > COST_MAXN && !C.queue.length) { chains.delete(k); C = null; }   // grew too big over a session: start again
       if (C) { chains.delete(k); chains.set(k, C); return C; }
       if (peek) return null;
       C = buildChain(design);
@@ -1275,16 +1283,30 @@
       while (chains.size > 3) chains.delete(chains.keys().next().value);
       return C;
     }
+    /* A chain that grew past half the limit over a session (every item edit adds states) starts again before it
+       explores states it hasn't seen, so new states aren't cut short. */
+    function fitChain(C, design, states) {
+      if (C.nodes.length <= COST_MAXN / 2 || states.every(function (s) { return C.index.has(skey(canon(s))); })) return C;
+      chains.delete(dsig(design));
+      return chainFor(design, false);
+    }
     /* A node's value with restarts folded in: here + r · fresh / (1 − r(fresh)). */
     function valuer(C) {
       var S = C.solve();
       var f0 = C.index.get(skey(canon(FRESH)));
       var r0 = S.V[1][f0];
-      var capped = !(r0 < 0.995);   // 200+ magic bases per finish: "very high"
-      var fresh = S.V.map(function (v) { return v[f0] / (1 - r0); });
+      // 200+ magic bases per finish, or a fresh base can end in a loop: "very high", and no fresh value
+      var capped = !(r0 < 0.995) || S.V[5][f0] > 1e-9;
+      var fresh = capped ? null : S.V.map(function (v) { return v[f0] / (1 - r0); });
       return {
         capped: capped, fresh: fresh, r: function (id) { return S.V[1][id]; },
-        col: function (id, k) { var r = S.V[1][id]; return S.V[k][id] + (r > 1e-12 ? r * fresh[k] : 0); }
+        col: function (id, k) {
+          var r = S.V[1][id], v = S.V[k][id];
+          if (r <= 1e-12) return v;
+          if (!fresh) return k === 0 || k === 2 ? Infinity : v;
+          return v + r * fresh[k];
+        },
+        stuck: function (id) { var r = S.V[1][id]; return S.V[5][id] > 1e-9 || (!fresh && r > 1e-9); }
       };
     }
     /* These states are already explored and solved: answering takes no exploring and no solve. */
@@ -1304,11 +1326,13 @@
       var lg = design.league === 'roa' ? 'roa' : 'fr';
       var div = 0, known = true, base = false, stopsAt = null;
       steps.forEach(function (x, i) {
+        if (stopsAt !== null) return;
+        // a step that waits for your call: its items belong to one of its choices, priced on the choices
+        if (x.kind !== 'done' && !x.project && !x.options) { stopsAt = i; return; }
         var op = suggestedOpt(x);
         var r = matsCost(required(op ? op.mats : x.mats), lg);
         div += r.sum; if (!r.known) known = false;
         if (x.kind === 'base') base = true;
-        if (stopsAt === null && x.kind !== 'done' && !x.project && !x.options) stopsAt = i;
       });
       return { div: div, known: known, base: base, stopsAt: stopsAt, restart: !!(steps[steps.length - 1] || {}).endsHere };
     }
@@ -1325,14 +1349,16 @@
         var path = [st], s = st;
         steps.forEach(function (x) { if (x.project && x.project.type !== 'restart') { s = apply(s, x.project); path.push(s); } });
         if (opts.quick && !ready(C, path)) return null;
+        if (!opts.quick) C = fitChain(C, design, path);
         if (!prepare(C, path, opts)) return null;
         var val = valuer(C);
         var id0 = C.node(st);
         var happy = planCost(design, steps);
-        var capped = (val.capped && val.r(id0) > 1e-9) || !isFinite(val.col(id0, 0));
+        var loop = val.col(id0, 5) > 1e-9;
+        var capped = val.stuck(id0) || !isFinite(val.col(id0, 0));
         var avg = capped ? null : {
           div: val.col(id0, 0), bases: val.col(id0, 2), unknown: val.col(id0, 3) > 1e-9, stop: val.col(id0, 4),
-          skipped: C.tfam.map(function (f, j) { return { f: f, name: famName(f), p: val.col(id0, 5 + j) }; })
+          skipped: C.tfam.map(function (f, j) { return { f: f, name: famName(f), p: val.col(id0, 6 + j) }; })
             .filter(function (x) { return x.p >= 0.005; }).sort(function (a, b) { return b.p - a.p; })
         };
         /* The step that adds the most to the average beyond its own price: what its misses cost. */
@@ -1350,12 +1376,11 @@
             if (!risk || extra > risk.extra) risk = { i: si, kind: x.kind, title: x.title, p: p, extra: extra, st: path[i - 1], step: x };
           });
           if (risk && risk.extra >= 5 && risk.extra >= 0.25 * avg.div) {
-            risk.share = risk.extra / avg.div;
             risk.miss = missOf(design, risk.st, risk.step);
             delete risk.st; delete risk.step;
           } else risk = null;
         }
-        var res = { happy: happy, avg: avg, risk: risk, capped: capped, fresh: val.capped ? null : { div: val.fresh[0], bases: val.fresh[2] }, states: C.nodes.length, cut: C.cut };
+        var res = { happy: happy, avg: avg, risk: risk, capped: capped, loop: capped && loop, fresh: val.fresh ? { div: val.fresh[0], bases: val.fresh[2] } : null, states: C.nodes.length, cut: C.cut };
         C.memo.set(k0, res);
         return res;
       });
@@ -1405,6 +1430,7 @@
         var states = [];
         branches.forEach(function (b) { b.forEach(function (y) { if (y[1] !== 'restart') states.push(y[1]); }); });
         if (opts.quick && !ready(C, states)) return null;
+        if (!opts.quick) C = fitChain(C, design, states);
         if (!prepare(C, states, opts)) return null;
         var astrid = null;
         if (list.some(function (x) { return x.kind === 'astrid'; })) {
@@ -1416,18 +1442,23 @@
           var nowp = x.kind === 'astrid' ? C.priced([{ k: 'Astrid\'s Creativity' }]) : x.op && x.op.mats.length ? C.priced(x.op.mats) : { sum: 0, known: true };
           var r = { key: x.key, label: x.label, kind: x.kind, now: nowp.sum, known: nowp.known, keeps: x.kind !== 'skip' };
           if (x.kind === 'restart') {
-            r.finish = val.capped ? Infinity : val.fresh[0]; r.bases = val.capped ? Infinity : val.fresh[2]; r.stop = val.capped ? 0 : val.fresh[4];
+            r.finish = val.fresh ? val.fresh[0] : Infinity; r.bases = val.fresh ? val.fresh[2] : Infinity; r.stop = val.fresh ? val.fresh[4] : 0;
             return r;
           }
           if (x.kind === 'astrid') { var a = astrid.avg; r.finish = a ? a.div : Infinity; r.bases = a ? a.bases : Infinity; r.stop = a ? a.stop : 0; return r; }
           var fin = nowp.sum, b = 0, stop = 0;
           branches[i].forEach(function (y) {
             var p = y[0];
-            if (y[1] === 'restart') { fin += p * val.fresh[0]; b += p * val.fresh[2]; stop += p * val.fresh[4]; return; }
+            if (y[1] === 'restart') {
+              if (!val.fresh) { fin = Infinity; b = Infinity; return; }
+              fin += p * val.fresh[0]; b += p * val.fresh[2]; stop += p * val.fresh[4];
+              return;
+            }
             var id = C.node(y[1]);
+            if (val.stuck(id)) { fin = Infinity; b = Infinity; return; }   // can end in a loop, or restarts that never finish
             fin += p * val.col(id, 0); b += p * val.col(id, 2); stop += p * val.col(id, 4);
           });
-          r.finish = val.capped && !isFinite(fin) ? Infinity : fin; r.bases = b; r.stop = stop;
+          r.finish = isFinite(fin) ? fin : Infinity; r.bases = isFinite(b) ? b : Infinity; r.stop = stop;
           return r;
         });
         C.memo.set(ck, out);
@@ -1444,6 +1475,7 @@
         var s = st, base = null;
         steps.forEach(function (x, i) {
           if (x.kind === 'base') base = x.spec;
+          if (!x.project && !x.options) return;   // done, or a step that waits for your call: its items belong to a choice
           var op = suggestedOpt(x);
           var mats = (op ? op.mats : x.mats) || [];
           var retried = ['slam', 'aug', 'desec'].indexOf(x.kind) > -1 && x.odds && x.odds.p < 0.995;
@@ -1478,7 +1510,7 @@
     }
     /* An entry saved before spend was recorded: what its step used, if the step still matches its title. */
     function deriveSpend(design, h) {
-      if (h.e) return null;
+      if (h.e || typeof h.t !== 'string') return null;
       var from = h.ps || h.st;
       if (!from) return null;
       return inLeague(design, function () {
