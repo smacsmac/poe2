@@ -450,9 +450,23 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
 .shop .sm{font-size:.86rem;color:var(--muted);line-height:1.45}
 .shop-base{font-size:.95rem}
 .shop-list{list-style:none;margin:0;padding:0;display:grid;gap:.3rem}
-.shop-list li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:.1rem .8rem;font-size:.92rem}
-.shop-list .sp{font-family:var(--font-mono);font-size:.78rem;color:var(--muted);white-space:nowrap;text-align:right}
+.shop-list li{font-size:.92rem}
+.shop-row label{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:.1rem .6rem;align-items:start;padding:.3rem .4rem;margin:0 -.4rem;border-radius:5px;cursor:pointer}
+.shop-row label:hover{background:var(--surface-2)}
+.shop-row input{width:1.05rem;height:1.05rem;margin:.12rem 0 0;accent-color:var(--brass);cursor:pointer}
+.shop-row input:focus-visible{outline:2px solid var(--brass);outline-offset:2px}
+.shop-row input:checked ~ .sn{color:var(--faint);text-decoration:line-through;text-decoration-color:var(--line-2)}
+.shop-row input:checked ~ .sn small,.shop-row input:checked ~ .sp{color:var(--faint)}
+.shop-list .sp{font-family:var(--font-mono);font-size:.78rem;color:var(--muted);white-space:nowrap;text-align:right;padding-top:.12rem}
 .shop-list small{display:block;color:var(--muted);font-size:.8rem}
+.shop-grp{display:grid;gap:.3rem}
+.shop-grp+.shop-grp{margin-top:.2rem}
+.shop h4 .gsum{margin-left:auto}
+.shop .tag{font-size:.64rem;letter-spacing:.06em;text-transform:uppercase;align-self:center}
+.tag.tag-common{color:var(--hit);border-color:color-mix(in srgb,var(--hit) 45%,transparent)}
+.tag.tag-adv{color:var(--src-abyss);border-color:color-mix(in srgb,var(--src-abyss) 45%,transparent)}
+.shop-px{display:inline-flex;align-items:center;gap:.4rem;font-size:.86rem;color:var(--muted);cursor:pointer;white-space:nowrap}
+.shop-px input{width:1rem;height:1rem;margin:0;accent-color:var(--brass);cursor:pointer}
 .shop-tot{font-size:.92rem;border-top:1px dashed var(--line-2);padding-top:.4rem}
 .shop-foot{display:flex;gap:.45rem;flex-wrap:wrap}
 @media (max-width:480px){.opt .oc{grid-column:2/-1;justify-items:start;display:flex;flex-wrap:wrap;gap:.1rem .6rem;white-space:normal;text-align:left}}
@@ -932,7 +946,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
     <a class="brand" href="#design" data-go="design" aria-label="Crafting Playbook, design screen">
       <span class="brand-mark" aria-hidden="true"></span>
       <span class="brand-name">Crafting Playbook</span>
-      <span class="brand-v" title="App version: V3">V3</span>
+      <span class="brand-v" title="App version: V4">V4</span>
       <span class="brand-sub">PoE2 · 0.5.5</span>
     </a>
     <nav class="tabs" aria-label="Screens">
@@ -3005,7 +3019,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
         return { t: h.t, o: h.o, e: h.e ? 1 : 0, st: packSt(h.st), ps: packSt(h.ps), sl: false, a: h.as === undefined ? undefined : (h.as ? 1 : 0), u: h.su,
           sp: Array.isArray(h.sp) ? h.sp : undefined, b: h.b ? 1 : undefined, y: h.bu ? 1 : undefined, buy: h.buy ? 1 : undefined };
       }),
-      su: c.su | 0, bu: c.bu ? 1 : undefined,
+      su: c.su | 0, bu: c.bu ? 1 : undefined, g: c.got && Object.keys(c.got).length ? Object.keys(c.got) : undefined,
       hd: meta.hdrop || undefined, h0: meta.hdrop ? packSt(meta.h0) : undefined, hs: meta.hs || undefined,
       at: c.at, dev: c.dev
     }));
@@ -3043,6 +3057,8 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
     // Saves from before the setup steps: a craft already under way has its setup done
     c.su = o.su !== undefined ? o.su : underWay(c) ? 3 : 0;
     c.bu = !!o.bu;
+    c.got = {};
+    (Array.isArray(o.g) ? o.g : []).forEach(function (k) { if (typeof k === 'string') c.got[k] = 1; });
     return c;
   }
 
@@ -4057,21 +4073,21 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
   function costState(c, design, steps, stage, buy) {
     var now = steps[0];
     // with a purchase pending, the plan's steps are numbered after it, and the shopping list starts with it
-    var K = { design: design, steps: steps, st: c.planSt, n0: SETUP + doneCount(c) + 1 + (buy ? 1 : 0), done: now.kind === 'done', open: !!app.ui.shop, spent: spentSoFar(c), happy: E.planCost(design, steps), cp: null, cc: null, choices: null, buy: buy ? buyInfo(c) : null };
+    var K = { design: design, steps: steps, st: c.planSt, n0: SETUP + doneCount(c) + 1 + (buy ? 1 : 0), done: now.kind === 'done', open: !!app.ui.shop, px: !!app.ui.shopPx, spent: spentSoFar(c), happy: E.planCost(design, steps), cp: null, cc: null, choices: null, buy: buy ? buyInfo(c) : null };
     if (K.done) return K;
-    if (K.open) K.cp = E.costPlan(design, c.planSt, { steps: steps, quick: true });   // the average is only shown in the open cost box
+    if (K.open && K.px) K.cp = E.costPlan(design, c.planSt, { steps: steps, quick: true });   // the average only shows in the open box, with prices
     K.choices = !stage && !buy ? E.choicesOf(now) : null;
     if (K.choices) K.cc = E.choiceCosts(design, c.planSt, now, { quick: true });
     return K;
   }
-  function costReady(K) { return K.done || ((!K.open || !!K.cp) && (!K.choices || !!K.cc)); }
+  function costReady(K) { return K.done || ((!(K.open && K.px) || !!K.cp) && (!K.choices || !!K.cc)); }
   /* Work the average out a slice at a time (the page stays responsive), then patch the figures in. */
   function scheduleCost(c, K) {
     var tok = app.ui.costTok, st = clone(K.st);
     function run() {
       if (tok !== app.ui.costTok || cur() !== c || app.view !== 'plan') return;
-      if (K.open && !K.cp) K.cp = E.costPlan(K.design, st, { steps: K.steps, budget: 12 });
-      if ((K.cp || !K.open) && K.choices && !K.cc) K.cc = E.choiceCosts(K.design, st, K.steps[0], { budget: 12 });
+      if (K.open && K.px && !K.cp) K.cp = E.costPlan(K.design, st, { steps: K.steps, budget: 12 });
+      if ((K.cp || !(K.open && K.px)) && K.choices && !K.cc) K.cc = E.choiceCosts(K.design, st, K.steps[0], { budget: 12 });
       if (!costReady(K)) { app.ui.costTimer = setTimeout(run, 0); return; }
       patchCost(K);
     }
@@ -4154,13 +4170,16 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
   }
   /* The button in the steps toolbar that opens the cost box (cost, spent so far and the shopping list). */
   function costBtn(K) {
-    return '<button type="button" class="btn small quiet" data-act="shop" aria-expanded="' + !!app.ui.shop + '" aria-controls="p-cost">' + ico('u-list') + (K.done ? 'Cost' : 'Cost & shopping list') + '</button>';
+    return '<button type="button" class="btn small quiet" data-act="shop" aria-expanded="' + !!app.ui.shop + '" aria-controls="p-cost">' + ico('u-list') + (K.done ? 'Cost' : 'Shopping list') + '</button>';
   }
   /* The cost box, drawn only while it's open, so the steps start with step 1 and no figures. */
+  /* The box opens as a clean checklist; "Show prices" adds the cost lines (if every roll lands, the average, spent so
+     far) and a price on each item. */
   function costSection(K) {
     if (!K.open) return '';
-    var h = '<section class="cost" id="p-cost" aria-labelledby="p-cost-h"><div class="cost-head"><h3 id="p-cost-h" class="eyebrow">' + (K.done ? 'Cost' : 'Cost · rough') + '</h3></div>' +
-      '<div class="cost-body" id="p-cost-body" aria-busy="' + !costReady(K) + '">' + costBody(K) + '</div>';
+    var h = '<section class="cost" id="p-cost" aria-labelledby="p-cost-h"><div class="cost-head"><h3 id="p-cost-h" class="eyebrow">' + (K.done ? 'Cost' : 'Shopping list') + '</h3>' +
+      (K.done ? '' : '<label class="shop-px"><input type="checkbox" data-act="shop-prices"' + (K.px ? ' checked' : '') + '>Show prices</label>') + '</div>';
+    if (K.done || K.px) h += '<div class="cost-body" id="p-cost-body" aria-busy="' + !costReady(K) + '">' + costBody(K) + '</div>';
     K.drawnCp = !!K.cp || K.done;   // patchCost leaves a body that already has its average alone
     h += K.done ? '<div class="shop-foot"><button type="button" class="btn small quiet" data-act="shop-close">Close</button></div>' : shopPanel(shopData(K));
     return h + '</section>';
@@ -4194,75 +4213,102 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
         : avgShown(D.K.happy, cp) ? ' · <b>' + esc(avgTxt(cp.avg.div)) + '</b> on average with misses' + (cp.avg.bases >= 1.5 ? ', and ' + basesTxt(cp.avg.bases) : '') + (cp.avg.unknown ? ' (some prices unknown)' : '') + '.' : '.');
   }
   function shopRowName(r) { return r.n + (r.approx ? ' (the Anvil shows the exact amount)' : ''); }
+  /* What optional items are for, in the repair kit. */
+  var OPT_NOTE = { ptrans: 'to roll the base yourself', gaug: 'to roll the base yourself', divine: 'rerolls low values at the end', artificer: 'adds sockets for runes', o_gr_ex: 'two slams at once' };
+  function listOr(a) { return a.length < 2 ? a.join('') : a.slice(0, -1).join(', ') + ' or ' + a[a.length - 1]; }
+  /* The list in two groups: essentials the steps use every time, and the repair kit (what a miss calls for, and the
+     optional extras), plus misses that aren't items. Each item has a key for its tick box. */
+  function shopGroups(D) {
+    var sl = D.sl, ess = [], repair = [], notes = [], seen = {}, byK = {};
+    sl.rows.forEach(function (r) {
+      seen[r.k] = 1;
+      ess.push({ key: 'e:' + r.k, n: shopRowName(r), q: r.q, total: r.total, note: r.chance ? 'Step ' + (D.n0 + r.chance.i) + ' is ' + E.oddsLabel(r.chance.p) + ' a try: bring spares' : '' });
+    });
+    sl.misses.forEach(function (m) {
+      var step = D.n0 + m.i;
+      if (m.type !== 'fix') { notes.push('If step ' + step + ' misses, ' + (m.type === 'restart' ? 'the steps start again from a new magic base.' : 'the steps skip ' + m.what + '.')); return; }
+      (m.mats || []).forEach(function (x) {
+        if (seen[x.k]) return;
+        var it = byK[x.k];
+        if (!it) { it = byK[x.k] = { key: 'r:' + x.k, k: x.k, n: x.n, q: x.q || 1, steps: [] }; repair.push(it); }
+        if (it.steps.indexOf(step) < 0) it.steps.push(step);
+      });
+    });
+    repair.forEach(function (it) { var v = E.price(it.k, app.league); it.total = v === null ? null : v * it.q; it.note = 'If step ' + listOr(it.steps.map(String)) + ' misses'; });
+    sl.optional.forEach(function (o) {
+      if (seen[o.k] || byK[o.k]) return;
+      byK[o.k] = 1;
+      repair.push({ key: 'r:' + o.k, n: o.n, q: 1, total: o.each, note: 'Optional' + (OPT_NOTE[o.k] ? ': ' + OPT_NOTE[o.k] : '') });
+    });
+    var base = null;
+    if (sl.base) base = { key: 'base', n: 'Magic ' + specOf(sl.base, 'Base') + ', item level ' + specOf(sl.base, 'Item level'), note: 'Prefix: ' + specOf(sl.base, 'Prefix') + ' · Suffix: ' + specOf(sl.base, 'Suffix') };
+    else if (D.buy) base = { key: 'base', n: RAR[D.buy.rar] + ' ' + D.K.design.base + ', item level ' + D.buy.ilvl, note: 'Prefix: ' + D.buy.pre + ' · Suffix: ' + D.buy.suf };
+    return { base: base, ess: ess, repair: repair, notes: notes };
+  }
+  function shopRow(it, px, got) {
+    return '<li class="shop-row"><label><input type="checkbox" data-act="shop-chk" data-chk="' + esc(it.key) + '"' + (got[it.key] ? ' checked' : '') + '>' +
+      '<span class="sn">' + (it.q ? it.q + ' × ' : '') + esc(it.n) + (it.note ? '<small>' + esc(it.note) + '</small>' : '') + '</span>' +
+      (px && it.key !== 'base' ? '<span class="sp">' + esc(it.total === null || it.total === undefined ? 'price unknown' : fmt(it.total)) + '</span>' : '') + '</label></li>';
+  }
   function shopPanel(D) {
-    var sl = D.sl, h = '<div class="shop" id="shop">';
-    h += '<p class="sm">' + LG_NAME[app.league] + ' prices, ' + esc(PRICES.date) + '. Counts are for one go at each step: bring spares for the chancy ones.</p>';
+    var px = !!D.K.px, got = cur().got || {}, G = shopGroups(D);
+    var h = '<div class="shop" id="shop">';
     if (D.restart) h += '<p class="sm">The steps start again from a new base, so this list is for a fresh start.</p>';
-    if (sl.base) {
-      h += '<h4>The base <span>buy it on trade</span></h4><p class="shop-base">Magic ' + esc(specOf(sl.base, 'Base')) + ', item level ' + esc(specOf(sl.base, 'Item level')) + '</p>' +
-        '<p class="sm">Prefix: ' + modHTML(specOf(sl.base, 'Prefix')) + ' · Suffix: ' + modHTML(specOf(sl.base, 'Suffix')) + '. Not priced here.</p>';
-    } else if (D.buy) {
-      h += '<h4>The base <span>buy it on trade</span></h4><p class="shop-base">' + rarHTML(D.buy.rar) + ' ' + esc(D.K.design.base) + ', item level ' + esc(D.buy.ilvl) + '</p>' +
-        '<p class="sm">Prefix: ' + modHTML(D.buy.pre) + ' · Suffix: ' + modHTML(D.buy.suf) + '. Not priced here.</p>';
+    if (G.base) {
+      h += '<div class="shop-grp"><h4>The base <span class="tag">Trade</span></h4><ul class="shop-list">' + shopRow(G.base, px, got) + '</ul>' +
+        (px ? '<p class="sm">Bases aren’t priced here.</p>' : '') + '</div>';
     }
-    if (sl.rows.length) {
-      h += '<h4>For the steps <span>' + esc(sumTxt(D.happy.div, D.happy.known)) + (D.happy.known ? '' : ' (some prices unknown)') + (D.happy.stopsAt !== null ? ', up to your call' : '') + '</span></h4><ul class="shop-list">' + sl.rows.map(function (r) {
-        return '<li><span class="sn">' + r.q + ' × ' + esc(shopRowName(r)) + (r.chance ? '<small>Step ' + (D.n0 + r.chance.i) + ' is ' + esc(E.oddsLabel(r.chance.p)) + ' a try: bring spares</small>' : '') + '</span>' +
-          '<span class="sp">' + esc(r.total === null ? 'price unknown' : fmt(r.total)) + '</span></li>';
-      }).join('') + '</ul>';
+    if (G.ess.length) {
+      h += '<div class="shop-grp"><h4>Essentials <span class="tag tag-common">Common</span>' + (px ? '<span class="gsum">' + esc(sumTxt(D.happy.div, D.happy.known)) + (D.happy.stopsAt !== null ? ', up to your call' : '') + '</span>' : '') + '</h4>' +
+        '<p class="sm">What the steps use, start to finish.</p><ul class="shop-list">' + G.ess.map(function (it) { return shopRow(it, px, got); }).join('') + '</ul></div>';
     }
-    if (sl.misses.length) {
-      h += '<h4>If a roll misses <span>buy these when you need them</span></h4><ul class="shop-list">' + sl.misses.map(function (m) {
-        var what = m.type === 'fix' ? esc(m.label) : m.type === 'restart' ? 'a miss means a new magic base' : 'a miss means skipping ' + modHTML(m.what);
-        var cost = m.type === 'fix' ? fmt(m.each) + ' each time' : m.type === 'restart' ? '—' : 'free';
-        return '<li><span class="sn">Step ' + (D.n0 + m.i) + ': ' + what + '</span><span class="sp">' + esc(cost) + '</span></li>';
-      }).join('') + '</ul>';
+    if (G.repair.length || G.notes.length) {
+      h += '<div class="shop-grp"><h4>Repair kit <span class="tag tag-adv">Advanced</span></h4>' +
+        '<p class="sm">Only if a roll misses, or to polish the result. Buy them as you need them.</p>' +
+        (G.repair.length ? '<ul class="shop-list">' + G.repair.map(function (it) { return shopRow(it, px, got); }).join('') + '</ul>' : '') +
+        G.notes.map(function (t) { return '<p class="sm">' + esc(t) + '</p>'; }).join('') + '</div>';
     }
-    if (sl.optional.length) {
-      h += '<h4>Optional</h4><p class="sm">' + sl.optional.map(function (o) { return esc(o.n) + ' (' + esc(o.each === null ? 'price unknown' : fmt(o.each)) + ')'; }).join(', ') + '</p>';
-    }
-    h += '<p class="shop-tot" id="shop-avg">' + shopTotal(D) + '</p>';
-    h += '<div class="shop-foot"><button type="button" class="btn small" data-act="shop-copy">' + ico('u-copy') + 'Copy list</button><button type="button" class="btn small quiet" data-act="shop-close">Close</button></div>';
+    if (!G.base && !G.ess.length && !G.repair.length) h += '<p class="sm">Nothing to buy until you choose how to go on: each choice on the current step says what it needs.</p>';
+    if (px) h += '<p class="sm">' + LG_NAME[app.league] + ' prices, ' + esc(PRICES.date) + '. Rough.</p><p class="shop-tot" id="shop-avg">' + shopTotal(D) + '</p>';
+    var ticked = Object.keys(got).length;
+    h += '<div class="shop-foot"><button type="button" class="btn small" data-act="shop-copy">' + ico('u-copy') + 'Copy list</button>' +
+      (ticked ? '<button type="button" class="btn small quiet" data-act="shop-untick">Untick all</button>' : '') +
+      '<button type="button" class="btn small quiet" data-act="shop-close">Close</button></div>';
     return h + '</div>';
   }
   /* The shopping list as plain text, worked out in full (it runs on a click). */
   function shopText(c) {
-    var design = designOf(c), steps = E.plan(design, c.planSt);
+    var design = designOf(c), steps = E.plan(design, c.planSt), px = !!app.ui.shopPx;
     var buy = steps[0].kind !== 'done' && !setupStage(c) && buying(c);
-    var K = { design: design, steps: steps, st: c.planSt, n0: SETUP + doneCount(c) + 1 + (buy ? 1 : 0), happy: E.planCost(design, steps), cp: E.costPlan(design, c.planSt, { steps: steps }), buy: buy ? buyInfo(c) : null };
-    var D = shopData(K), sl = D.sl, L = [];
-    L.push('Shopping list: ' + c.base + ', item level ' + c.ilvl);
-    L.push(LG_NAME[app.league] + ' prices, ' + PRICES.date + ' (poe.ninja). Rough estimates.');
+    var K = { design: design, steps: steps, st: c.planSt, n0: SETUP + doneCount(c) + 1 + (buy ? 1 : 0), px: px, happy: E.planCost(design, steps), cp: px ? E.costPlan(design, c.planSt, { steps: steps }) : null, buy: buy ? buyInfo(c) : null };
+    var D = shopData(K), G = shopGroups(D), got = c.got || {}, L = [];
+    var line = function (it) {
+      return '- [' + (got[it.key] ? 'x' : ' ') + '] ' + (it.q ? it.q + ' × ' : '') + it.n + (px && it.key !== 'base' ? ': ' + (it.total === null || it.total === undefined ? 'price unknown' : fmt(it.total)) : '') + (it.note ? ' (' + it.note + ')' : '');
+    };
+    L.push('Shopping list: ' + c.base + ', item level ' + c.ilvl + (px ? ' (' + LG_NAME[app.league] + ' prices, ' + PRICES.date + ', poe.ninja; rough)' : ''));
     if (D.restart) L.push('The steps start again from a new base, so this list is for a fresh start.');
-    if (sl.base) {
-      L.push('', 'The base (buy it on trade, not priced here):');
-      L.push('- Magic ' + specOf(sl.base, 'Base') + ', item level ' + specOf(sl.base, 'Item level') + ', prefix: ' + specOf(sl.base, 'Prefix') + ', suffix: ' + specOf(sl.base, 'Suffix'));
-    } else if (D.buy) {
-      L.push('', 'The base (buy it on trade, not priced here):');
-      L.push('- ' + RAR[D.buy.rar] + ' ' + c.base + ', item level ' + D.buy.ilvl + ', prefix: ' + D.buy.pre + ', suffix: ' + D.buy.suf);
+    if (G.base) L.push('', 'The base (buy it on trade' + (px ? ', not priced here' : '') + '):', line(G.base));
+    if (G.ess.length) {
+      L.push('', 'Essentials, what the steps use' + (px ? ' (' + sumTxt(D.happy.div, D.happy.known) + ' if every roll lands' + (D.happy.stopsAt !== null ? ', up to the step where I choose how to go on' : '') + ')' : '') + ':');
+      G.ess.forEach(function (it) { L.push(line(it)); });
     }
-    if (sl.rows.length) {
-      L.push('', 'For the steps (' + sumTxt(D.happy.div, D.happy.known) + ' if every roll lands' + (D.happy.stopsAt !== null ? ', up to the step where I choose how to go on' : '') + (D.happy.known ? '' : ', some prices unknown') + '):');
-      sl.rows.forEach(function (r) {
-        L.push('- ' + r.q + ' × ' + shopRowName(r) + ': ' + (r.total === null ? 'price unknown' : fmt(r.total)) + (r.chance ? ' (step ' + (D.n0 + r.chance.i) + ' is ' + E.oddsLabel(r.chance.p) + ' a try: bring spares)' : ''));
-      });
+    if (G.repair.length || G.notes.length) {
+      L.push('', 'Repair kit, only when a roll misses or to polish it (buy as needed):');
+      G.repair.forEach(function (it) { L.push(line(it)); });
+      G.notes.forEach(function (t) { L.push('- ' + t); });
     }
-    if (sl.misses.length) {
-      L.push('', 'If a roll misses (buy these when you need them):');
-      sl.misses.forEach(function (m) {
-        L.push('- Step ' + (D.n0 + m.i) + ': ' + (m.type === 'fix' ? m.label + ', ' + fmt(m.each) + ' each time' : m.type === 'restart' ? 'a miss means a new magic base' : 'a miss means skipping ' + m.what));
-      });
-    }
-    if (sl.optional.length) L.push('', 'Optional: ' + sl.optional.map(function (o) { return o.n + ' (' + (o.each === null ? 'price unknown' : fmt(o.each)) + ')'; }).join(', '));
     var cp = K.cp;
-    if (D.happy.stopsAt === 0) L.push('', 'The next step is my call: the app prices each choice on it.');
-    else if (cp.capped) L.push('', 'On average, following the steps: very high (' + cappedText(cp) + ').');
-    else if (avgShown(K.happy, cp)) {
-      L.push('', 'On average, following the steps' + (D.happy.stopsAt !== null ? ' up to that choice' : '') + ': ' + aboutTxt(cp.avg.div) +
-        (sl.base || D.buy || D.restart || cp.avg.bases >= 1.5 ? ', plus ' + basesTxt(cp.avg.bases) : '') + (cp.avg.unknown ? ' (some prices unknown)' : '') + '.');
+    if (px && cp) {
+      if (D.happy.stopsAt === 0) L.push('', 'The next step is my call: the app prices each choice on it.');
+      else if (cp.capped) L.push('', 'On average, following the steps: very high (' + cappedText(cp) + ').');
+      else if (avgShown(K.happy, cp)) {
+        L.push('', 'On average, following the steps' + (D.happy.stopsAt !== null ? ' up to that choice' : '') + ': ' + aboutTxt(cp.avg.div) +
+          (G.base || D.restart || cp.avg.bases >= 1.5 ? ', plus ' + basesTxt(cp.avg.bases) : '') + (cp.avg.unknown ? ' (some prices unknown)' : '') + '.');
+      }
     }
     return L.join('\n');
   }
+
   function renderPlanSteps() {
     var c = cur();
     var el = $('p-steps');
@@ -4342,8 +4388,8 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
   }
   /* Re-rendering replaces the buttons, so remember which one had focus and give it back afterwards. After a step's
      outcome, focus goes to the new current step instead, so a second Enter can't record the next one by mistake. */
-  var FOCUS_ATTRS = ['data-v', 'data-s', 'data-id', 'data-k', 'data-f', 'data-n'];
-  var FOCUS_ALT = { reset: 'reset-yes', 'reset-no': 'reset', 'reset-yes': null, 'done-all': null, 'shop-close': 'shop' };
+  var FOCUS_ATTRS = ['data-v', 'data-s', 'data-id', 'data-k', 'data-f', 'data-n', 'data-chk'];
+  var FOCUS_ALT = { reset: 'reset-yes', 'reset-no': 'reset', 'reset-yes': null, 'done-all': null, 'shop-close': 'shop', 'shop-untick': 'shop-copy' };
   function focusKey() {
     var a = document.activeElement;
     if (!a || !a.closest || !a.getAttribute) return null;
@@ -4872,7 +4918,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
     var cat = catOf(c), b = cat.base, design = designOf(c);
     var skip = (c.st && c.st.skip) || {};
     var L = [];
-    L.push('Path of Exile 2 crafting, patch 0.5.5. This is a craft I’m working on, copied from the crafting planner app I use (PoE2 Crafting Playbook V3). Prices are from the ' + (app.league === 'roa' ? 'Runes of Aldur' : 'Forbidden Rites') + ' league, in divines (div) and exalts (ex).');
+    L.push('Path of Exile 2 crafting, patch 0.5.5. This is a craft I’m working on, copied from the crafting planner app I use (PoE2 Crafting Playbook V4). Prices are from the ' + (app.league === 'roa' ? 'Runes of Aldur' : 'Forbidden Rites') + ' league, in divines (div) and exalts (ex).');
     L.push('How to read it: T1 is a mod’s best tier. Crafted mods come from an essence or an alloy, one per item (two with the rune Astrid’s Creativity socketed). Desecrated mods come from a desecration at the Well of Souls, one per item. The app’s odds count every eligible tier as equally likely, so they’re rough.');
     L.push('', 'THE ITEM');
     L.push(c.base + ' (' + CLS[c.cls].n + (b.sub ? ', ' + b.sub : '') + '), item level ' + c.ilvl + '.');
@@ -5111,7 +5157,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
       case 'undo': undo(); break;
       case 'reset': app.ui.confirmReset = true; renderPlan(); break;
       case 'reset-no': app.ui.confirmReset = false; renderPlan(); break;
-      case 'reset-yes': app.ui.confirmReset = false; c.st = blankSt(); c.planSt = clone(c.st); c.hist = []; c.hdrop = 0; c.h0 = null; c.hs = null; c.su = 0; c.bu = false; c.stale = false; app.ui.doneAll = false; touch(c); renderPlan(); break;
+      case 'reset-yes': app.ui.confirmReset = false; c.st = blankSt(); c.planSt = clone(c.st); c.hist = []; c.hdrop = 0; c.h0 = null; c.hs = null; c.su = 0; c.bu = false; c.got = {}; c.stale = false; app.ui.doneAll = false; touch(c); renderPlan(); break;
       case 'done-all': app.ui.doneAll = true; renderPlan(); break;
       case 'more': (function (n) { app.ui.open[n] = !app.ui.open[n]; renderPlan(); })(+a.getAttribute('data-n')); break;
       case 'new-craft': newCraft(); break;
@@ -5122,6 +5168,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
       case 'story-fact': nextFact(); break;
       case 'buy-roll': buyRoll(); break;
       case 'shop-close': app.ui.shop = false; renderPlan(); break;
+      case 'shop-untick': c.got = {}; touch(c); renderPlan(); break;
       case 'shop-copy': copyText(shopText(c), 'Copied the shopping list.', { title: 'Copy the shopping list', label: 'The shopping list as text', then: 'paste it where you need it' }); break;
       case 'cb-close': closeCopyBox(); break;
       case 'cb-select': selectCopyText(); break;
@@ -5154,6 +5201,16 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
     var c = cur();
     var t = e.target;
     if (t.getAttribute && t.getAttribute('data-act') === 'buy-tier') { buyTier(t.getAttribute('data-id'), parseInt(t.value, 10)); return; }
+    // the shopping list: tick what you've bought (kept with the craft), and show or hide prices
+    if (t.hasAttribute && t.hasAttribute('data-chk')) {
+      var gk = t.getAttribute('data-chk'), had = Object.keys(c.got || {}).length;
+      c.got = c.got || {};
+      if (t.checked) c.got[gk] = 1; else delete c.got[gk];
+      touch(c);
+      if (!had !== !Object.keys(c.got).length) renderPlan();   // the Untick all button comes or goes
+      return;
+    }
+    if (t.getAttribute && t.getAttribute('data-act') === 'shop-prices') { app.ui.shopPx = t.checked; renderPlan(); return; }
     if (t.id === 'd-base') { c.base = t.value; revalidate(c, c.base); touch(c); renderDesign(); return; }
     if (t.id === 'd-ilvl') {
       var v = Math.max(1, Math.min(100, parseInt(t.value, 10) || 82));

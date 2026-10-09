@@ -444,9 +444,23 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
 .shop .sm{font-size:.86rem;color:var(--muted);line-height:1.45}
 .shop-base{font-size:.95rem}
 .shop-list{list-style:none;margin:0;padding:0;display:grid;gap:.3rem}
-.shop-list li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:.1rem .8rem;font-size:.92rem}
-.shop-list .sp{font-family:var(--font-mono);font-size:.78rem;color:var(--muted);white-space:nowrap;text-align:right}
+.shop-list li{font-size:.92rem}
+.shop-row label{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:.1rem .6rem;align-items:start;padding:.3rem .4rem;margin:0 -.4rem;border-radius:5px;cursor:pointer}
+.shop-row label:hover{background:var(--surface-2)}
+.shop-row input{width:1.05rem;height:1.05rem;margin:.12rem 0 0;accent-color:var(--brass);cursor:pointer}
+.shop-row input:focus-visible{outline:2px solid var(--brass);outline-offset:2px}
+.shop-row input:checked ~ .sn{color:var(--faint);text-decoration:line-through;text-decoration-color:var(--line-2)}
+.shop-row input:checked ~ .sn small,.shop-row input:checked ~ .sp{color:var(--faint)}
+.shop-list .sp{font-family:var(--font-mono);font-size:.78rem;color:var(--muted);white-space:nowrap;text-align:right;padding-top:.12rem}
 .shop-list small{display:block;color:var(--muted);font-size:.8rem}
+.shop-grp{display:grid;gap:.3rem}
+.shop-grp+.shop-grp{margin-top:.2rem}
+.shop h4 .gsum{margin-left:auto}
+.shop .tag{font-size:.64rem;letter-spacing:.06em;text-transform:uppercase;align-self:center}
+.tag.tag-common{color:var(--hit);border-color:color-mix(in srgb,var(--hit) 45%,transparent)}
+.tag.tag-adv{color:var(--src-abyss);border-color:color-mix(in srgb,var(--src-abyss) 45%,transparent)}
+.shop-px{display:inline-flex;align-items:center;gap:.4rem;font-size:.86rem;color:var(--muted);cursor:pointer;white-space:nowrap}
+.shop-px input{width:1rem;height:1rem;margin:0;accent-color:var(--brass);cursor:pointer}
 .shop-tot{font-size:.92rem;border-top:1px dashed var(--line-2);padding-top:.4rem}
 .shop-foot{display:flex;gap:.45rem;flex-wrap:wrap}
 @media (max-width:480px){.opt .oc{grid-column:2/-1;justify-items:start;display:flex;flex-wrap:wrap;gap:.1rem .6rem;white-space:normal;text-align:left}}

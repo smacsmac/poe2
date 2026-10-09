@@ -137,22 +137,50 @@ async function addTarget(page, side, i, query, famText) {
     assert.match(await page.locator('.opt[data-k="restart"] .otry').innerText(), /^\+ (a magic base|about \d+ magic bases) · (\d+ in 10|nearly always) without Maximum Mana$/);
     const spentCard = await page.locator('.card .spent').innerText();
     assert.match(spentCard, /^Spent so far: about [\d.]+ (div|ex), plus the item you started with\. That’s gone whichever you choose, so compare what each choice still costs\.$/);
-    // "Cost & shopping list", left of Copy for a chat, opens the box: if every roll lands, the average, spent so far, the list
-    assert.deepEqual((await page.locator('.steps-tools .btn').allInnerTexts()).slice(0, 2), ['Cost & shopping list', 'Copy for a chat']);
+    // "Shopping list", left of Copy for a chat, opens the box as a checklist; prices stay hidden until asked for
+    assert.deepEqual((await page.locator('.steps-tools .btn').allInnerTexts()).slice(0, 2), ['Shopping list', 'Copy for a chat']);
     await page.click('.steps-tools [data-act="shop"]');
     assert.equal(await page.getAttribute('.steps-tools [data-act="shop"]', 'aria-expanded'), 'true');
+    await page.waitForSelector('#shop');
+    assert.equal(await page.locator('#p-cost-body').count(), 0, 'no figures until Show prices is ticked');
+    assert.equal(await page.locator('#shop .sp').count(), 0, 'no prices on the items either');
+    assert.equal(await page.isChecked('[data-act="shop-prices"]'), false);
+    const shopH = await page.locator('#shop h4').allInnerTexts();
+    assert.ok(shopH.some((t) => /^Essentials\s+Common/i.test(t)), 'the items the steps use');
+    assert.ok(shopH.some((t) => /^Repair kit\s+Advanced/i.test(t)), 'what a miss calls for');
+    assert.ok(!shopH.some((t) => /^The base/.test(t)), 'the item started rare: no base to buy');
+    assert.match(await page.locator('#shop .shop-grp').nth(0).innerText(), /\d+ × /, 'suggested counts stay');
+    // tick an item: it's kept with the craft, and Untick all clears them
+    const firstChk = page.locator('#shop [data-chk]').first();
+    const chkKey = await firstChk.getAttribute('data-chk');
+    await firstChk.check();
+    assert.equal(await page.locator('[data-act="shop-untick"]').count(), 1);
+    assert.equal(await page.evaluate(() => document.activeElement.getAttribute('data-chk')), chkKey, 'focus stays on the box');
+    await page.locator('#p-cost').screenshot({ path: `${OUT}/${scheme}-shop.png` });
+    await page.waitForTimeout(400);
+    await page.reload();
+    await page.click('.steps-tools [data-act="shop"]');
+    assert.equal(await page.isChecked(`#shop [data-chk="${chkKey}"]`), true, 'the tick survives a reload');
+    await page.click('[data-act="shop-copy"]');
+    assert.match(await page.evaluate(() => window.__copied), /\n- \[x\] \d+ × /);
+    assert.doesNotMatch(await page.evaluate(() => window.__copied), / prices, /, 'no prices in the list while they are hidden');
+    await page.click('[data-act="shop-untick"]');
+    assert.equal(await page.locator('#shop [data-chk]:checked').count(), 0);
+    assert.equal(await page.locator('[data-act="shop-untick"]').count(), 0);
+    // Show prices: if every roll lands, the average, spent so far, and a price on each item
+    await page.check('[data-act="shop-prices"]');
     await page.waitForSelector('#p-cost-body[aria-busy="false"]');
     const costText = await page.locator('#p-cost-body').innerText();
     assert.match(costText, /if every roll lands/);
     assert.match(costText, /~[\d,.]+ (div|ex) on average, following the steps/);
     assert.match(costText, /Spent so far: about [\d.]+ (div|ex), plus the item you started with\./);
-    const shopH = await page.locator('#shop h4').allInnerTexts();
-    assert.ok(shopH.some((t) => /^For the steps/.test(t)), 'items for the steps');
-    assert.ok(!shopH.some((t) => /^The base/.test(t)), 'the item started rare: no base to buy');
+    assert.ok(await page.locator('#shop .sp').count() > 0, 'each item has its price');
+    await page.locator('#p-cost').screenshot({ path: `${OUT}/${scheme}-shop-prices.png` });
     await page.screenshot({ path: `${OUT}/${scheme}-cost.png`, fullPage: true });
     await page.click('[data-act="shop-copy"]');
     assert.match(await page.locator('#toast').innerText(), /Copied the shopping list\./);
-    assert.match(await page.evaluate(() => window.__copied), /^Shopping list: Blacksteel Gauntlets, item level 82\n/);
+    assert.match(await page.evaluate(() => window.__copied), /^Shopping list: Blacksteel Gauntlets, item level 82 \(.+ prices, /);
+    await page.uncheck('[data-act="shop-prices"]');
     await page.click('[data-act="shop-close"]');
     assert.equal(await page.locator('#p-cost').count(), 0);
     assert.equal(await page.evaluate(() => document.activeElement.getAttribute('data-act')), 'shop', 'focus goes back to the button');
@@ -303,6 +331,7 @@ async function addTarget(page, side, i, query, famText) {
   const [sw3, w3] = await p.evaluate(() => [document.documentElement.scrollWidth, window.innerWidth]);
   assert.ok(sw3 <= w3, 'no sideways scroll with the shopping list open');
   await p.screenshot({ path: `${OUT}/phone-cost.png`, fullPage: true });
+  await p.locator('#p-cost').screenshot({ path: `${OUT}/phone-shop.png` });
   await p.locator('[data-act="shop-close"]').tap();
   // The Story screen: the story at five lengths, and a fact at a time
   await p.locator('.tabbar [data-go="story"]').tap();
