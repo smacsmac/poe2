@@ -58,10 +58,17 @@
         }
         return byFam.get(f);
       }
+      // Tiers are numbered like the game does: T1 is the family's best tier on this base, even when the item level
+      // is too low for it (an item level 80 base's best cold resistance is then T2)
+      var allTiers = new Map();
       DATA.pools[b.p].forEach(function (mi) {
         var m = MODS[mi];
-        if (m.l > ilvl) return;
-        fam(m.f).tiers.push({ mi: mi, l: m.l });
+        if (!allTiers.has(m.f)) allTiers.set(m.f, []);
+        allTiers.get(m.f).push({ mi: mi, l: m.l });
+      });
+      allTiers.forEach(function (list, f) {
+        list.sort(function (a, b) { return b.l - a.l; });
+        list.forEach(function (t, i) { t.tier = i + 1; if (t.l <= ilvl) fam(f).tiers.push(t); });
       });
       DATA.ess.forEach(function (e) {
         var mi = e.m[cls];
@@ -86,7 +93,6 @@
       var sides = [[], []];
       byFam.forEach(function (F) {
         F.tiers.sort(function (a, b) { return b.l - a.l; });
-        F.tiers.forEach(function (t, i) { t.tier = i + 1; });
         F.rollable = F.tiers.length > 0;
         F.top = F.rollable ? F.tiers[0].mi : (F.alloy[0] || F.lich[0] || F.essence[0] || {}).mi;
         sides[F.s].push(F);
@@ -1107,6 +1113,107 @@
       return out;
     }
 
+    /* ---------- importing an item copied from the game ----------
+       In game, Ctrl+Alt+C copies an item with a header line per mod ({ Prefix Modifier "Athlete's" (Tier: 1) — Life })
+       and each value with its tier's range: +147(120-149) to maximum Life. Ctrl+C gives the same without headers or
+       ranges. The value lines are matched to the base's mod families by their text, and the range picks the tier. */
+    var ITEM_TAGS = /\s*\((implicit|rune|enchant|enchanted|augmented|crafted|fractured|desecrated)\)\s*$/i;
+    function rangeText(line) {   // "+147(120-149) to maximum Life" -> "+(120-149) to maximum Life"
+      return line.replace(/[−–]/g, '-').replace(/(-?\d+(?:\.\d+)?)\((-?\d+(?:\.\d+)?)-(-?\d+(?:\.\d+)?)\)/g, '($2-$3)').trim();
+    }
+    function tmplText(line) {
+      return line.replace(/\(-?\d+(?:\.\d+)?--?\d+(?:\.\d+)?\)|-?\d+(?:\.\d+)?/g, '#').replace(/\s+/g, ' ').trim().toLowerCase();
+    }
+    function itemBase(line) {
+      var n = line.replace(/^(Superior|Runeforged|Runemastered)\s+/, '');
+      if (BASE[n]) return { base: n, runeforged: /^Runeforged|^Runemastered/.test(line) };
+      // a magic item's name holds its base: the longest base name inside it
+      var best = null;
+      Object.keys(BASE).forEach(function (b) { if (line.indexOf(b) > -1 && (!best || b.length > best.length)) best = b; });
+      return best ? { base: best, runeforged: /\bRuneforged\b|\bRunemastered\b/.test(line) } : null;
+    }
+    function importItem(text) {
+      var lines = String(text || '').replace(/\r/g, '').split('\n').map(function (l) { return l.replace(/\s+—\s+Unscalable Value\s*$/, '').trim(); });
+      var out = { base: null, cls: null, runeforged: false, ilvl: null, rarity: null, name: null, mods: [], skipped: [], unidentified: false };
+      var sections = [[]];
+      lines.forEach(function (l) { if (/^-{4,}$/.test(l)) sections.push([]); else if (l) sections[sections.length - 1].push(l); });
+      // the first section: item class, rarity, then the name and/or the base
+      var head = sections[0], names = [];
+      head.forEach(function (l) {
+        var m;
+        if ((m = /^Rarity:\s*(\w+)/i.exec(l))) out.rarity = { normal: 'none', magic: 'magic', rare: 'rare', unique: 'unique' }[m[1].toLowerCase()] || null;
+        else if (!/^Item Class:/i.test(l)) names.push(l);
+      });
+      for (var i = names.length - 1; i >= 0 && !out.base; i--) {
+        var hit = itemBase(names[i]);
+        if (hit) { out.base = hit.base; out.runeforged = hit.runeforged; if (i > 0) out.name = names[0]; }
+      }
+      lines.forEach(function (l) {
+        var m = /^Item Level:\s*(\d+)/i.exec(l);
+        if (m) out.ilvl = Math.max(1, Math.min(100, parseInt(m[1], 10)));
+        if (/^Unidentified$/i.test(l)) out.unidentified = true;
+      });
+      if (!out.base) return out;
+      out.cls = BASE[out.base].c;
+      var cat = catalog(out.base, out.ilvl || 82);
+      var byT = [new Map(), new Map()];
+      [0, 1].forEach(function (s) { cat.sides[s].forEach(function (F) { var k = F.t.toLowerCase(); if (!byT[s].has(k)) byT[s].set(k, F); }); });
+      var used = new Set();
+      function add(sides, vals, info) {
+        var joined = vals.map(rangeText).join(' / '), key = tmplText(joined);
+        var F = null;
+        sides.forEach(function (s) { if (!F && byT[s].has(key)) F = byT[s].get(key); });
+        if (!F) { out.skipped.push(vals.join(' / ')); return; }
+        if (used.has(F.f)) return;
+        used.add(F.f);
+        var opts = tierOptions(cat, F.f), low = joined.toLowerCase();
+        var o = opts.find(function (x) { return MODS[x.mi].x.toLowerCase() === low; });
+        if (!o && info.crafted) o = opts.find(function (x) { return x.kind === 'alloy' || x.kind === 'essence'; });
+        if (!o && info.desec) o = opts.find(function (x) { return x.kind === 'lich'; });
+        var rolls = opts.filter(function (x) { return x.kind === 'roll'; });
+        if (!o && info.tier) o = rolls.find(function (x) { return x.label === 'T' + info.tier; });
+        if (!o) {
+          // Ctrl+C has no ranges: the tier whose range holds the first value
+          var v = parseFloat((vals[0].match(/-?\d+(?:\.\d+)?/) || [])[0]);
+          o = rolls.find(function (x) {
+            var r = /\((-?\d+(?:\.\d+)?)-(-?\d+(?:\.\d+)?)\)/.exec(MODS[x.mi].x);
+            return r && v >= parseFloat(r[1]) && v <= parseFloat(r[2]);
+          });
+        }
+        o = o || opts[0];
+        out.mods.push({ s: F.s, mi: o.mi, kind: o.kind, crafted: !!info.crafted || o.kind === 'alloy' || o.kind === 'essence', desec: !!info.desec || o.kind === 'lich', fract: !!info.fract, text: vals.join(' / ') });
+      }
+      // Ctrl+Alt+C: a header line, then the mod's value lines
+      var cur = null;
+      function flush() { if (cur && cur.vals.length && cur.sides) add(cur.sides, cur.vals, cur); cur = null; }
+      var advanced = lines.some(function (l) { return /^\{.*Modifier.*\}$/.test(l); });
+      sections.slice(1).forEach(function (sec) {
+        sec.forEach(function (l) {
+          if (advanced) {
+            if (/^\{.*\}$/.test(l)) {
+              flush();
+              var side = /\bPrefix\b/.test(l) ? [0] : /\bSuffix\b/.test(l) ? [1] : /\b(Implicit|Enchant\w*|Rune|Unique|Corrupted)\b/.test(l) ? null : [0, 1];
+              var t = /\(Tier:\s*(\d+)\)/.exec(l);
+              cur = { sides: side, vals: [], crafted: /\bCrafted\b/.test(l), desec: /\bDesecrated\b/.test(l), fract: /\bFractured\b/.test(l), tier: t ? parseInt(t[1], 10) : null };
+              return;
+            }
+            if (cur) { if (!ITEM_TAGS.test(l)) cur.vals.push(l); else if (cur.sides) cur.vals.push(l.replace(ITEM_TAGS, '')); return; }
+            return;
+          }
+          // Ctrl+C: any line that reads like one of the base's mods
+          var tag = ITEM_TAGS.exec(l);
+          if (tag && /^(implicit|rune|enchant|enchanted|augmented)$/i.test(tag[1])) return;
+          if (/^[A-Z][\w' ]*:\s/.test(l)) return;   // properties: Armour: 36, Requires: ...
+          var plain = l.replace(ITEM_TAGS, ''), k = tmplText(plain);
+          if (!byT[0].has(k) && !byT[1].has(k)) return;
+          add([0, 1], [plain], { crafted: tag && /crafted/i.test(tag[1]), desec: tag && /desecrated/i.test(tag[1]), fract: tag && /fractured/i.test(tag[1]) });
+        });
+        if (advanced) flush();
+      });
+      flush();
+      return out;
+    }
+
     /* ---------- cost estimates ----------
        "If every roll lands" is the plan's required mats, priced once (planCost). "On average" is what the steps cost
        from an item to the end if you follow the planner's own advice after every miss, solved exactly as a Markov
@@ -1617,7 +1724,7 @@
       MODS: MODS, FAMS: FAMS, CLASS: CLASS, BASE: BASE,
       catalog: catalog, tierOptions: tierOptions, methods: methods, famName: famName, modText: modText,
       analyze: analyze, plan: plan, apply: apply, nextStep: nextStep, summary: summary, slamOddsFor: slamOddsFor,
-      oddsLabel: oddsLabel, price: price, matsCost: matsCost, labelTier: labelTier, newId: newId, SIDE: SIDE, SIDE_CAP: SIDE_CAP, findBases: findBases, socketable: socketable, suggest: suggest, special: special, buyName: buyName,
+      oddsLabel: oddsLabel, price: price, matsCost: matsCost, labelTier: labelTier, newId: newId, SIDE: SIDE, SIDE_CAP: SIDE_CAP, findBases: findBases, socketable: socketable, suggest: suggest, special: special, buyName: buyName, importItem: importItem,
       planCost: planCost, costPlan: costPlan, choicesOf: choicesOf, choiceCosts: choiceCosts, shoppingList: shoppingList,
       spendOf: spendOf, deriveSpend: deriveSpend, spentOn: spentOn, costReset: costReset,
       setLeague: setLeague, hardness: function (design, st, t) { var c = catalog(design.base, design.ilvl); return hardness(c, analyze(c, design, st), t); }

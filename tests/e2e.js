@@ -15,6 +15,34 @@ const URL = 'file://' + path.join(__dirname, '..', 'docs', 'index.html');
 const OUT = path.join(__dirname, 'shots');
 fs.mkdirSync(OUT, { recursive: true });
 
+const GAME_ITEM = `Item Class: Gloves
+Rarity: Rare
+Blight Caress
+Runeforged Blacksteel Gauntlets
+--------
+Armour: 36
+Evasion Rating: 33
+Runic Ward: 183 (augmented)
+--------
+Requires: Level 80, 55 Str, 55 Dex
+--------
+Sockets: S 
+--------
+Item Level: 80
+--------
+{ Prefix Modifier "Athlete's" (Tier: 1) — Life }
++147(120-149) to maximum Life
+{ Prefix Modifier "Chalybeous" (Tier: 1) — Mana }
++113(105-124) to maximum Mana
+{ Crafted Prefix Modifier "Verisium" }
+30(24-30)% increased Runic Ward
+{ Suffix Modifier "of the Ice" (Tier: 2) — Elemental, Cold, Resistance }
++37(36-40)% to Cold Resistance
+{ Suffix Modifier "of the Volcano" (Tier: 3) — Elemental, Fire, Resistance }
++33(31-35)% to Fire Resistance
+{ Desecrated Suffix Modifier "of the Phantom" (Tier: 2) — Attribute }
++32(31-33) to Dexterity`;
+
 async function addTarget(page, side, i, query, famText) {
   await page.click(`[data-act="d-pick"][data-s="${side}"][data-i="${i}"]`);
   await page.fill('#pk-q', query);
@@ -263,6 +291,22 @@ async function addTarget(page, side, i, query, famText) {
     assert.match(await page.locator('.box.warn .box-route').first().textContent(), /^Does nothing here: this base has no Armour, Evasion or Energy Shield/);
     await addTarget(page, 1, 0, 'cast speed', 'Cast Speed');
     await page.screenshot({ path: `${OUT}/${scheme}-father.png`, fullPage: true });
+    // Import an item copied in game: the preview shows what was recognised, Import makes it the design
+    await page.click('[data-act="imp-open"]');
+    await page.waitForFunction(() => document.activeElement.id === 'imp-text');
+    assert.ok(await page.locator('[data-act="imp-go"]').isDisabled(), 'nothing to import yet');
+    await page.fill('#imp-text', GAME_ITEM);
+    assert.match(await page.locator('#imp-prev .imp-base').innerText(), /^Blacksteel Gauntlets · runeforged · item level 80 · Rare$/);
+    assert.deepEqual(await page.locator('#imp-prev .imp-tier').allInnerTexts(), ['T1', 'T1', 'Crafted', 'T2', 'T3', 'T2 · desecrated']);
+    await page.screenshot({ path: `${OUT}/${scheme}-import.png` });
+    await page.click('[data-act="imp-go"]');
+    assert.ok(await page.locator('#impbox').isHidden());
+    assert.match(await page.locator('#toast').innerText(), /^Imported Blacksteel Gauntlets, item level 80: 3 prefixes and 3 suffixes\. The Runefather's Grasping Mail craft is in My crafts\.$/);
+    assert.equal(await page.locator('.bp-name').textContent(), 'Blacksteel Gauntlets');
+    assert.equal(await page.inputValue('#d-ilvl'), '80');
+    assert.ok(await page.isChecked('#d-rf'), 'runeforged');
+    assert.deepEqual((await page.locator('.box:not(.empty) .box-text').allInnerTexts()), ['+(120–149) to maximum Life', '+(105–124) to maximum Mana', '(31–40)% increased Runic Ward', '+(36–40)% to Cold Resistance', '+(31–35)% to Fire Resistance', '+(31–33) to Dexterity']);
+    assert.deepEqual(await page.locator('.box-tier select').evaluateAll((els) => els.map((e) => e.selectedOptions[0].textContent)), ['T1+ · lvl 60', 'T1+ · lvl 60', 'Alloy', 'T2+ · lvl 71', 'T3+ · lvl 60', 'T2+ · lvl 74'], 'the tiers it has, numbered as in game');
     await ctx.close();
   }
 
@@ -387,6 +431,19 @@ async function addTarget(page, side, i, query, famText) {
   await p.waitForSelector('#slots', { state: 'hidden' });
   assert.equal(await p.locator('.bp-name').textContent(), 'Prismatic Ring');
   assert.match(await p.locator('#slot-pick').textContent(), /Ring/);
+  // Import on a phone, as my item in progress: the Forge starts from it
+  await p.locator('[data-act="imp-open"]').tap();
+  await p.fill('#imp-text', GAME_ITEM);
+  await p.locator('#imp-mine').check();
+  const [sw5, w5] = await p.evaluate(() => [document.documentElement.scrollWidth, window.innerWidth]);
+  assert.ok(sw5 <= w5, 'no sideways scroll with the import box open');
+  await p.screenshot({ path: `${OUT}/phone-import.png` });
+  await p.locator('[data-act="imp-go"]').tap();
+  assert.match(await p.locator('#toast').innerText(), /on your item in the Forge too\./);
+  await p.locator('.tabbar [data-go="plan"]').tap();
+  const have = await p.locator('#p-item').innerText();
+  for (const t of ['maximum Life', 'maximum Mana', 'Runic Ward', 'Cold Resistance', 'Fire Resistance', 'Dexterity']) assert.ok(have.includes(t), 'on the item: ' + t);
+  assert.doesNotMatch(await p.locator('.st.now .card h3').innerText(), /What kind of item|What’s on it/, 'the setup is done: the plan goes on from the item');
 
   await browser.close();
   if (errors.length) { console.error(errors.join('\n')); process.exit(1); }

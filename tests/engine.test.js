@@ -760,3 +760,76 @@ test('Grasping Mail: runeforging it takes Exceptional Verisium', () => {
   assert.ok(!steps.some((s) => s.key === 'runemaster'), 'only the Runefather’s goes on');
   assert.ok(E.price('xverisium', 'fr') > 0);
 });
+
+const GAME_TEXT = `Item Class: Gloves
+Rarity: Rare
+Blight Caress
+Runeforged Blacksteel Gauntlets
+--------
+Armour: 36
+Evasion Rating: 33
+Runic Ward: 183 (augmented)
+--------
+Requires: Level 80, 55 Str, 55 Dex
+--------
+Sockets: S 
+--------
+Item Level: 80
+--------
+{ Prefix Modifier "Athlete's" (Tier: 1) — Life }
++147(120-149) to maximum Life
+{ Prefix Modifier "Chalybeous" (Tier: 1) — Mana }
++113(105-124) to maximum Mana
+{ Crafted Prefix Modifier "Verisium" }
+30(24-30)% increased Runic Ward
+{ Suffix Modifier "of the Ice" (Tier: 2) — Elemental, Cold, Resistance }
++37(36-40)% to Cold Resistance
+{ Suffix Modifier "of the Volcano" (Tier: 3) — Elemental, Fire, Resistance }
++33(31-35)% to Fire Resistance
+{ Desecrated Suffix Modifier "of the Phantom" (Tier: 2) — Attribute }
++32(31-33) to Dexterity`;
+const tierOf = (r, m) => E.labelTier(E.catalog(r.base, r.ilvl), { f: E.MODS[m.mi].f, mi: m.mi });
+
+test('tiers are numbered like the game: T1 is the best tier even when the item level is too low for it', () => {
+  const at = (ilvl) => E.catalog(GLOVES, ilvl).sides[1].find((F) => F.t === '+#% to Cold Resistance');
+  assert.equal(at(82).tiers[0].tier, 1);
+  assert.equal(E.MODS[at(82).tiers[0].mi].x, '+(41-45)% to Cold Resistance');
+  assert.equal(at(80).tiers[0].tier, 2, 'item level 80 starts at T2, as the game shows');
+  assert.equal(E.tierOptions(E.catalog(GLOVES, 80), at(80).f)[0].label, 'T2');
+});
+
+test('import: an item copied in game with Ctrl+Alt+C', () => {
+  const r = E.importItem(GAME_TEXT);
+  assert.equal(r.base, GLOVES);
+  assert.equal(r.cls, 'gloves');
+  assert.equal(r.ilvl, 80);
+  assert.equal(r.rarity, 'rare');
+  assert.equal(r.name, 'Blight Caress');
+  assert.equal(r.runeforged, true);
+  assert.deepEqual(r.skipped, []);
+  assert.deepEqual(r.mods.map((m) => [m.s, tierOf(r, m)]), [[0, 'T1'], [0, 'T1'], [0, 'alloy'], [1, 'T2'], [1, 'T3'], [1, 'T2']], 'the same tiers as the game');
+  assert.equal(E.MODS[r.mods[0].mi].x, '+(120-149) to maximum Life');
+  assert.ok(r.mods[2].crafted && !r.mods[2].desec);
+  assert.ok(r.mods[5].desec && !r.mods[5].crafted);
+  assert.ok(!r.mods[3].crafted && !r.mods[3].desec);
+});
+
+test('import: Ctrl+C without headers or ranges, a magic item, and text that is not an item', () => {
+  const plain = GAME_TEXT.replace(/\{[^\n]*\}\n/g, '').replace(/(\d+)\(\d+-\d+\)/g, '$1');
+  const r = E.importItem(plain);
+  assert.deepEqual(r.mods.map((m) => [m.s, tierOf(r, m)]), [[0, 'T1'], [0, 'T1'], [0, 'alloy'], [1, 'T2'], [1, 'T3'], [1, 'T2']], 'sides from the mod, tiers from the value');
+  const magic = E.importItem("Item Class: Gloves\nRarity: Magic\nAthlete's Blacksteel Gauntlets of the Ice\n--------\nItem Level: 81\n--------\n+120 to maximum Life\n+37% to Cold Resistance");
+  assert.equal(magic.base, GLOVES);
+  assert.equal(magic.rarity, 'magic');
+  assert.deepEqual(magic.mods.map((m) => E.MODS[m.mi].x), ['+(120-149) to maximum Life', '+(36-40)% to Cold Resistance']);
+  const unid = E.importItem('Item Class: Body Armours\nRarity: Rare\nGrasping Mail\n--------\nItem Level: 81\n--------\nUnidentified');
+  assert.equal(unid.base, 'Grasping Mail');
+  assert.ok(unid.unidentified);
+  assert.equal(unid.mods.length, 0);
+  assert.equal(E.importItem('hello there').base, null);
+  // an implicit and a mod this base can't roll are left out; the second is reported
+  const odd = E.importItem(GAME_TEXT.replace('--------\nItem Level: 80\n', '--------\nItem Level: 80\n--------\n{ Implicit Modifier }\n+10% to Chaos Resistance (implicit)\n') +
+    '\n{ Suffix Modifier "of Nowhere" (Tier: 1) }\n+3 to Level of all Spell Skills');
+  assert.equal(odd.mods.length, 6);
+  assert.deepEqual(odd.skipped, ['+3 to Level of all Spell Skills']);
+});

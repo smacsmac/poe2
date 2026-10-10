@@ -551,6 +551,7 @@
     var imp = implicitLines(b);
     if (imp.length) h += '<p class="implicit"><small>Implicit · comes with the base</small>' + imp.map(modHTML).join('<br>') + '</p>';
     h += '<div class="tip-rule" aria-hidden="true"><i></i></div>';
+    h += '<div class="imp-row"><button type="button" class="imp-btn" data-act="imp-open">' + ico('u-import') + 'Import an item from the game</button></div>';
     [0, 1].forEach(function (s) {
       var n = cat.caps[s];
       h += '<p class="grp">' + (s ? 'Suffixes' : 'Prefixes') + '<span>' + plural(n, 'slot') + (n !== 3 ? ' on this base' : '') + '</span></p>';
@@ -576,7 +577,7 @@
       });
       h += '</ol>';
     });
-    h += '<p class="tier-hint">T1 is the top tier. A box set to <b>T2+</b> takes T2 or T1, and lower tiers are cheaper to hit.</p>';
+    h += '<p class="tier-hint">T1 is the top tier, numbered as in game. A box set to <b>T2+</b> takes T2 or T1, and lower tiers are cheaper to hit.</p>';
     var sp = E.special(c.base);
     if (sp.ring) {
       h += '<div class="rf-toggle rf-info">' + ico('u-list') + '<span>Rolls ring mods too' +
@@ -2227,6 +2228,92 @@
   }
   function copyBoxOpen() { return !$('copybox').hidden; }
 
+  /* ---------- importing an item copied in game ----------
+     Paste the item's text (Ctrl+Alt+C in game); the preview shows what was recognised as you paste, and Import
+     makes it the design: base, item level, runeforged, and each mod as a target at the tier it has. */
+  var impRet = null;
+  function openImport() {
+    impRet = document.activeElement;
+    var el = $('impbox');
+    el.hidden = false;
+    el.innerHTML = '<div class="modal-card imp-card" role="dialog" aria-modal="true" aria-labelledby="imp-t">' +
+      '<div class="pk-head"><div><h2 id="imp-t">Import an item from the game</h2><p>In game, hover over the item and press <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>C</kbd>, then paste it here. Its mods become your targets, each at the tier it has. (<kbd>Ctrl</kbd>+<kbd>C</kbd> works too, but without the tiers’ ranges.)</p></div>' +
+      '<button type="button" class="x" data-act="imp-close" aria-label="Close">' + ico('u-x') + '</button></div>' +
+      '<div class="imp-body"><textarea id="imp-text" spellcheck="false" aria-label="The item’s text" placeholder="Item Class: Gloves&#10;Rarity: Rare&#10;Blight Caress&#10;Runeforged Blacksteel Gauntlets&#10;--------&#10;…"></textarea>' +
+      '<div id="imp-prev" class="imp-prev" role="status" aria-live="polite"></div></div>' +
+      '<div class="pk-foot"><label><input type="checkbox" id="imp-mine">It’s my item: put these mods on my item in the Forge too</label>' +
+      '<button type="button" class="btn small sp" data-act="imp-go" disabled>Import</button><button type="button" class="btn small quiet" data-act="imp-close">Cancel</button></div></div>';
+    setTimeout(function () { var t = $('imp-text'); if (t) t.focus(); }, 0);
+  }
+  function closeImport() {
+    var el = $('impbox');
+    el.hidden = true; el.innerHTML = '';
+    if (impRet && document.body.contains(impRet)) { try { impRet.focus(); } catch (e) { /* ignore */ } }
+    impRet = null;
+  }
+  function importOpen() { return !$('impbox').hidden; }
+  function readImport() { var t = $('imp-text'); return t && t.value.trim() ? E.importItem(t.value) : null; }
+  /* What the pasted text will import, shown as it's pasted. */
+  function renderImportPreview() {
+    var r = readImport(), el = $('imp-prev'), go = document.querySelector('[data-act="imp-go"]');
+    if (!el) return;
+    if (go) go.disabled = !r || !r.base;
+    if (!r) { el.innerHTML = ''; return; }
+    if (!r.base) { el.innerHTML = '<p class="imp-err">No base found in this text. Copy the item in game and paste all of it, starting with “Item Class”.</p>'; return; }
+    var cat = E.catalog(r.base, r.ilvl || 82);
+    var h = '<p class="imp-base"><b>' + esc(r.base) + '</b>' + (r.runeforged ? ' · runeforged' : '') + ' · item level ' + (r.ilvl || '82 (not in the text)') + (r.rarity ? ' · ' + (r.rarity === 'unique' ? 'Unique' : rarHTML(r.rarity)) : '') + '</p>';
+    [0, 1].forEach(function (s) {
+      var list = r.mods.filter(function (m) { return m.s === s; });
+      if (!list.length) return;
+      h += '<p class="imp-side">' + (s ? 'Suffixes' : 'Prefixes') + '</p><ul class="imp-mods">' + list.map(function (m, i) {
+        var f = E.MODS[m.mi].f, tl = E.labelTier(cat, { f: f, mi: m.mi });
+        var extra = i >= cat.caps[s] ? ' <span class="imp-x">no box left</span>' : '';
+        return '<li><span>' + modHTML(E.famName(f)) + extra + '</span><span class="imp-tier">' + esc(tl === 'alloy' ? 'Crafted' : tl === 'desecrated' ? 'Desecrated' : tl + (m.desec ? ' · desecrated' : m.crafted ? ' · crafted' : m.fract ? ' · fractured' : '')) + '</span></li>';
+      }).join('') + '</ul>';
+    });
+    if (!r.mods.length) h += '<p class="imp-err">' + (r.unidentified ? 'The item is unidentified: identify it first to import its mods.' : 'No mods recognised yet: only the base will be imported.') + '</p>';
+    if (r.rarity === 'unique') h += '<p class="imp-note">Unique mods can’t be crafted, so only the base comes across.</p>';
+    if (r.skipped.length) h += '<p class="imp-note">Not recognised for this base, left out: ' + r.skipped.map(function (t) { return '<span class="imp-skip">' + esc(t) + '</span>'; }).join(', ') + '</p>';
+    el.innerHTML = h;
+  }
+  function doImport() {
+    var r = readImport();
+    if (!r || !r.base) return;
+    var mine = !!($('imp-mine') && $('imp-mine').checked) && r.rarity !== 'unique';
+    var prev = cur(), keep = worth(prev), c;
+    if (keep) { c = blankCraft(r.cls, r.base); app.crafts[c.id] = c; app.curId = c.id; }
+    else { c = prev; c.cls = r.cls; c.base = r.base; }
+    c.ilvl = r.ilvl || 82;
+    c.runeforge = r.runeforged || r.cls === 'gloves';
+    c.astrid = false;
+    var cat = catOf(c), extra = 0;
+    c.targets = [0, 1].map(function (s) {
+      var list = r.mods.filter(function (m) { return m.s === s; }).map(function (m) { return { mi: m.mi }; });
+      extra += Math.max(0, list.length - cat.caps[s]);
+      return list;
+    });
+    fitTargets(c);
+    if (mine) {
+      c.st = { rarity: r.rarity === 'magic' ? 'magic' : r.rarity === 'none' ? 'none' : 'rare', done: r.runeforged ? { runeforge: true } : {}, skip: {},
+        mods: r.mods.map(function (m) {
+          var x = { id: E.newId(), s: m.s, mi: m.mi, mark: 'auto' };
+          if (m.crafted) x.crafted = true;
+          if (m.desec) x.desec = true;
+          if (m.fract) x.fract = true;
+          return x;
+        }) };
+      c.hist = []; c.su = 3; c.bu = false;
+    }
+    replan(c);
+    touch(c);
+    closeImport();
+    renderDesign(); refreshBadges(); revealSlot();
+    var n = [0, 1].map(function (s) { return c.targets[s].filter(Boolean).length; });
+    toast('Imported ' + r.base + ', item level ' + c.ilvl + ': ' + plural(n[0], 'prefix', 'prefixes') + ' and ' + plural(n[1], 'suffix', 'suffixes') + (mine ? ', on your item in the Forge too' : '') + '.' +
+      (r.skipped.length + extra ? ' ' + plural(r.skipped.length + extra, 'mod') + ' left out.' : '') +
+      (keep ? ' The ' + prev.base + ' craft is in My crafts.' : ''), 6500);
+  }
+
   /* ---------- crafts drawer ---------- */
   function craftMeta(c) {
     var t = targetCount(c);
@@ -2304,6 +2391,7 @@
     if (e.target === $('picker')) { closePicker(); return; }
     if (e.target === $('drawer')) { closeDrawer(); return; }
     if (e.target === $('copybox')) { closeCopyBox(); return; }
+    if (e.target === $('impbox')) { closeImport(); return; }
     if (e.target === $('slots')) { closeSlots(); return; }
     var a = e.target.closest('[data-act]');
     if (!a) return;
@@ -2348,6 +2436,9 @@
       case 'shop-untick': c.got = {}; touch(c); renderPlan(); break;
       case 'shop-copy': copyText(shopText(c), 'Copied the shopping list.', { title: 'Copy the shopping list', label: 'The shopping list as text', then: 'paste it where you need it' }); break;
       case 'cb-close': closeCopyBox(); break;
+      case 'imp-open': openImport(); break;
+      case 'imp-close': closeImport(); break;
+      case 'imp-go': doImport(); break;
       case 'cb-select': selectCopyText(); break;
       case 'pk-close': closePicker(); break;
       case 'pk-cat': app.pk.cat = a.getAttribute('data-c'); a.parentNode.querySelectorAll('.chip').forEach(function (b) { b.setAttribute('aria-pressed', String(b === a)); }); renderPickList(); break;
@@ -2374,6 +2465,7 @@
   });
   // "What drives the average" keeps its open state across re-renders
   document.addEventListener('toggle', function (e) { if (e.target && e.target.classList && e.target.classList.contains('cost-more')) app.ui.costMore = e.target.open; }, true);
+  document.addEventListener('input', function (e) { if (e.target && e.target.id === 'imp-text') renderImportPreview(); });
   document.addEventListener('change', function (e) {
     var c = cur();
     var t = e.target;
@@ -2409,6 +2501,7 @@
   document.addEventListener('keydown', function (e) {
     if (e.key !== 'Escape') return;
     if (copyBoxOpen()) { closeCopyBox(); e.preventDefault(); return; }
+    if (importOpen()) { closeImport(); e.preventDefault(); return; }
     if (app.pk) { closePicker(); e.preventDefault(); return; }
     if (slotsOpen()) { closeSlots(); e.preventDefault(); return; }
     if (!$('drawer').hidden) { closeDrawer(); e.preventDefault(); }
