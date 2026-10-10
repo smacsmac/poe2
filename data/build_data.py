@@ -75,15 +75,21 @@ for cid, cname, grp, match, ecls, bone in CLASSES:
         cls_of[n] = cid
         bases.append((cid, n, b))
 
-def poolkey(b):
-    return frozenset((set(b['tags']) - DROP) & KEYS)
+# "Can roll Ring Modifiers" (Grasping Mail and its Verisium Anvil versions) gives the item the ring tag
+# (ItemCanAlsoRollRingMods in PoB's ModItemExclusive), so ring mods roll on it too.
+RING_IMPLICIT = 'Can roll Ring Modifiers'
+def rolls_ring(b):
+    return RING_IMPLICIT in (b.get('implicit') or '')
+def poolkey(b, ring=True):
+    t = set(b['tags']) | ({'ring'} if ring and rolls_ring(b) else set())
+    return frozenset((t - DROP) & KEYS)
 
 pools = {}   # key -> index
 pool_tags = []
 for cid, n, b in bases:
-    k = poolkey(b)
-    if k not in pools:
-        pools[k] = len(pools); pool_tags.append(k)
+    for k in [poolkey(b)] + ([poolkey(b, False)] if rolls_ring(b) else []):
+        if k not in pools:
+            pools[k] = len(pools); pool_tags.append(k)
 
 # ---- mods
 mod_index = {}   # mod id -> idx
@@ -200,6 +206,7 @@ for cid, n, b in sorted(bases, key=lambda t: (t[0], t[2].get('subType',''), t[2]
     if b.get('armour'): row['ar'] = b['armour']
     if b.get('weapon'): row['wp'] = b['weapon']
     if b.get('implicit'): row['im'] = b['implicit']
+    if rolls_ring(b): row['rp'] = pools[poolkey(b, False)]   # its pool without the ring mods, to tell them apart
     if rf and rf.get('armour'): row['rf'] = rf['armour']
     if rf and rf.get('weapon') and not rf.get('armour'): row['rfw'] = rf['weapon']
     base_rows.append(row)

@@ -100,6 +100,14 @@
           return (b.rollable - a.rollable) || (ha - hb) || a.name.localeCompare(b.name);
         });
       });
+      // Grasping Mail and its Verisium Anvil versions roll ring mods too: mark the ones that come from the ring pool
+      if (b.rp !== undefined) {
+        var plain = new Set(DATA.pools[b.rp].map(function (mi) { return MODS[mi].f; }));
+        byFam.forEach(function (F) { if (F.rollable && !plain.has(F.f)) F.ring = true; });
+      }
+      // On a base whose only defence is Runic Ward (Runefather's Grasping Mail), increased Armour, Evasion or
+      // Energy Shield has nothing to increase
+      if (wardOnly(b)) byFam.forEach(function (F) { if (LOCAL_DEF.test(F.t.split(' / ')[0])) F.dead = F.t.indexOf(' / ') > -1 ? 'part' : true; });
       var caps = [3, 3];
       String(b.im || '').split('\n').forEach(function (line) {
         var mm = /^([+-]\d+) (Prefix|Suffix) Modifiers? allowed/.exec(line);
@@ -109,6 +117,41 @@
       var cat = { base: b, cls: cls, ilvl: ilvl, sides: sides, byFam: byFam, caps: caps };
       catCache[key] = cat;
       return cat;
+    }
+
+    /* ---------- special bases: Grasping Mail and the Runefather's ---------- */
+    var FATHER = "Runefather's Grasping Mail";
+    var LOCAL_DEF = /^#% increased (Armour|Evasion Rating|Evasion|Energy Shield)((, | and )(Armour|Evasion Rating|Evasion|Energy Shield))*$/;
+    function rollsRing(b) { return !!b && b.rp !== undefined; }
+    function wardOnly(b) { return !!(b && b.ar && b.ar.Ward && !b.ar.Armour && !b.ar.Evasion && !b.ar.EnergyShield); }
+    function isFather(b) { return !!b && b.n === FATHER; }
+    /* What to buy or start from: the Runefather's is made from a Grasping Mail at the Verisium Anvil. */
+    function buyName(baseName) { return baseName === FATHER ? 'Grasping Mail' : baseName; }
+    function special(baseName) {
+      var b = BASE[baseName];
+      return { ring: rollsRing(b), father: isFather(b), wardOnly: wardOnly(b), from: isFather(b) ? 'Grasping Mail' : null };
+    }
+    /* The Runefather's Grasping Mail is a Grasping Mail changed three times at the Verisium Anvil; the mods stay. */
+    var ANVIL = [
+      { key: 'runeforge', title: 'Runeforge it', from: 'Grasping Mail', to: 'Runeforged Grasping Mail', mats: [{ k: 'xverisium', n: 'Exceptional Verisium', q: 5 }],
+        how: 'The first of three changes at the Anvil that make a Runefather’s Grasping Mail. The Anvil offers four versions: take the Str/Dex/Int one (215 base Runic Ward), the one with all three attributes, like the Runefather’s.' },
+      { key: 'runemaster', title: 'Runemaster it', from: 'Runeforged Grasping Mail', to: 'Runemastered Grasping Mail', mats: [],
+        how: 'The second change. Again take the Str/Dex/Int version (322 base Runic Ward).' },
+      { key: 'runefather', title: 'Make it the Runefather’s', from: 'Runemastered Grasping Mail', to: FATHER, mats: [],
+        how: 'The last change: 550 base Runic Ward, and no Armour, Evasion or Energy Shield left.' }
+    ];
+    function anvilStep(done) {
+      var i = ANVIL.findIndex(function (a) { return !done[a.key]; });
+      if (i < 0) return null;
+      var a = ANVIL[i], rest = ANVIL.slice(i).map(function (x) { return x.key; });
+      return { kind: 'finish', key: a.key, title: a.title,
+        how: 'At the Verisium Anvil, turn your ' + a.from + ' into ' + an(a.to) + '. ' + a.how + ' Check the preview before you commit. Your mods stay.',
+        mats: a.mats.slice(),
+        note: a.mats.length ? null : 'The app doesn’t know what this change takes yet, so the costs leave it out: the Anvil shows it.',
+        outcomes: [{ label: 'Done', o: { type: 'finish', key: a.key } },
+          { label: 'It’s already a Runefather’s', free: true, o: { type: 'finish', keys: rest } },
+          { label: 'Skip', o: { type: 'finish', keys: rest } }],
+        project: { type: 'finish', key: a.key } };
     }
 
     /* Options a target picker can offer for one family: rollable tiers plus special sources. */
@@ -451,9 +494,12 @@
       var pRoll = 0;
       var aimList = picks.filter(Boolean);
       if (aimList.length) pRoll = hitShare(rollW, [aimList[0]]);
-      var how = 'Buy a magic ' + cat.base.n + ' at item level ' + ilvl + ' or higher' + (parts.length ? ' with ' + parts.join(' and ') : '') + '.' + sacText +
-        ' Magic bases are cheap on trade. To roll one yourself, use a Perfect Orb of Transmutation (it only rolls top tiers) and a Greater Orb of Augmentation on normal bases until one hits.';
-      var spec = [{ k: 'Base', v: cat.base.n }, { k: 'Item level', v: ilvl + '+' },
+      var grasp = rollsRing(cat.base), buyN = buyName(cat.base.n);
+      var how = 'Buy a magic ' + buyN + ' at item level ' + ilvl + ' or higher' + (parts.length ? ' with ' + parts.join(' and ') : '') + '.' + sacText +
+        (grasp ? ' Grasping Mails don’t drop: the Grasping Orchid on the Genesis Tree (Breach) turns 60 Breach Rings into one, and guides say it comes out rare and unidentified, so a magic one can be hard to find. If yours is rare, choose Rare in step 1 and fill in its mods.' +
+            (isFather(cat.base) ? ' A Runefather’s Grasping Mail works too: its mods roll the same, and the Anvil steps at the end are then already done.' : '')
+          : ' Magic bases are cheap on trade. To roll one yourself, use a Perfect Orb of Transmutation (it only rolls top tiers) and a Greater Orb of Augmentation on normal bases until one hits.');
+      var spec = [{ k: 'Base', v: buyN }, { k: 'Item level', v: ilvl + '+' },
         { k: 'Prefix', v: picks[0] ? tName(picks[0]) + ' ' + labelTier(cat, picks[0]) + '+' : (sacrifice === 0 ? 'anything (sacrifice)' : 'empty or anything') },
         { k: 'Suffix', v: picks[1] ? tName(picks[1]) + ' ' + labelTier(cat, picks[1]) + '+' : (sacrifice === 1 ? 'anything (sacrifice)' : 'empty or anything') }];
       return {
@@ -916,14 +962,20 @@
         return { kind: 'finish', key: 'quality', title: 'Raise quality to 20%', how: 'Use ' + q.n + ' (Greater ones add more per use) until it reaches 20%.' + (armour ? ' On armour, quality also raises Runic Ward.' : ''),
           mats: [{ k: q.k, n: q.n, q: 4 }], outcomes: [{ label: 'Done', o: { type: 'finish', key: 'quality' } }, { label: 'Skip', o: { type: 'finish', key: 'quality' } }], project: { type: 'finish', key: 'quality' } };
       }
-      if (!done.runeforge && design.runeforge && (cat.base.rf || cat.base.rfw)) {
+      if (isFather(cat.base)) {
+        var anvil = anvilStep(done);
+        if (anvil) return anvil;
+      } else if (!done.runeforge && design.runeforge && (cat.base.rf || cat.base.rfw)) {
         var rfText = cat.base.rf
           ? 'It trades some base defences for Runic Ward' + (cat.base.rf.Ward ? ' (' + cat.base.rf.Ward + ' base Runic Ward)' : '') + '.'
           : 'It changes the weapon’s base damage, so compare the preview with what you have.';
+        // Grasping Mail takes Exceptional Verisium, and the Anvil offers four versions of it
+        var grasp = rollsRing(cat.base);
         var vq = cat.base.n === 'Blacksteel Gauntlets' ? 355 : null;
-        return { kind: 'finish', key: 'runeforge', title: 'Runeforge it', how: 'At the Verisium Anvil, turn it into Runeforged ' + cat.base.n + '. Check the preview first. ' + rfText + ' Your mods stay.',
-          mats: [{ k: 'verisium', n: 'Verisium', q: vq || 100, approx: !vq }],
-          note: vq ? null : 'The Anvil shows how much Verisium this base needs. Blacksteel Gauntlets take 355; the price shown is per 100.',
+        return { kind: 'finish', key: 'runeforge', title: 'Runeforge it', how: 'At the Verisium Anvil, turn it into Runeforged ' + cat.base.n + '. Check the preview first. ' + rfText +
+            (grasp ? ' The Anvil offers four versions (Str/Dex, Dex/Int, Str/Int and Str/Dex/Int, which has the most Runic Ward).' : '') + ' Your mods stay.',
+          mats: grasp ? [{ k: 'xverisium', n: 'Exceptional Verisium', q: 5 }] : [{ k: 'verisium', n: 'Verisium', q: vq || 100, approx: !vq }],
+          note: vq || grasp ? null : 'The Anvil shows how much Verisium this base needs. Blacksteel Gauntlets take 355; the price shown is per 100.',
           outcomes: [{ label: 'Done', o: { type: 'finish', key: 'runeforge' } }, { label: 'Skip', o: { type: 'finish', key: 'runeforge' } }], project: { type: 'finish', key: 'runeforge' } };
       }
       if (!done.divine) {
@@ -954,7 +1006,7 @@
           break;
         case 'restart': n.rarity = 'none'; n.mods = []; n.done = {}; n.corrupted = false; n.skip = {}; break;
         case 'skip': n.skip = n.skip || {}; n.skip[o.f] = true; break;
-        case 'finish': n.done[o.key] = true; break;
+        case 'finish': (o.keys || [o.key]).forEach(function (k) { n.done[k] = true; }); break;
       }
       return n;
     }
@@ -1525,7 +1577,7 @@
       if (outcome.o && (outcome.o.type === 'restart' || outcome.o.type === 'skip')) return { sp: [], b: 0 };
       if (step.kind === 'finish') {
         // a finishing step that was done used its items, the optional ones too (the Divine Orb); Skip used nothing
-        return outcome.label === 'Skip' ? { sp: [], b: 0 } : { sp: (step.mats || []).map(function (x) { return [x.k, x.q || 1]; }), b: 0 };
+        return outcome.label === 'Skip' || outcome.free ? { sp: [], b: 0 } : { sp: (step.mats || []).map(function (x) { return [x.k, x.q || 1]; }), b: 0 };
       }
       var mats = outcome.uses || (opt ? opt.mats : step.mats) || [];
       return { sp: required(mats).map(function (x) { return [x.k, x.q || 1]; }), b: 0 };
@@ -1565,7 +1617,7 @@
       MODS: MODS, FAMS: FAMS, CLASS: CLASS, BASE: BASE,
       catalog: catalog, tierOptions: tierOptions, methods: methods, famName: famName, modText: modText,
       analyze: analyze, plan: plan, apply: apply, nextStep: nextStep, summary: summary, slamOddsFor: slamOddsFor,
-      oddsLabel: oddsLabel, price: price, matsCost: matsCost, labelTier: labelTier, newId: newId, SIDE: SIDE, SIDE_CAP: SIDE_CAP, findBases: findBases, socketable: socketable, suggest: suggest,
+      oddsLabel: oddsLabel, price: price, matsCost: matsCost, labelTier: labelTier, newId: newId, SIDE: SIDE, SIDE_CAP: SIDE_CAP, findBases: findBases, socketable: socketable, suggest: suggest, special: special, buyName: buyName,
       planCost: planCost, costPlan: costPlan, choicesOf: choicesOf, choiceCosts: choiceCosts, shoppingList: shoppingList,
       spendOf: spendOf, deriveSpend: deriveSpend, spentOn: spentOn, costReset: costReset,
       setLeague: setLeague, hardness: function (design, st, t) { var c = catalog(design.base, design.ilvl); return hardness(c, analyze(c, design, st), t); }

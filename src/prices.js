@@ -22,6 +22,7 @@
       'Preserved Rib': [0.01822, 0.004289], 'Preserved Jawbone': [0.01302, 0.0004914], 'Preserved Collarbone': [0.2345, 0.03067], 'Preserved Cranium': [24.88, 7.22],
       'Ancient Rib': [5.8, 2.22], 'Ancient Jawbone': [6.81, 2.77], 'Ancient Collarbone': [5.93, 4.04],
       verisium: [0.00006515, 0.00008037],
+      xverisium: [0.00442, 0.00981],   // Exceptional Verisium, poe.ninja October 10, 2026
       'Greater Essence of the Body': [0.0007513, 0.001623], 'Greater Essence of the Mind': [0.0002504, 0.0001082],
       'Greater Essence of Enhancement': [0.0008182, null], 'Greater Essence of Abrasion': [0.001485, 0.002568],
       'Greater Essence of Flames': [0.0003005, null], 'Greater Essence of Ice': [0.001503, null], 'Greater Essence of Electricity': [null, 0.00974],

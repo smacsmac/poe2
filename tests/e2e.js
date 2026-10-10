@@ -243,6 +243,26 @@ async function addTarget(page, side, i, query, famText) {
     assert.match(await page.locator('#find-foot').textContent(), /No base matches/);
     await page.keyboard.press('Escape');
     assert.ok(await page.locator('#find-pop').isHidden());
+    // Runefather's Grasping Mail: ring mods, Runic Ward only, made at the Verisium Anvil
+    await page.fill('#find-q', 'runefather');
+    await page.locator('.fo', { hasText: "Runefather's Grasping Mail" }).click();
+    assert.equal(await page.locator('.bp-name').textContent(), "Runefather's Grasping Mail");
+    const notes = await page.locator('.rf-info').allInnerTexts();
+    assert.equal(notes.length, 2);
+    assert.match(notes[0], /^Rolls ring mods too/);
+    assert.match(notes[1], /^Made at the Verisium Anvil[\s\S]*Runic Ward \(550 base\)/);
+    await page.click('[data-act="d-pick"][data-s="1"][data-i="0"]');
+    await page.fill('#pk-q', 'cast speed');
+    assert.equal(await page.locator('.fam', { hasText: 'Cast Speed' }).first().locator('.tag.ring').textContent(), 'Ring mod');
+    await page.keyboard.press('Escape');
+    await page.click('[data-act="d-pick"][data-s="0"][data-i="0"]');
+    await page.fill('#pk-q', 'armour, evasion and energy');
+    assert.equal(await page.locator('.fam .tag.dead').first().textContent(), 'No effect here');
+    await page.keyboard.press('Escape');
+    await addTarget(page, 0, 0, 'armour, evasion and energy', 'Armour, Evasion and Energy Shield');
+    assert.match(await page.locator('.box.warn .box-route').first().textContent(), /^Does nothing here: this base has no Armour, Evasion or Energy Shield/);
+    await addTarget(page, 1, 0, 'cast speed', 'Cast Speed');
+    await page.screenshot({ path: `${OUT}/${scheme}-father.png`, fullPage: true });
     await ctx.close();
   }
 

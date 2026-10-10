@@ -267,6 +267,8 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
 .rf-toggle{display:flex;gap:.6rem;align-items:flex-start;padding:.7rem .8rem;border:1px solid var(--tip-edge-2);border-radius:3px;font-size:.93rem;color:var(--tip-text);margin-top:.3rem;cursor:pointer}
 .rf-toggle input{margin-top:.25rem;accent-color:var(--tip-rare)}
 .rf-toggle small{display:block;color:var(--tip-muted);font-size:.85rem}
+.rf-info{cursor:default}
+.rf-info>svg{flex:none;width:1rem;height:1rem;margin-top:.2rem;color:var(--tip-rare)}
 
 /* route panel */
 .route{position:sticky;top:calc(var(--bar-h) + 16px);display:grid;gap:1rem}
@@ -536,6 +538,8 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
 .tag.ess{color:var(--src-essence);border-color:color-mix(in srgb,var(--src-essence) 45%,transparent)}
 .tag.alloy{color:var(--src-aldur);border-color:color-mix(in srgb,var(--src-aldur) 45%,transparent)}
 .tag.lich{color:var(--src-abyss);border-color:color-mix(in srgb,var(--src-abyss) 45%,transparent)}
+.tag.ring{color:var(--src-breach);border-color:color-mix(in srgb,var(--src-breach) 45%,transparent)}
+.tag.dead{color:var(--junk);border-color:color-mix(in srgb,var(--junk) 45%,transparent)}
 .fam.used{opacity:.45}
 .fam.used .fam-main{cursor:not-allowed}
 .fam.open{background:var(--surface-2)}

@@ -693,3 +693,70 @@ test('cost: a chain past half its limit answers the average and the choices for 
   render();
   for (let r = 0; r < 3; r++) assert.ok(render().quick, 'render ' + (r + 3) + ' comes from cache');
 });
+
+const GRASP = 'Grasping Mail', FATHER = "Runefather's Grasping Mail";
+function fatherDesign() {
+  const cat = E.catalog(FATHER, 82);
+  return { cat, design: { cls: 'body', base: FATHER, ilvl: 82, runeforge: false, astrid: false, league: 'fr',
+    targets: [[tgt(cat, 0, 'to maximum Life', 'T2'), tgt(cat, 0, '#% increased Fire Damage', 'T1'), null], [tgt(cat, 1, 'Cast Speed', 'T2'), tgt(cat, 1, 'to Fire Resistance', 'T2'), null]] } };
+}
+
+test('Grasping Mail rolls ring mods too, and plain body armour does not', () => {
+  for (const n of [GRASP, FATHER]) {
+    const cat = E.catalog(n, 82);
+    const cast = cat.sides[1].find((F) => /Cast Speed/.test(F.t));
+    assert.ok(cast && cast.ring, n + ': Cast Speed rolls, marked as a ring mod');
+    assert.ok(cat.sides[0].some((F) => /Adds # to # Fire damage to Attacks/.test(F.t) && F.ring));
+    assert.ok(!cat.sides[0].find((F) => F.t === '+# to maximum Life').ring, 'life rolls on body armour anyway');
+  }
+  const plain = E.catalog('Sacrificial Regalia', 82);
+  assert.ok(!plain.sides[1].some((F) => /Cast Speed/.test(F.t)));
+  assert.ok(!plain.sides.flat().some((F) => F.ring));
+  assert.deepEqual(E.special(GRASP), { ring: true, father: false, wardOnly: false, from: null });
+  assert.deepEqual(E.special(FATHER), { ring: true, father: true, wardOnly: true, from: GRASP });
+});
+
+test('Runefather’s Grasping Mail: Runic Ward only, so increased Armour, Evasion and Energy Shield do nothing', () => {
+  const dead = (n) => E.catalog(n, 82).sides.flat().filter((F) => F.dead).map((F) => F.t);
+  assert.deepEqual(dead(FATHER), ['#% increased Armour, Evasion and Energy Shield']);
+  assert.deepEqual(dead(GRASP), []);
+  assert.ok(!E.catalog(FATHER, 82).sides[1].find((F) => /Energy Shield Recharge Rate/.test(F.t)).dead, 'recharge rate is global');
+});
+
+test('Runefather’s Grasping Mail: buy a Grasping Mail, craft it, then three changes at the Verisium Anvil', () => {
+  const { design } = fatherDesign();
+  const steps = E.plan(design, fresh());
+  assert.equal(steps[0].kind, 'base');
+  assert.equal(steps[0].spec.find((r) => r.k === 'Base').v, GRASP);
+  assert.match(steps[0].how, /^Buy a magic Grasping Mail /);
+  assert.match(steps[0].how, /Grasping Orchid/);
+  const keys = steps.filter((s) => s.kind === 'finish').map((s) => s.key);
+  assert.deepEqual(keys.slice(keys.indexOf('runeforge'), keys.indexOf('runeforge') + 3), ['runeforge', 'runemaster', 'runefather']);
+  const rf = steps.find((s) => s.key === 'runeforge');
+  assert.deepEqual(rf.mats.map((m) => [m.k, m.q]), [['xverisium', 5]]);
+  assert.match(rf.how, /Str\/Dex\/Int/);
+  assert.ok(steps.find((s) => s.key === 'runemaster').note, 'unknown cost: says so');
+  // a finished item that is already a Runefather's: one answer skips the rest of the chain, and used nothing
+  const st = { rarity: 'rare', mods: [], done: { quality: true }, skip: {} };
+  const cat = E.catalog(FATHER, 82);
+  design.targets.forEach((side, s) => side.forEach((t) => { if (t) st.mods.push({ id: 'g' + t.mi, s, mi: t.mi, mark: 'auto' }); }));
+  const step = E.nextStep(design, st);
+  assert.equal(step.key, 'runeforge');
+  const already = step.outcomes.find((o) => /already/.test(o.label));
+  assert.deepEqual(E.spendOf(step, null, already), { sp: [], b: 0 });
+  assert.deepEqual(E.spendOf(step, null, step.outcomes[0]), { sp: [['xverisium', 5]], b: 0 });
+  const after = E.apply(st, already.o);
+  assert.ok(after.done.runeforge && after.done.runemaster && after.done.runefather);
+  assert.equal(E.nextStep(design, after).key, 'divine');
+  assert.ok(cat.caps[0] === 3 && cat.caps[1] === 3);
+});
+
+test('Grasping Mail: runeforging it takes Exceptional Verisium', () => {
+  const cat = E.catalog(GRASP, 82);
+  const design = { cls: 'body', base: GRASP, ilvl: 82, runeforge: true, astrid: false, league: 'fr', targets: [[tgt(cat, 0, 'to maximum Life', 'T2'), null, null], [null, null, null]] };
+  const steps = E.plan(design, fresh());
+  const rf = steps.find((s) => s.key === 'runeforge');
+  assert.deepEqual(rf.mats.map((m) => [m.k, m.q]), [['xverisium', 5]]);
+  assert.ok(!steps.some((s) => s.key === 'runemaster'), 'only the Runefather’s goes on');
+  assert.ok(E.price('xverisium', 'fr') > 0);
+});

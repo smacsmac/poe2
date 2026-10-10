@@ -562,6 +562,8 @@
           return;
         }
         var r = routeFor(c, cat, rmap, t);
+        var Fd = cat.byFam.get(famOf(t.mi));
+        if (Fd && Fd.dead) r = { warn: true, line: esc(deadText(Fd)) + ' · ' + r.line };
         var opts = E.tierOptions(cat, famOf(t.mi));
         var sel = '<label class="box-tier"><span class="vh">Lowest tier you’ll accept</span><select data-act="d-tier" data-s="' + s + '" data-i="' + i + '">' +
           opts.map(function (o) {
@@ -575,6 +577,15 @@
       h += '</ol>';
     });
     h += '<p class="tier-hint">T1 is the top tier. A box set to <b>T2+</b> takes T2 or T1, and lower tiers are cheaper to hit.</p>';
+    var sp = E.special(c.base);
+    if (sp.ring) {
+      h += '<div class="rf-toggle rf-info">' + ico('u-list') + '<span>Rolls ring mods too' +
+        '<small>Cast speed, attack damage, mana, elemental damage and more, marked “Ring mod” in the picker. It takes catalysts like a ring as well (the plan doesn’t use them yet). Grasping Mails come from the Grasping Orchid on the Genesis Tree: 60 Breach Rings make one.</small></span></div>';
+    }
+    if (sp.father) {
+      h += '<div class="rf-toggle rf-info">' + ico('u-list') + '<span>Made at the Verisium Anvil' +
+        '<small>A Runefather’s Grasping Mail is a Grasping Mail changed three times at the Anvil: Runeforged, Runemastered, then Runefather’s. The mods stay, so the plan crafts them on a Grasping Mail and does the Anvil steps at the end. Its only defence is Runic Ward (550 base), so mods that increase Armour, Evasion or Energy Shield do nothing on it; Sovereign Alloy’s increased Runic Ward does.</small></span></div>';
+    }
     if (b.rf || b.rfw) {
       h += '<label class="rf-toggle"><input type="checkbox" id="d-rf"' + (c.runeforge ? ' checked' : '') + '><span>Runeforge it at the end' +
         '<small>' + (b.rf ? 'Adds Runic Ward' + (b.rf.Ward ? ' (' + b.rf.Ward + ' base)' : '') + ' at the Verisium Anvil and trades some base defences for it. Needed for increased Runic Ward to do much.' : 'Changes the weapon’s base damage at the Verisium Anvil.') + '</small></span></label>';
@@ -1282,11 +1293,11 @@
     var cat = catOf(c), side = function (s) { var ms = c.st.mods.filter(function (m) { return m.s === s; }); return ms.length ? listAnd(ms.map(function (m) { return buyModName(m, cat); })) : 'anything'; };
     return { rar: c.st.rarity, ilvl: buyIlvl(c), pre: side(0), suf: side(1) };
   }
-  function buyTitle(c) { return 'Buy a ' + c.st.rarity + ' ' + c.base; }
+  function buyTitle(c) { return 'Buy a ' + c.st.rarity + ' ' + E.buyName(c.base); }
   function buyCard(c, n) {
     var cat = catOf(c), rar = c.st.rarity;
     var h = '<div class="card buy-card"><div class="card-k"><span class="eyebrow">Now · step ' + n + ' · Base</span></div>';
-    h += '<h3 tabindex="-1">Buy a <span class="rar-' + rar + '">' + rar + '</span> ' + esc(c.base) + '</h3>';
+    h += '<h3 tabindex="-1">Buy a <span class="rar-' + rar + '">' + rar + '</span> ' + esc(E.buyName(c.base)) + '</h3>';
     h += '<p class="how">Look for one on trade at item level ' + esc(buyIlvl(c)) + ' with these mods. They’re what Suggest put on your item, and a higher tier is just as good.</p>';
     h += '<ul class="buy-mods">' + c.st.mods.map(function (m) {
       if (m.pseudo || m.mi === null || m.mi === undefined) return '<li><span>' + esc(buyModName(m, cat)) + '</span></li>';
@@ -1297,6 +1308,7 @@
         opts.map(function (o) { return '<option value="' + o.mi + '"' + (o.mi === m.mi ? ' selected' : '') + '>' + esc(o.label + (o.mi === m.mi && m.est ? ' or better' : '')) + '</option>'; }).join('') + '</select></label></li>';
     }).join('') + '</ul>';
     h += '<p class="note">Bought one with different tiers? Set them above before you press Bought it, and the steps follow. Different mods? Change them on your item.</p>';
+    if (E.special(c.base).ring) h += '<p class="note">A magic Grasping Mail can be hard to find: guides say the Grasping Orchid gives them rare and unidentified. If you end up with a rare, start again from step 1 and pick Rare.</p>';
     h += '<p class="q">When you have it</p><div class="outs"><button type="button" class="out first" data-act="buy-done">Bought it</button>' +
       '<button type="button" class="out other" data-act="buy-roll">I’ll make it myself instead</button></div>';
     return h + '</div>';
@@ -1397,7 +1409,7 @@
     });
     var base = null;
     if (sl.base) base = { key: 'base', n: 'Magic ' + specOf(sl.base, 'Base') + ', item level ' + specOf(sl.base, 'Item level'), note: 'Prefix: ' + specOf(sl.base, 'Prefix') + ' · Suffix: ' + specOf(sl.base, 'Suffix') };
-    else if (D.buy) base = { key: 'base', n: RAR[D.buy.rar] + ' ' + D.K.design.base + ', item level ' + D.buy.ilvl, note: 'Prefix: ' + D.buy.pre + ' · Suffix: ' + D.buy.suf };
+    else if (D.buy) base = { key: 'base', n: RAR[D.buy.rar] + ' ' + E.buyName(D.K.design.base) + ', item level ' + D.buy.ilvl, note: 'Prefix: ' + D.buy.pre + ' · Suffix: ' + D.buy.suf };
     return { base: base, ess: ess, repair: repair, notes: notes };
   }
   function shopRow(it, px, got) {
@@ -1893,7 +1905,7 @@
     function shown(F) {
       if (p.cat !== 'All' && F.c !== p.cat) return false;
       if (!q) return true;
-      var hay = (F.name + ' ' + F.t + ' ' + E.tierOptions(cat, F.f).map(function (o) { return MODS[o.mi].x + ' ' + (o.ess || []).join(' ') + ' ' + (o.src || ''); }).join(' ')).toLowerCase();
+      var hay = (F.name + ' ' + F.t + (F.ring ? ' ring mod' : '') + ' ' + E.tierOptions(cat, F.f).map(function (o) { return MODS[o.mi].x + ' ' + (o.ess || []).join(' ') + ' ' + (o.src || ''); }).join(' ')).toLowerCase();
       return q.split(/\s+/).every(function (w) { return hay.indexOf(w) > -1; });
     }
     var pins = pickPins(c, p).filter(function (t) { var F = cat.byFam.get(famOf(t.mi)); return F && shown(F); });
@@ -1927,7 +1939,10 @@
         if (F.alloy.length) tags.push('<span class="tag alloy">' + esc(F.alloy[0].name.replace(/^The /, '')) + '</span>');
         if (F.lich.length) tags.push('<span class="tag lich">Desecrated</span>');
       }
-      var meta = F.rollable ? plural(F.tiers.length, 'tier') + ' · top needs item level ' + F.tiers[0].l : (F.alloy.length ? 'Alloy only' : F.lich.length ? 'Desecration only (' + esc(F.lich[0].lich) + ')' : 'Essence only');
+      // Grasping Mail: the mods it only gets from the ring pool, and (Runefather's) the ones with nothing to increase
+      if (F.ring) tags.push('<span class="tag ring">Ring mod</span>');
+      if (F.dead) tags.push('<span class="tag dead">' + (F.dead === 'part' ? 'Half works here' : 'No effect here') + '</span>');
+      var meta = F.dead ? deadText(F) : F.rollable ? plural(F.tiers.length, 'tier') + ' · top needs item level ' + F.tiers[0].l : (F.alloy.length ? 'Alloy only' : F.lich.length ? 'Desecration only (' + esc(F.lich[0].lich) + ')' : 'Essence only');
       var open = p.open === F.f;
       h += '<div class="fam' + (used ? ' used' : '') + (open ? ' open' : '') + '"><button type="button" class="fam-main" data-act="pk-fam" data-f="' + F.f + '"' + (used ? ' aria-disabled="true"' : '') + ' aria-expanded="' + open + '">' +
         '<span class="fam-t">' + modHTML(modText(top.mi)) + '</span><span class="fam-m">' + (used ? (p.mode === 'design' ? 'Already in another box' : 'Already on the item') : meta) + '</span>' +
@@ -1936,6 +1951,10 @@
       h += '</div>';
     });
     $('pk-list').innerHTML = h;
+  }
+  /* Why a defence mod does little on a Runic Ward-only base (Runefather's Grasping Mail). */
+  function deadText(F) {
+    return F.dead === 'part' ? 'Only its second line works here: this base has no Armour, Evasion or Energy Shield' : 'Does nothing here: this base has no Armour, Evasion or Energy Shield to increase';
   }
   function pickFlags() {
     return { fract: !!($('pk-fr') && $('pk-fr').checked), desec: !!($('pk-de') && $('pk-de').checked), crafted: !!($('pk-cr') && $('pk-cr').checked) };
@@ -2080,7 +2099,10 @@
     var imp = implicitLines(b);
     if (imp.length) L.push('Implicit: ' + imp.join('; ') + '.');
     if (cat.caps[0] !== 3 || cat.caps[1] !== 3) L.push('As a rare it can have ' + plural(cat.caps[0], 'prefix', 'prefixes') + ' and ' + plural(cat.caps[1], 'suffix', 'suffixes') + '.');
-    if ((b.rf || b.rfw) && c.runeforge) L.push('I plan to runeforge it at the Verisium Anvil at the end.');
+    var sp = E.special(c.base);
+    if (sp.ring) L.push('Grasping Mail can also roll ring modifiers (the app includes them) and takes catalysts. It comes from the Grasping Orchid on the Genesis Tree (60 Breach Rings).');
+    if (sp.father) L.push('A Runefather’s Grasping Mail is made from a Grasping Mail at the Verisium Anvil in three changes (Runeforged, Runemastered, Runefather’s), keeping its mods, so I craft the mods on a Grasping Mail first. Its only defence is Runic Ward (550 base): increased Armour, Evasion or Energy Shield does nothing on it.');
+    if ((b.rf || b.rfw) && c.runeforge && !sp.father) L.push('I plan to runeforge it at the Verisium Anvil at the end.');
     if (c.astrid && E.socketable(b)) L.push('I plan to use Astrid’s Creativity so it can hold two crafted mods.');
 
     L.push('', 'WHAT I WANT');
