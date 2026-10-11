@@ -291,6 +291,26 @@ async function addTarget(page, side, i, query, famText) {
     assert.match(await page.locator('.box.warn .box-route').first().textContent(), /^Does nothing here: this base has no Armour, Evasion or Energy Shield/);
     await addTarget(page, 1, 0, 'cast speed', 'Cast Speed');
     await page.screenshot({ path: `${OUT}/${scheme}-father.png`, fullPage: true });
+    // Special crafts: the list under the slots, a pick fills the design, and the Forge has its market notes
+    await page.click('#rail [data-act="sp-open"]');
+    await page.waitForSelector('#spbox:not([hidden])');
+    assert.equal(await page.locator('.sp-item').count(), 5);
+    await page.locator('[data-act="sp-pick"][data-k="father"]').click();
+    assert.ok(await page.locator('#spbox').isHidden());
+    assert.match(await page.locator('#toast').innerText(), /^Runefather’s Grasping Mail: the mods are in your design\./);
+    assert.equal(await page.locator('.bp-name').textContent(), "Runefather's Grasping Mail");
+    assert.match(await page.locator('.sp-info').innerText(), /^Special craft: Runefather’s Grasping Mail/);
+    assert.equal(await page.locator('.box:not(.empty)').count(), 6);
+    await page.click('[data-act="sp-notes"]');
+    await page.waitForSelector('#p-intel[open]');
+    assert.match(await page.locator('#p-intel').innerText(), /Market notes · Runefather’s Grasping Mail[\s\S]*Who buys it\./);
+    assert.ok(await page.locator('#p-intel .intel-src a').count() >= 2, 'sources');
+    await page.screenshot({ path: `${OUT}/${scheme}-special.png` });
+    await page.waitForTimeout(400);
+    await page.reload();
+    await page.waitForSelector('#p-intel');
+    assert.match(await page.locator('#p-intel summary').innerText(), /Runefather’s Grasping Mail/, 'the craft remembers it’s a special');
+    await page.click('.tabs [data-go="design"]');
     // Import an item copied in game: the preview shows what was recognised, Import makes it the design
     await page.click('[data-act="imp-open"]');
     await page.waitForFunction(() => document.activeElement.id === 'imp-text');
@@ -424,13 +444,24 @@ async function addTarget(page, side, i, query, famText) {
   assert.ok(await p.locator('#rail').isHidden(), 'no slot rail on a phone');
   await p.tap('#slot-pick');
   await p.waitForSelector('#slots:not([hidden])');
-  assert.equal(await p.locator('#slots .slot').count(), await p.evaluate(() => window.DATA.classes.length));
+  assert.equal(await p.locator('#slots .slot[data-act="cls"]').count(), await p.evaluate(() => window.DATA.classes.length));
+  assert.equal(await p.locator('#slots [data-act="sp-open"]').count(), 1, 'Special under the slots');
   await p.locator('#slots .drawer-card').evaluate((el) => Promise.all(el.getAnimations().map((a) => a.finished)));
   await p.screenshot({ path: `${OUT}/phone-slots.png` });
   await p.locator('#slots [data-cls="ring"]').tap();
   await p.waitForSelector('#slots', { state: 'hidden' });
   assert.equal(await p.locator('.bp-name').textContent(), 'Prismatic Ring');
   assert.match(await p.locator('#slot-pick').textContent(), /Ring/);
+  // Special crafts on a phone: from the slot drawer
+  await p.tap('#slot-pick');
+  await p.waitForSelector('#slots:not([hidden])');
+  await p.locator('#slots [data-act="sp-open"]').tap();
+  await p.waitForSelector('#spbox:not([hidden])');
+  const [sw6, w6] = await p.evaluate(() => [document.documentElement.scrollWidth, window.innerWidth]);
+  assert.ok(sw6 <= w6, 'no sideways scroll with the special list open');
+  await p.screenshot({ path: `${OUT}/phone-special.png` });
+  await p.locator('[data-act="sp-pick"][data-k="ma-gloves"]').tap();
+  assert.equal(await p.locator('.bp-name').textContent(), 'Secured Wraps');
   // Import on a phone, as my item in progress: the Forge starts from it
   await p.locator('[data-act="imp-open"]').tap();
   await p.fill('#imp-text', GAME_ITEM);

@@ -302,6 +302,33 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
 .copy-chat:hover{color:var(--fg)}
 .copy-card{grid-template-rows:auto minmax(0,1fr) auto}
 .cb-body{display:grid;min-height:0;padding:0 1.1rem 1rem}
+.slot.special svg{color:var(--brass)}
+.slot.special span{color:var(--brass)}
+.sp-card{grid-template-rows:auto minmax(0,1fr) auto}
+.sp-list{list-style:none;margin:0;padding:0 1.1rem;display:grid;gap:.5rem;overflow:auto;min-height:0}
+.sp-item{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:.8rem;align-items:center;width:100%;text-align:left;padding:.7rem .8rem;border:1px solid var(--line);border-radius:6px;background:var(--surface-2);color:var(--fg);cursor:pointer}
+.sp-item:hover,.sp-item:focus-visible{border-color:var(--brass-dim);background:var(--brass-wash)}
+.sp-item[aria-current="true"]{border-color:var(--brass)}
+.sp-item>svg{width:30px;height:30px;color:var(--muted);stroke-width:2.2}
+.sp-item>svg:last-child{width:16px;height:16px;transform:rotate(-90deg)}
+.sp-main{display:grid;gap:.15rem;min-width:0}
+.sp-n{font-weight:700;font-size:1rem;display:flex;flex-wrap:wrap;align-items:center;gap:.2rem .5rem}
+.sp-b{font-family:var(--font-mono);font-size:.74rem;color:var(--muted)}
+.sp-p{font-size:.88rem;color:var(--muted);line-height:1.4}
+.tag.sp-tag{color:var(--brass);border-color:var(--brass-dim);text-transform:uppercase;letter-spacing:.06em}
+.sp-foot{padding:.8rem 1.1rem 1rem;font-size:.82rem;color:var(--muted);border-top:1px solid var(--line);margin-top:.8rem}
+.linkish{background:none;border:0;padding:0;font:inherit;color:var(--tip-rare);text-decoration:underline;text-underline-offset:2px;cursor:pointer}
+.intel{margin:.75rem 0 .25rem;border:1px solid var(--brass-dim);border-radius:6px;background:var(--surface);scroll-margin-top:calc(var(--bar-h) + 16px)}
+.intel summary{display:flex;align-items:center;gap:.6rem;padding:.6rem .85rem;cursor:pointer;list-style:none;font-size:.95rem}
+.intel summary::-webkit-details-marker{display:none}
+.intel summary>svg{width:1rem;height:1rem;flex:none;color:var(--brass)}
+.intel summary>svg:last-child{margin-left:auto;color:var(--muted);transition:transform .15s}
+.intel[open] summary>svg:last-child{transform:rotate(180deg)}
+.intel summary>span:first-of-type{flex:0 1 auto;min-width:0}
+.intel-body{display:grid;gap:.55rem;padding:.1rem .85rem .85rem;font-size:.92rem;line-height:1.5}
+.intel-body b{color:var(--fg)}
+.intel-src{font-size:.8rem;color:var(--muted)}
+.intel-src a{color:var(--brass)}
 .imp-row{display:flex;justify-content:flex-end;margin:.1rem 0 -.2rem}
 .imp-btn{display:inline-flex;align-items:center;gap:.4rem;background:none;border:1px solid var(--tip-edge-2);border-radius:999px;padding:.3rem .8rem;font-size:.86rem;color:var(--tip-rare);cursor:pointer}
 .imp-btn:hover{border-color:var(--tip-edge);background:var(--tip-slot-hover)}
@@ -954,6 +981,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
 <symbol id="u-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></symbol>
 <symbol id="u-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></symbol>
 <symbol id="u-list" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6.5h11M9 12h11M9 17.5h11"/><path d="M4.5 6.5h.01M4.5 12h.01M4.5 17.5h.01" stroke-width="3"/></symbol>
+<symbol id="u-spark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.6L19.5 10.5l-5.6 1.9L12 18l-1.9-5.6L4.5 10.5l5.6-1.9z"/><path d="M19 3.5v3M17.5 5h3M5 17v3M3.5 18.5h3"/></symbol>
 <symbol id="u-import" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4.5H7.2A1.7 1.7 0 0 0 5.5 6.2v13.1A1.7 1.7 0 0 0 7.2 21h9.6a1.7 1.7 0 0 0 1.7-1.7V6.2a1.7 1.7 0 0 0-1.7-1.7H15"/><rect x="9" y="3" width="6" height="3" rx="1"/><path d="M12 9.5v7M9 13.5l3 3 3-3"/></symbol>
 <symbol id="u-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="8.5" y="8.5" width="11.5" height="11.5" rx="1.8"/><path d="M15.5 8.5V5.8A1.8 1.8 0 0 0 13.7 4H5.8A1.8 1.8 0 0 0 4 5.8v7.9a1.8 1.8 0 0 0 1.8 1.8h2.7"/></symbol>
 <symbol id="u-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
@@ -971,7 +999,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
     <a class="brand" href="#design" data-go="design" aria-label="Crafting Playbook, design screen">
       <span class="brand-mark" aria-hidden="true"></span>
       <span class="brand-name">Crafting Playbook</span>
-      <span class="brand-v" title="App version: V6">V6</span>
+      <span class="brand-v" title="App version: V7">V7</span>
       <span class="brand-sub">PoE2 · 0.5.5</span>
     </a>
     <nav class="tabs" aria-label="Screens">
@@ -1228,6 +1256,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
 <div class="modal" id="picker" hidden></div>
 <div class="modal" id="copybox" hidden></div>
 <div class="modal" id="impbox" hidden></div>
+<div class="modal" id="spbox" hidden></div>
 <div class="drawer" id="drawer" hidden></div>
 <div class="drawer left" id="slots" hidden></div>
 <div class="toast" id="toast" aria-hidden="true" hidden></div>
@@ -1286,6 +1315,111 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
   };
   root.PRICES = PRICES;
   if (typeof module !== 'undefined') module.exports = PRICES;
+})(typeof window !== 'undefined' ? window : globalThis);
+
+</script>
+<script>
+/* Special crafts: ready-made designs for items that sell, each with market notes for the Forge.
+   Targets name a mod family by its text template (data.json fams[].t) and a tier label (T1, T2... or Alloy); the app
+   resolves them on the base at its item level. The notes come from build guides and poe.ninja snapshots found in
+   October 2026 (patch 0.5.5); play shares move, so they say where they come from and when. */
+(function (root) {
+  var CHECKED = 'October 11, 2026';
+  var NINJA_FR = ['poe.ninja: Forbidden Rites builds', 'https://poe.ninja/poe2/builds/forbiddenrites'];
+  var NINJA_ROA = ['poe.ninja: Runes of Aldur builds', 'https://poe.ninja/poe2/builds/runesofaldur'];
+  var SPECIALS = [
+    {
+      id: 'ma-gloves', name: 'Martial Artist gloves', tag: 'Popular build',
+      base: 'Secured Wraps', ilvl: 82,
+      pitch: 'Damage gloves: Martial Artists make every glove mod stronger, and attack builds want the same mods.',
+      targets: [
+        [['Adds # to # Lightning damage to Attacks', 'T1'], ['Adds # to # Cold damage to Attacks', 'T1'], ['+# to maximum Life', 'T2']],
+        [['+# to Level of all Melee Skills', 'T1'], ['#% increased Attack Speed', 'T1'], ['+#% to Fire Resistance', 'T2']]
+      ],
+      notes: [
+        { h: 'Who buys it', p: 'Martial Artist (Monk) is one of the most played ascendancies: about 19% of Runes of Aldur characters early in the league, and about 10% in Forbidden Rites. Attack builds such as Gemling Legionnaire want flat damage, attack speed, life and resistances on gloves too.' },
+        { h: 'Why it sells', p: 'Way of the Stonefist turns the gloves into Fists of Stone and makes their explicit mods stronger, so guides call high-roll damage gloves best in slot. The base is replaced, so any base with a high item level works: only the mods matter.' },
+        { h: 'Before you craft', p: 'On trade, search gloves with two “Adds … damage to Attacks” mods, Attack Speed and +Level of all Melee Skills. Look at the prices and at how many are listed: few listings at good prices is the sign.' },
+        { h: 'Tip', p: 'Sell what lands: two flat damage mods with Attack Speed already sell. Don’t chase a perfect six.' },
+        { h: 'Watch out', p: 'One review says Way of the Stonefist was weakened in 0.5.5d, so check current prices before spending much.' }
+      ],
+      sources: [NINJA_ROA, NINJA_FR,
+        ['poe2database: Way of the Stonefist', 'https://poe2database.com/passives/way-of-the-stonefist'],
+        ['IGGM: Martial Artist ascendancy review', 'https://www.iggm.com/news/poe-2-patch-0-5-0-martial-artist-ascendacy-review-way-of-the-stonefist-outrageous-glove-mechanic'],
+        ['Mobalytics: Giga Bonk Martial Artist (0.5.5)', 'https://mobalytics.gg/poe-2/builds/martial-artist-league-starter-build']]
+    },
+    {
+      id: 'ms-boots', name: 'Movement speed boots', tag: 'Every build',
+      base: 'Daggerfoot Shoes', ilvl: 82,
+      pitch: 'The boots every build buys: movement speed, life and three resistances.',
+      targets: [
+        [['#% increased Movement Speed', 'T1'], ['+# to maximum Life', 'T2']],
+        [['+#% to Fire Resistance', 'T2'], ['+#% to Cold Resistance', 'T2'], ['+#% to Lightning Resistance', 'T2']]
+      ],
+      notes: [
+        { h: 'Who buys it', p: 'Everyone. Martial Artist guides put movement speed first on boots, then resistances, life and evasion.' },
+        { h: 'Competition', p: 'The most crafted item there is, so prices are lower and sales depend on the rolls: 30% movement speed or more with three resistances, or a high life roll, sells fastest.' },
+        { h: 'Keep them universal', p: 'Runic Ward or augment mods only interest Runic Ward builds (Chronomancer is about 1–3% of characters on poe.ninja), so leave them off boots you mean to sell.' },
+        { h: 'Before you craft', p: 'On trade, search boots with 30% movement speed, life and two or more resistances, sorted by price, to see what your rolls are worth.' }
+      ],
+      sources: [NINJA_ROA, NINJA_FR,
+        ['Mobalytics: Martial Artist league starter (0.5)', 'https://mobalytics.gg/poe-2/builds/martial-artist-leveling-and-early-mapping-nicktew']]
+    },
+    {
+      id: 'father', name: 'Runefather’s Grasping Mail', tag: 'Niche',
+      base: "Runefather's Grasping Mail", ilvl: 82,
+      pitch: 'A caster body armour with cast speed and all resistances from the ring pool, on pure Runic Ward.',
+      targets: [
+        [['+# to maximum Life', 'T1'], ['+# to Spirit', 'T1'], ['#% increased Runic Ward', 'Alloy']],
+        [['#% increased Cast Speed', 'T1'], ['+#% to all Elemental Resistances', 'T1'], ['+#% to Chaos Resistance', 'T2']]
+      ],
+      notes: [
+        { h: 'Why it’s special', p: 'Grasping Mail rolls ring mods too, so it can have Cast Speed and +all Elemental Resistances, which no other body armour rolls. The Runefather’s version is pure Runic Ward (550 base), made from a Grasping Mail in three changes at the Verisium Anvil.' },
+        { h: 'Who buys it', p: 'Runic Ward casters, such as the Ice Nova Chronomancer: one 0.5 guide for that build wears a runeforged Grasping Mail. Olroth’s Resolve, the flask those builds use, sold for about 10 div in Runes of Aldur (6 in Forbidden Rites) in October.' },
+        { h: 'Competition', p: 'Few crafters go through the Grasping Orchid (60 Breach Rings) and the Anvil, so there’s little competition, but the market is small too: Chronomancer is about 1–3% of characters.' },
+        { h: 'Watch out', p: 'The app doesn’t know what the last two Anvil changes cost yet, and guides say the Orchid gives Grasping Mails rare and unidentified.' }
+      ],
+      sources: [NINJA_FR,
+        ['Exile Codex: Ice Nova CoA Chronomancer (0.5)', 'https://exile.codex-wiki.com/builds/ice-nova-coa-chronomancer-build-guide-0-5-endgame-update'],
+        ['Gamerant: the Grasping Orchid', 'https://gamerant.com/path-of-exile-2-poe2-how-unlock-grasping-orchid-what-do-use/']]
+    },
+    {
+      id: 'gemling-xbow', name: 'Gemling crossbow', tag: 'Popular build',
+      base: 'Siege Crossbow', ilvl: 82,
+      pitch: 'The weapon of the most played build in Forbidden Rites: attack speed, projectile levels and elemental damage.',
+      targets: [
+        [['Adds # to # Lightning Damage', 'T1'], ['Adds # to # Cold Damage', 'T1'], ['#% increased Elemental Damage with Attacks', 'T1']],
+        [['#% increased Attack Speed', 'T1'], ['+# to Level of all Projectile Skills', 'T1'], ['+#% to Critical Hit Chance', 'T1']]
+      ],
+      notes: [
+        { h: 'Who buys it', p: 'Gemling Legionnaire leads Forbidden Rites with about 35% of characters, and was about 9% of Runes of Aldur early in the league. The crossbow is its biggest upgrade.' },
+        { h: 'What they want', p: 'Guides rank attack speed first, then + levels of projectile skills, added elemental damage and flat lightning. Physical builds want increased and added physical damage instead.' },
+        { h: 'Competition', p: 'High value, but weapons are the most crafted slot: price-check this exact mix on trade before starting, and sell strong partial hits.' }
+      ],
+      sources: [NINJA_FR, NINJA_ROA,
+        ['Mobalytics: Fresh Clip Gemling', 'https://mobalytics.gg/poe-2/builds/fearlessdumbo-fresh-clip-gemling'],
+        ['Mobalytics: Grenades Gemling league starter (0.5.5)', 'https://mobalytics.gg/poe-2/builds/deadrabbit-grenades-gemling-league-starter']]
+    },
+    {
+      id: 'cold-staff', name: 'Cold caster staff', tag: 'Niche',
+      base: 'Chiming Staff', ilvl: 82,
+      pitch: 'For Ice Nova and Comet casters: + levels of cold spells, extra cold damage and cast speed.',
+      targets: [
+        [['Gain #% of Damage as Extra Cold Damage', 'T1'], ['#% increased Cold Damage', 'T1'], ['+# to maximum Mana', 'T1']],
+        [['+# to Level of all Cold Spell Skills', 'T1'], ['#% increased Cast Speed', 'T1'], ['#% increased Critical Hit Chance for Spells', 'T1']]
+      ],
+      notes: [
+        { h: 'What they want', p: 'Cold caster guides put + levels of cold spell skills first, then spell and cold damage, extra damage as cold or lightning, and cast speed. Chiming Staff grants Sigil of Power, which the Ice Nova Chronomancer guides use.' },
+        { h: 'Who buys it', p: 'A smaller market: Chronomancer is about 1–3% of characters and Stormweaver about 2–3% on poe.ninja, so price-check first.' },
+        { h: 'Tip', p: 'A staff with + cold levels, extra cold damage and cast speed holds its value even without the last mods.' }
+      ],
+      sources: [NINJA_FR,
+        ['Mobalytics: Ky’s Cold Caster Chronomancer (0.5.5)', 'https://mobalytics.gg/poe-2/builds/cold-caster-chronomancer-ky'],
+        ['poe-vault: Ice Nova Comet Chronomancer', 'https://www.poe-vault.com/poe2/sorceress/chronomancer/ice-nova-build-guide']]
+    }
+  ];
+  root.SPECIALS = { checked: CHECKED, list: SPECIALS };
+  if (typeof module !== 'undefined') module.exports = root.SPECIALS;
 })(typeof window !== 'undefined' ? window : globalThis);
 
 </script>
@@ -2405,6 +2539,24 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
       return out;
     }
 
+    /* A special craft's targets (family template + tier label) on its base: mod indices per side, and what didn't
+       resolve (a data refresh can rename a template; the tests check every special resolves). */
+    function specialTargets(sp) {
+      var cat = catalog(sp.base, sp.ilvl || 82), out = { targets: [[], []], missing: [] };
+      if (!cat) { out.missing.push(sp.base); return out; }
+      [0, 1].forEach(function (s) {
+        (sp.targets[s] || []).forEach(function (t) {
+          var F = cat.sides[s].find(function (x) { return x.t === t[0]; });
+          if (!F) { out.missing.push(t[0]); return; }
+          var opts = tierOptions(cat, F.f);
+          var o = opts.find(function (x) { return x.label === t[1]; }) || (t[1] === 'Alloy' ? null : opts.find(function (x) { return x.kind === 'roll'; }));
+          if (!o) { out.missing.push(t[0] + ' ' + t[1]); return; }
+          out.targets[s].push(o.mi);
+        });
+      });
+      return out;
+    }
+
     /* ---------- importing an item copied from the game ----------
        In game, Ctrl+Alt+C copies an item with a header line per mod ({ Prefix Modifier "Athlete's" (Tier: 1) — Life })
        and each value with its tier's range: +147(120-149) to maximum Life. Ctrl+C gives the same without headers or
@@ -3016,7 +3168,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
       MODS: MODS, FAMS: FAMS, CLASS: CLASS, BASE: BASE,
       catalog: catalog, tierOptions: tierOptions, methods: methods, famName: famName, modText: modText,
       analyze: analyze, plan: plan, apply: apply, nextStep: nextStep, summary: summary, slamOddsFor: slamOddsFor,
-      oddsLabel: oddsLabel, price: price, matsCost: matsCost, labelTier: labelTier, newId: newId, SIDE: SIDE, SIDE_CAP: SIDE_CAP, findBases: findBases, socketable: socketable, suggest: suggest, special: special, buyName: buyName, importItem: importItem,
+      oddsLabel: oddsLabel, price: price, matsCost: matsCost, labelTier: labelTier, newId: newId, SIDE: SIDE, SIDE_CAP: SIDE_CAP, findBases: findBases, socketable: socketable, suggest: suggest, special: special, buyName: buyName, importItem: importItem, specialTargets: specialTargets,
       planCost: planCost, costPlan: costPlan, choicesOf: choicesOf, choiceCosts: choiceCosts, shoppingList: shoppingList,
       spendOf: spendOf, deriveSpend: deriveSpend, spentOn: spentOn, costReset: costReset,
       setLeague: setLeague, hardness: function (design, st, t) { var c = catalog(design.base, design.ilvl); return hardness(c, analyze(c, design, st), t); }
@@ -3033,6 +3185,8 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
 (function () {
   'use strict';
   var DATA = window.DATA, PRICES = window.PRICES;
+  var SPECIALS = (window.SPECIALS && window.SPECIALS.list) || [], SPECIAL = {};
+  SPECIALS.forEach(function (x) { SPECIAL[x.id] = x; });
   var E = window.createEngine(DATA, PRICES);
   var MODS = E.MODS, FAMS = E.FAMS, SIDE = E.SIDE;
   var IDX = {};
@@ -3205,7 +3359,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
         return { t: h.t, o: h.o, e: h.e ? 1 : 0, st: packSt(h.st), ps: packSt(h.ps), sl: false, a: h.as === undefined ? undefined : (h.as ? 1 : 0), u: h.su,
           sp: Array.isArray(h.sp) ? h.sp : undefined, b: h.b ? 1 : undefined, y: h.bu ? 1 : undefined, buy: h.buy ? 1 : undefined };
       }),
-      su: c.su | 0, bu: c.bu ? 1 : undefined, g: c.got && Object.keys(c.got).length ? Object.keys(c.got) : undefined,
+      su: c.su | 0, bu: c.bu ? 1 : undefined, sx: c.spc || undefined, g: c.got && Object.keys(c.got).length ? Object.keys(c.got) : undefined,
       hd: meta.hdrop || undefined, h0: meta.hdrop ? packSt(meta.h0) : undefined, hs: meta.hs || undefined,
       at: c.at, dev: c.dev
     }));
@@ -3243,6 +3397,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
     // Saves from before the setup steps: a craft already under way has its setup done
     c.su = o.su !== undefined ? o.su : underWay(c) ? 3 : 0;
     c.bu = !!o.bu;
+    c.spc = typeof o.sx === 'string' && SPECIAL[o.sx] ? o.sx : null;
     c.got = {};
     (Array.isArray(o.g) ? o.g : []).forEach(function (k) { if (typeof k === 'string') c.got[k] = 1; });
     return c;
@@ -3442,6 +3597,11 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
           '<svg aria-hidden="true"><use href="#i-' + id + '"/></svg><span>' + esc(CLS[id].n) + '</span></button>';
       });
     });
+    // Ready-made designs for items that sell, under the slots
+    if (SPECIALS.length) {
+      h += '<p class="rail-h">Ideas</p><button type="button" class="slot special" data-act="sp-open" aria-haspopup="dialog">' +
+        '<svg aria-hidden="true"><use href="#u-spark"/></svg><span>Special</span></button>';
+    }
     return h;
   }
   function renderRail() {
@@ -3609,6 +3769,11 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
       h += '</ol>';
     });
     h += '<p class="tier-hint">T1 is the top tier, numbered as in game. A box set to <b>T2+</b> takes T2 or T1, and lower tiers are cheaper to hit.</p>';
+    var spx = c.spc && SPECIAL[c.spc];
+    if (spx) {
+      h += '<div class="rf-toggle rf-info sp-info">' + ico('u-spark') + '<span>Special craft: ' + esc(spx.name) +
+        '<small>' + esc(spx.pitch) + ' <button type="button" class="linkish" data-act="sp-notes">Market notes in the Forge</button></small></span></div>';
+    }
     var sp = E.special(c.base);
     if (sp.ring) {
       h += '<div class="rf-toggle rf-info">' + ico('u-list') + '<span>Rolls ring mods too' +
@@ -4541,6 +4706,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
       (c.hist.length ? '<button type="button" class="btn small" data-act="undo" title="Undo: ' + esc(undoLabel(c)) + '">' + ico('u-undo') + 'Undo</button>' : '') +
       (!c.hist.length ? '' : app.ui.confirmReset ? '<span class="muted" style="font-size:.9rem">Clear progress?</span><button type="button" class="btn small danger" data-act="reset-yes">Start over</button><button type="button" class="btn small quiet" data-act="reset-no">Keep</button>'
         : '<button type="button" class="btn small quiet" data-act="reset">Start over</button>') + '</div></div>';
+    h += intelHTML(c);
     h += costSection(K);
     h += '<ol class="timeline">' + setupSteps(c, stage);
     var showFrom = app.ui.doneAll ? 0 : Math.max(0, rows.length - 3);
@@ -5124,7 +5290,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
     var cat = catOf(c), b = cat.base, design = designOf(c);
     var skip = (c.st && c.st.skip) || {};
     var L = [];
-    L.push('Path of Exile 2 crafting, patch 0.5.5. This is a craft I’m working on, copied from the crafting planner app I use (PoE2 Crafting Playbook V6). Prices are from the ' + (app.league === 'roa' ? 'Runes of Aldur' : 'Forbidden Rites') + ' league, in divines (div) and exalts (ex).');
+    L.push('Path of Exile 2 crafting, patch 0.5.5. This is a craft I’m working on, copied from the crafting planner app I use (PoE2 Crafting Playbook V7). Prices are from the ' + (app.league === 'roa' ? 'Runes of Aldur' : 'Forbidden Rites') + ' league, in divines (div) and exalts (ex).');
     L.push('How to read it: T1 is a mod’s best tier. Crafted mods come from an essence or an alloy, one per item (two with the rune Astrid’s Creativity socketed). Desecrated mods come from a desecration at the Well of Souls, one per item. The app’s odds count every eligible tier as equally likely, so they’re rough.');
     L.push('', 'THE ITEM');
     L.push(c.base + ' (' + CLS[c.cls].n + (b.sub ? ', ' + b.sub : '') + '), item level ' + c.ilvl + '.');
@@ -5133,6 +5299,8 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
     if (cat.caps[0] !== 3 || cat.caps[1] !== 3) L.push('As a rare it can have ' + plural(cat.caps[0], 'prefix', 'prefixes') + ' and ' + plural(cat.caps[1], 'suffix', 'suffixes') + '.');
     var sp = E.special(c.base);
     if (sp.ring) L.push('Grasping Mail can also roll ring modifiers (the app includes them) and takes catalysts. It comes from the Grasping Orchid on the Genesis Tree (60 Breach Rings).');
+    var spx = c.spc && SPECIAL[c.spc];
+    if (spx) L.push('It’s the app’s “' + spx.name + '” special craft idea: ' + spx.pitch + ' I mean to sell it.');
     if (sp.father) L.push('A Runefather’s Grasping Mail is made from a Grasping Mail at the Verisium Anvil in three changes (Runeforged, Runemastered, Runefather’s), keeping its mods, so I craft the mods on a Grasping Mail first. Its only defence is Runic Ward (550 base): increased Armour, Evasion or Energy Shield does nothing on it.');
     if ((b.rf || b.rfw) && c.runeforge && !sp.father) L.push('I plan to runeforge it at the Verisium Anvil at the end.');
     if (c.astrid && E.socketable(b)) L.push('I plan to use Astrid’s Creativity so it can hold two crafted mods.');
@@ -5307,23 +5475,32 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
     if (r.skipped.length) h += '<p class="imp-note">Not recognised for this base, left out: ' + r.skipped.map(function (t) { return '<span class="imp-skip">' + esc(t) + '</span>'; }).join(', ') + '</p>';
     el.innerHTML = h;
   }
-  function doImport() {
-    var r = readImport();
-    if (!r || !r.base) return;
-    var mine = !!($('imp-mine') && $('imp-mine').checked) && r.rarity !== 'unique';
+  /* A whole design at once (an import or a special craft): the open craft if it's still empty, else a new one, so a
+     craft with targets or progress stays in My crafts. o = { cls, base, ilvl, runeforge, astrid, spc, targets: [[mi], [mi]] } */
+  function startDesign(o) {
     var prev = cur(), keep = worth(prev), c;
-    if (keep) { c = blankCraft(r.cls, r.base); app.crafts[c.id] = c; app.curId = c.id; }
-    else { c = prev; c.cls = r.cls; c.base = r.base; }
-    c.ilvl = r.ilvl || 82;
-    c.runeforge = r.runeforged || r.cls === 'gloves';
-    c.astrid = false;
+    if (keep) { c = blankCraft(o.cls, o.base); app.crafts[c.id] = c; app.curId = c.id; }
+    else { c = prev; c.cls = o.cls; c.base = o.base; }
+    c.ilvl = o.ilvl || 82;
+    c.runeforge = !!o.runeforge;
+    c.astrid = !!o.astrid;
+    c.spc = o.spc || null;
     var cat = catOf(c), extra = 0;
     c.targets = [0, 1].map(function (s) {
-      var list = r.mods.filter(function (m) { return m.s === s; }).map(function (m) { return { mi: m.mi }; });
+      var list = (o.targets[s] || []).map(function (mi) { return { mi: mi }; });
       extra += Math.max(0, list.length - cat.caps[s]);
       return list;
     });
     fitTargets(c);
+    return { c: c, prev: keep ? prev : null, extra: extra };
+  }
+  function doImport() {
+    var r = readImport();
+    if (!r || !r.base) return;
+    var mine = !!($('imp-mine') && $('imp-mine').checked) && r.rarity !== 'unique';
+    var d = startDesign({ cls: r.cls, base: r.base, ilvl: r.ilvl, runeforge: r.runeforged || r.cls === 'gloves',
+      targets: [0, 1].map(function (s) { return r.mods.filter(function (m) { return m.s === s; }).map(function (m) { return m.mi; }); }) });
+    var c = d.c, prev = d.prev, keep = !!prev, extra = d.extra;
     if (mine) {
       c.st = { rarity: r.rarity === 'magic' ? 'magic' : r.rarity === 'none' ? 'none' : 'rare', done: r.runeforged ? { runeforge: true } : {}, skip: {},
         mods: r.mods.map(function (m) {
@@ -5343,6 +5520,60 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
     toast('Imported ' + r.base + ', item level ' + c.ilvl + ': ' + plural(n[0], 'prefix', 'prefixes') + ' and ' + plural(n[1], 'suffix', 'suffixes') + (mine ? ', on your item in the Forge too' : '') + '.' +
       (r.skipped.length + extra ? ' ' + plural(r.skipped.length + extra, 'mod') + ' left out.' : '') +
       (keep ? ' The ' + prev.base + ' craft is in My crafts.' : ''), 6500);
+  }
+
+  /* ---------- special crafts: ready-made designs with market notes (src/specials.js) ---------- */
+  var spRet = null;
+  function openSpecials() {
+    spRet = document.activeElement && document.activeElement.closest && document.activeElement.closest('#slots') ? $('slot-pick') : document.activeElement;
+    closeSlots();
+    var c = cur(), el = $('spbox');
+    el.hidden = false;
+    el.innerHTML = '<div class="modal-card sp-card" role="dialog" aria-modal="true" aria-labelledby="spx-t">' +
+      '<div class="pk-head"><div><h2 id="spx-t">Special crafts</h2><p>Ideas that sell, with the mods already in your design. Each one has market notes in the Forge: who buys it, the competition and what to check first.</p></div>' +
+      '<button type="button" class="x" data-act="sp-close" aria-label="Close">' + ico('u-x') + '</button></div>' +
+      '<ul class="sp-list">' + SPECIALS.map(function (x) {
+        var b = E.BASE[x.base];
+        return '<li><button type="button" class="sp-item" data-act="sp-pick" data-k="' + esc(x.id) + '"' + (c.spc === x.id ? ' aria-current="true"' : '') + '>' +
+          '<svg aria-hidden="true"><use href="#i-' + (b ? b.c : 'body') + '"/></svg>' +
+          '<span class="sp-main"><span class="sp-n">' + esc(x.name) + '<span class="tag sp-tag">' + esc(x.tag) + '</span></span>' +
+          '<span class="sp-b">' + esc((b ? CLS[b.c].n : '') + ' · ' + x.base) + '</span><span class="sp-p">' + esc(x.pitch) + '</span></span>' + ico('u-chev') + '</button></li>';
+      }).join('') + '</ul>' +
+      '<p class="sp-foot">From build guides and poe.ninja, checked ' + esc(window.SPECIALS.checked) + '. Play shares change: price-check on trade before you craft.</p></div>';
+    setTimeout(function () { var f = el.querySelector('.sp-item[aria-current="true"]') || el.querySelector('.sp-item'); if (f) f.focus(); }, 0);
+  }
+  function closeSpecials() {
+    var el = $('spbox');
+    el.hidden = true; el.innerHTML = '';
+    if (spRet && document.body.contains(spRet)) { try { spRet.focus(); } catch (e) { /* ignore */ } }
+    spRet = null;
+  }
+  function specialsOpen() { return !$('spbox').hidden; }
+  function pickSpecial(id) {
+    var x = SPECIAL[id];
+    if (!x) return;
+    var b = E.BASE[x.base];
+    if (!b) return;
+    var r = E.specialTargets(x);
+    var d = startDesign({ cls: b.c, base: x.base, ilvl: x.ilvl, runeforge: !!x.runeforge, astrid: !!x.astrid, spc: x.id, targets: r.targets });
+    replan(d.c);
+    touch(d.c);
+    spRet = null;
+    closeSpecials();
+    if (app.view !== 'design') go('design'); else { renderDesign(); refreshBadges(); }
+    revealSlot();
+    toast(x.name + ': the mods are in your design. Market notes are in the Forge.' + (d.prev ? ' The ' + d.prev.base + ' craft is in My crafts.' : ''), 6500);
+  }
+  /* The Forge's market notes for a special craft: open while the craft hasn't started, folded once it has (a toggle
+     sticks for the visit). */
+  function intelHTML(c) {
+    var x = c.spc && SPECIAL[c.spc];
+    if (!x) return '';
+    var open = app.ui.intel && app.ui.intel[c.id] !== undefined ? app.ui.intel[c.id] : !c.hist.length;
+    return '<details class="intel" id="p-intel"' + (open ? ' open' : '') + '><summary data-act="intel">' + ico('u-spark') + '<span><b>Market notes</b> · ' + esc(x.name) + '</span><span class="tag sp-tag">' + esc(x.tag) + '</span>' + ico('u-chev') + '</summary>' +
+      '<div class="intel-body">' + x.notes.map(function (n) { return '<p><b>' + esc(n.h) + '.</b> ' + esc(n.p) + '</p>'; }).join('') +
+      '<p class="intel-src">Sources: ' + x.sources.map(function (sr) { return '<a href="' + esc(sr[1]) + '" target="_blank" rel="noopener">' + esc(sr[0]) + '</a>'; }).join(' · ') + '</p>' +
+      '<p class="intel-src">From guides and poe.ninja snapshots, checked ' + esc(window.SPECIALS.checked) + '. Price-check on trade before you craft.</p></div></details>';
   }
 
   /* ---------- crafts drawer ---------- */
@@ -5423,6 +5654,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
     if (e.target === $('drawer')) { closeDrawer(); return; }
     if (e.target === $('copybox')) { closeCopyBox(); return; }
     if (e.target === $('impbox')) { closeImport(); return; }
+    if (e.target === $('spbox')) { closeSpecials(); return; }
     if (e.target === $('slots')) { closeSlots(); return; }
     var a = e.target.closest('[data-act]');
     if (!a) return;
@@ -5468,6 +5700,10 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
       case 'shop-copy': copyText(shopText(c), 'Copied the shopping list.', { title: 'Copy the shopping list', label: 'The shopping list as text', then: 'paste it where you need it' }); break;
       case 'cb-close': closeCopyBox(); break;
       case 'imp-open': openImport(); break;
+      case 'sp-open': openSpecials(); break;
+      case 'sp-close': closeSpecials(); break;
+      case 'sp-pick': pickSpecial(a.getAttribute('data-k')); break;
+      case 'sp-notes': app.ui.intel = app.ui.intel || {}; app.ui.intel[c.id] = true; go('plan'); setTimeout(function () { var n = $('p-intel'); if (n) n.scrollIntoView({ block: 'start', behavior: 'smooth' }); }, 0); break;
       case 'imp-close': closeImport(); break;
       case 'imp-go': doImport(); break;
       case 'cb-select': selectCopyText(); break;
@@ -5497,6 +5733,12 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
   // "What drives the average" keeps its open state across re-renders
   document.addEventListener('toggle', function (e) { if (e.target && e.target.classList && e.target.classList.contains('cost-more')) app.ui.costMore = e.target.open; }, true);
   document.addEventListener('input', function (e) { if (e.target && e.target.id === 'imp-text') renderImportPreview(); });
+  // the Forge's market notes remember being opened or folded for the visit
+  document.addEventListener('toggle', function (e) {
+    if (!e.target || e.target.id !== 'p-intel') return;
+    app.ui.intel = app.ui.intel || {};
+    app.ui.intel[cur().id] = e.target.open;
+  }, true);
   document.addEventListener('change', function (e) {
     var c = cur();
     var t = e.target;
@@ -5533,6 +5775,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
     if (e.key !== 'Escape') return;
     if (copyBoxOpen()) { closeCopyBox(); e.preventDefault(); return; }
     if (importOpen()) { closeImport(); e.preventDefault(); return; }
+    if (specialsOpen()) { closeSpecials(); e.preventDefault(); return; }
     if (app.pk) { closePicker(); e.preventDefault(); return; }
     if (slotsOpen()) { closeSlots(); e.preventDefault(); return; }
     if (!$('drawer').hidden) { closeDrawer(); e.preventDefault(); }

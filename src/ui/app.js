@@ -2,6 +2,8 @@
 (function () {
   'use strict';
   var DATA = window.DATA, PRICES = window.PRICES;
+  var SPECIALS = (window.SPECIALS && window.SPECIALS.list) || [], SPECIAL = {};
+  SPECIALS.forEach(function (x) { SPECIAL[x.id] = x; });
   var E = window.createEngine(DATA, PRICES);
   var MODS = E.MODS, FAMS = E.FAMS, SIDE = E.SIDE;
   var IDX = {};
@@ -174,7 +176,7 @@
         return { t: h.t, o: h.o, e: h.e ? 1 : 0, st: packSt(h.st), ps: packSt(h.ps), sl: false, a: h.as === undefined ? undefined : (h.as ? 1 : 0), u: h.su,
           sp: Array.isArray(h.sp) ? h.sp : undefined, b: h.b ? 1 : undefined, y: h.bu ? 1 : undefined, buy: h.buy ? 1 : undefined };
       }),
-      su: c.su | 0, bu: c.bu ? 1 : undefined, g: c.got && Object.keys(c.got).length ? Object.keys(c.got) : undefined,
+      su: c.su | 0, bu: c.bu ? 1 : undefined, sx: c.spc || undefined, g: c.got && Object.keys(c.got).length ? Object.keys(c.got) : undefined,
       hd: meta.hdrop || undefined, h0: meta.hdrop ? packSt(meta.h0) : undefined, hs: meta.hs || undefined,
       at: c.at, dev: c.dev
     }));
@@ -212,6 +214,7 @@
     // Saves from before the setup steps: a craft already under way has its setup done
     c.su = o.su !== undefined ? o.su : underWay(c) ? 3 : 0;
     c.bu = !!o.bu;
+    c.spc = typeof o.sx === 'string' && SPECIAL[o.sx] ? o.sx : null;
     c.got = {};
     (Array.isArray(o.g) ? o.g : []).forEach(function (k) { if (typeof k === 'string') c.got[k] = 1; });
     return c;
@@ -411,6 +414,11 @@
           '<svg aria-hidden="true"><use href="#i-' + id + '"/></svg><span>' + esc(CLS[id].n) + '</span></button>';
       });
     });
+    // Ready-made designs for items that sell, under the slots
+    if (SPECIALS.length) {
+      h += '<p class="rail-h">Ideas</p><button type="button" class="slot special" data-act="sp-open" aria-haspopup="dialog">' +
+        '<svg aria-hidden="true"><use href="#u-spark"/></svg><span>Special</span></button>';
+    }
     return h;
   }
   function renderRail() {
@@ -578,6 +586,11 @@
       h += '</ol>';
     });
     h += '<p class="tier-hint">T1 is the top tier, numbered as in game. A box set to <b>T2+</b> takes T2 or T1, and lower tiers are cheaper to hit.</p>';
+    var spx = c.spc && SPECIAL[c.spc];
+    if (spx) {
+      h += '<div class="rf-toggle rf-info sp-info">' + ico('u-spark') + '<span>Special craft: ' + esc(spx.name) +
+        '<small>' + esc(spx.pitch) + ' <button type="button" class="linkish" data-act="sp-notes">Market notes in the Forge</button></small></span></div>';
+    }
     var sp = E.special(c.base);
     if (sp.ring) {
       h += '<div class="rf-toggle rf-info">' + ico('u-list') + '<span>Rolls ring mods too' +
@@ -1510,6 +1523,7 @@
       (c.hist.length ? '<button type="button" class="btn small" data-act="undo" title="Undo: ' + esc(undoLabel(c)) + '">' + ico('u-undo') + 'Undo</button>' : '') +
       (!c.hist.length ? '' : app.ui.confirmReset ? '<span class="muted" style="font-size:.9rem">Clear progress?</span><button type="button" class="btn small danger" data-act="reset-yes">Start over</button><button type="button" class="btn small quiet" data-act="reset-no">Keep</button>'
         : '<button type="button" class="btn small quiet" data-act="reset">Start over</button>') + '</div></div>';
+    h += intelHTML(c);
     h += costSection(K);
     h += '<ol class="timeline">' + setupSteps(c, stage);
     var showFrom = app.ui.doneAll ? 0 : Math.max(0, rows.length - 3);
@@ -2102,6 +2116,8 @@
     if (cat.caps[0] !== 3 || cat.caps[1] !== 3) L.push('As a rare it can have ' + plural(cat.caps[0], 'prefix', 'prefixes') + ' and ' + plural(cat.caps[1], 'suffix', 'suffixes') + '.');
     var sp = E.special(c.base);
     if (sp.ring) L.push('Grasping Mail can also roll ring modifiers (the app includes them) and takes catalysts. It comes from the Grasping Orchid on the Genesis Tree (60 Breach Rings).');
+    var spx = c.spc && SPECIAL[c.spc];
+    if (spx) L.push('It’s the app’s “' + spx.name + '” special craft idea: ' + spx.pitch + ' I mean to sell it.');
     if (sp.father) L.push('A Runefather’s Grasping Mail is made from a Grasping Mail at the Verisium Anvil in three changes (Runeforged, Runemastered, Runefather’s), keeping its mods, so I craft the mods on a Grasping Mail first. Its only defence is Runic Ward (550 base): increased Armour, Evasion or Energy Shield does nothing on it.');
     if ((b.rf || b.rfw) && c.runeforge && !sp.father) L.push('I plan to runeforge it at the Verisium Anvil at the end.');
     if (c.astrid && E.socketable(b)) L.push('I plan to use Astrid’s Creativity so it can hold two crafted mods.');
@@ -2276,23 +2292,32 @@
     if (r.skipped.length) h += '<p class="imp-note">Not recognised for this base, left out: ' + r.skipped.map(function (t) { return '<span class="imp-skip">' + esc(t) + '</span>'; }).join(', ') + '</p>';
     el.innerHTML = h;
   }
-  function doImport() {
-    var r = readImport();
-    if (!r || !r.base) return;
-    var mine = !!($('imp-mine') && $('imp-mine').checked) && r.rarity !== 'unique';
+  /* A whole design at once (an import or a special craft): the open craft if it's still empty, else a new one, so a
+     craft with targets or progress stays in My crafts. o = { cls, base, ilvl, runeforge, astrid, spc, targets: [[mi], [mi]] } */
+  function startDesign(o) {
     var prev = cur(), keep = worth(prev), c;
-    if (keep) { c = blankCraft(r.cls, r.base); app.crafts[c.id] = c; app.curId = c.id; }
-    else { c = prev; c.cls = r.cls; c.base = r.base; }
-    c.ilvl = r.ilvl || 82;
-    c.runeforge = r.runeforged || r.cls === 'gloves';
-    c.astrid = false;
+    if (keep) { c = blankCraft(o.cls, o.base); app.crafts[c.id] = c; app.curId = c.id; }
+    else { c = prev; c.cls = o.cls; c.base = o.base; }
+    c.ilvl = o.ilvl || 82;
+    c.runeforge = !!o.runeforge;
+    c.astrid = !!o.astrid;
+    c.spc = o.spc || null;
     var cat = catOf(c), extra = 0;
     c.targets = [0, 1].map(function (s) {
-      var list = r.mods.filter(function (m) { return m.s === s; }).map(function (m) { return { mi: m.mi }; });
+      var list = (o.targets[s] || []).map(function (mi) { return { mi: mi }; });
       extra += Math.max(0, list.length - cat.caps[s]);
       return list;
     });
     fitTargets(c);
+    return { c: c, prev: keep ? prev : null, extra: extra };
+  }
+  function doImport() {
+    var r = readImport();
+    if (!r || !r.base) return;
+    var mine = !!($('imp-mine') && $('imp-mine').checked) && r.rarity !== 'unique';
+    var d = startDesign({ cls: r.cls, base: r.base, ilvl: r.ilvl, runeforge: r.runeforged || r.cls === 'gloves',
+      targets: [0, 1].map(function (s) { return r.mods.filter(function (m) { return m.s === s; }).map(function (m) { return m.mi; }); }) });
+    var c = d.c, prev = d.prev, keep = !!prev, extra = d.extra;
     if (mine) {
       c.st = { rarity: r.rarity === 'magic' ? 'magic' : r.rarity === 'none' ? 'none' : 'rare', done: r.runeforged ? { runeforge: true } : {}, skip: {},
         mods: r.mods.map(function (m) {
@@ -2312,6 +2337,60 @@
     toast('Imported ' + r.base + ', item level ' + c.ilvl + ': ' + plural(n[0], 'prefix', 'prefixes') + ' and ' + plural(n[1], 'suffix', 'suffixes') + (mine ? ', on your item in the Forge too' : '') + '.' +
       (r.skipped.length + extra ? ' ' + plural(r.skipped.length + extra, 'mod') + ' left out.' : '') +
       (keep ? ' The ' + prev.base + ' craft is in My crafts.' : ''), 6500);
+  }
+
+  /* ---------- special crafts: ready-made designs with market notes (src/specials.js) ---------- */
+  var spRet = null;
+  function openSpecials() {
+    spRet = document.activeElement && document.activeElement.closest && document.activeElement.closest('#slots') ? $('slot-pick') : document.activeElement;
+    closeSlots();
+    var c = cur(), el = $('spbox');
+    el.hidden = false;
+    el.innerHTML = '<div class="modal-card sp-card" role="dialog" aria-modal="true" aria-labelledby="spx-t">' +
+      '<div class="pk-head"><div><h2 id="spx-t">Special crafts</h2><p>Ideas that sell, with the mods already in your design. Each one has market notes in the Forge: who buys it, the competition and what to check first.</p></div>' +
+      '<button type="button" class="x" data-act="sp-close" aria-label="Close">' + ico('u-x') + '</button></div>' +
+      '<ul class="sp-list">' + SPECIALS.map(function (x) {
+        var b = E.BASE[x.base];
+        return '<li><button type="button" class="sp-item" data-act="sp-pick" data-k="' + esc(x.id) + '"' + (c.spc === x.id ? ' aria-current="true"' : '') + '>' +
+          '<svg aria-hidden="true"><use href="#i-' + (b ? b.c : 'body') + '"/></svg>' +
+          '<span class="sp-main"><span class="sp-n">' + esc(x.name) + '<span class="tag sp-tag">' + esc(x.tag) + '</span></span>' +
+          '<span class="sp-b">' + esc((b ? CLS[b.c].n : '') + ' · ' + x.base) + '</span><span class="sp-p">' + esc(x.pitch) + '</span></span>' + ico('u-chev') + '</button></li>';
+      }).join('') + '</ul>' +
+      '<p class="sp-foot">From build guides and poe.ninja, checked ' + esc(window.SPECIALS.checked) + '. Play shares change: price-check on trade before you craft.</p></div>';
+    setTimeout(function () { var f = el.querySelector('.sp-item[aria-current="true"]') || el.querySelector('.sp-item'); if (f) f.focus(); }, 0);
+  }
+  function closeSpecials() {
+    var el = $('spbox');
+    el.hidden = true; el.innerHTML = '';
+    if (spRet && document.body.contains(spRet)) { try { spRet.focus(); } catch (e) { /* ignore */ } }
+    spRet = null;
+  }
+  function specialsOpen() { return !$('spbox').hidden; }
+  function pickSpecial(id) {
+    var x = SPECIAL[id];
+    if (!x) return;
+    var b = E.BASE[x.base];
+    if (!b) return;
+    var r = E.specialTargets(x);
+    var d = startDesign({ cls: b.c, base: x.base, ilvl: x.ilvl, runeforge: !!x.runeforge, astrid: !!x.astrid, spc: x.id, targets: r.targets });
+    replan(d.c);
+    touch(d.c);
+    spRet = null;
+    closeSpecials();
+    if (app.view !== 'design') go('design'); else { renderDesign(); refreshBadges(); }
+    revealSlot();
+    toast(x.name + ': the mods are in your design. Market notes are in the Forge.' + (d.prev ? ' The ' + d.prev.base + ' craft is in My crafts.' : ''), 6500);
+  }
+  /* The Forge's market notes for a special craft: open while the craft hasn't started, folded once it has (a toggle
+     sticks for the visit). */
+  function intelHTML(c) {
+    var x = c.spc && SPECIAL[c.spc];
+    if (!x) return '';
+    var open = app.ui.intel && app.ui.intel[c.id] !== undefined ? app.ui.intel[c.id] : !c.hist.length;
+    return '<details class="intel" id="p-intel"' + (open ? ' open' : '') + '><summary data-act="intel">' + ico('u-spark') + '<span><b>Market notes</b> · ' + esc(x.name) + '</span><span class="tag sp-tag">' + esc(x.tag) + '</span>' + ico('u-chev') + '</summary>' +
+      '<div class="intel-body">' + x.notes.map(function (n) { return '<p><b>' + esc(n.h) + '.</b> ' + esc(n.p) + '</p>'; }).join('') +
+      '<p class="intel-src">Sources: ' + x.sources.map(function (sr) { return '<a href="' + esc(sr[1]) + '" target="_blank" rel="noopener">' + esc(sr[0]) + '</a>'; }).join(' · ') + '</p>' +
+      '<p class="intel-src">From guides and poe.ninja snapshots, checked ' + esc(window.SPECIALS.checked) + '. Price-check on trade before you craft.</p></div></details>';
   }
 
   /* ---------- crafts drawer ---------- */
@@ -2392,6 +2471,7 @@
     if (e.target === $('drawer')) { closeDrawer(); return; }
     if (e.target === $('copybox')) { closeCopyBox(); return; }
     if (e.target === $('impbox')) { closeImport(); return; }
+    if (e.target === $('spbox')) { closeSpecials(); return; }
     if (e.target === $('slots')) { closeSlots(); return; }
     var a = e.target.closest('[data-act]');
     if (!a) return;
@@ -2437,6 +2517,10 @@
       case 'shop-copy': copyText(shopText(c), 'Copied the shopping list.', { title: 'Copy the shopping list', label: 'The shopping list as text', then: 'paste it where you need it' }); break;
       case 'cb-close': closeCopyBox(); break;
       case 'imp-open': openImport(); break;
+      case 'sp-open': openSpecials(); break;
+      case 'sp-close': closeSpecials(); break;
+      case 'sp-pick': pickSpecial(a.getAttribute('data-k')); break;
+      case 'sp-notes': app.ui.intel = app.ui.intel || {}; app.ui.intel[c.id] = true; go('plan'); setTimeout(function () { var n = $('p-intel'); if (n) n.scrollIntoView({ block: 'start', behavior: 'smooth' }); }, 0); break;
       case 'imp-close': closeImport(); break;
       case 'imp-go': doImport(); break;
       case 'cb-select': selectCopyText(); break;
@@ -2466,6 +2550,12 @@
   // "What drives the average" keeps its open state across re-renders
   document.addEventListener('toggle', function (e) { if (e.target && e.target.classList && e.target.classList.contains('cost-more')) app.ui.costMore = e.target.open; }, true);
   document.addEventListener('input', function (e) { if (e.target && e.target.id === 'imp-text') renderImportPreview(); });
+  // the Forge's market notes remember being opened or folded for the visit
+  document.addEventListener('toggle', function (e) {
+    if (!e.target || e.target.id !== 'p-intel') return;
+    app.ui.intel = app.ui.intel || {};
+    app.ui.intel[cur().id] = e.target.open;
+  }, true);
   document.addEventListener('change', function (e) {
     var c = cur();
     var t = e.target;
@@ -2502,6 +2592,7 @@
     if (e.key !== 'Escape') return;
     if (copyBoxOpen()) { closeCopyBox(); e.preventDefault(); return; }
     if (importOpen()) { closeImport(); e.preventDefault(); return; }
+    if (specialsOpen()) { closeSpecials(); e.preventDefault(); return; }
     if (app.pk) { closePicker(); e.preventDefault(); return; }
     if (slotsOpen()) { closeSlots(); e.preventDefault(); return; }
     if (!$('drawer').hidden) { closeDrawer(); e.preventDefault(); }

@@ -1113,6 +1113,24 @@
       return out;
     }
 
+    /* A special craft's targets (family template + tier label) on its base: mod indices per side, and what didn't
+       resolve (a data refresh can rename a template; the tests check every special resolves). */
+    function specialTargets(sp) {
+      var cat = catalog(sp.base, sp.ilvl || 82), out = { targets: [[], []], missing: [] };
+      if (!cat) { out.missing.push(sp.base); return out; }
+      [0, 1].forEach(function (s) {
+        (sp.targets[s] || []).forEach(function (t) {
+          var F = cat.sides[s].find(function (x) { return x.t === t[0]; });
+          if (!F) { out.missing.push(t[0]); return; }
+          var opts = tierOptions(cat, F.f);
+          var o = opts.find(function (x) { return x.label === t[1]; }) || (t[1] === 'Alloy' ? null : opts.find(function (x) { return x.kind === 'roll'; }));
+          if (!o) { out.missing.push(t[0] + ' ' + t[1]); return; }
+          out.targets[s].push(o.mi);
+        });
+      });
+      return out;
+    }
+
     /* ---------- importing an item copied from the game ----------
        In game, Ctrl+Alt+C copies an item with a header line per mod ({ Prefix Modifier "Athlete's" (Tier: 1) — Life })
        and each value with its tier's range: +147(120-149) to maximum Life. Ctrl+C gives the same without headers or
@@ -1724,7 +1742,7 @@
       MODS: MODS, FAMS: FAMS, CLASS: CLASS, BASE: BASE,
       catalog: catalog, tierOptions: tierOptions, methods: methods, famName: famName, modText: modText,
       analyze: analyze, plan: plan, apply: apply, nextStep: nextStep, summary: summary, slamOddsFor: slamOddsFor,
-      oddsLabel: oddsLabel, price: price, matsCost: matsCost, labelTier: labelTier, newId: newId, SIDE: SIDE, SIDE_CAP: SIDE_CAP, findBases: findBases, socketable: socketable, suggest: suggest, special: special, buyName: buyName, importItem: importItem,
+      oddsLabel: oddsLabel, price: price, matsCost: matsCost, labelTier: labelTier, newId: newId, SIDE: SIDE, SIDE_CAP: SIDE_CAP, findBases: findBases, socketable: socketable, suggest: suggest, special: special, buyName: buyName, importItem: importItem, specialTargets: specialTargets,
       planCost: planCost, costPlan: costPlan, choicesOf: choicesOf, choiceCosts: choiceCosts, shoppingList: shoppingList,
       spendOf: spendOf, deriveSpend: deriveSpend, spentOn: spentOn, costReset: costReset,
       setLeague: setLeague, hardness: function (design, st, t) { var c = catalog(design.base, design.ilvl); return hardness(c, analyze(c, design, st), t); }

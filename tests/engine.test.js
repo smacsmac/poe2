@@ -833,3 +833,26 @@ test('import: Ctrl+C without headers or ranges, a magic item, and text that is n
   assert.equal(odd.mods.length, 6);
   assert.deepEqual(odd.skipped, ['+3 to Level of all Spell Skills']);
 });
+
+test('special crafts: every one resolves on its base, with notes and sources', () => {
+  const S = require('../src/specials.js');
+  assert.ok(S.list.length >= 5);
+  assert.match(S.checked, /2026/);
+  const ids = new Set();
+  for (const sp of S.list) {
+    assert.ok(!ids.has(sp.id), 'unique id ' + sp.id); ids.add(sp.id);
+    assert.ok(E.BASE[sp.base], sp.id + ': base ' + sp.base);
+    const r = E.specialTargets(sp);
+    assert.deepEqual(r.missing, [], sp.id + ' resolves');
+    const cat = E.catalog(sp.base, sp.ilvl);
+    [0, 1].forEach((s) => assert.ok(r.targets[s].length <= cat.caps[s], sp.id + ' fits'));
+    assert.equal(r.targets[0].length + r.targets[1].length, sp.targets[0].length + sp.targets[1].length);
+    assert.ok(sp.notes.length >= 3 && sp.notes.every((n) => n.h && n.p), sp.id + ' notes');
+    assert.ok(sp.sources.length && sp.sources.every((x) => /^https:\/\//.test(x[1])), sp.id + ' sources');
+    // the plan for it runs from a fresh base
+    const design = { cls: cat.cls, base: sp.base, ilvl: sp.ilvl, league: 'fr', targets: r.targets.map((side, s) => side.map((mi) => ({ f: E.MODS[mi].f, mi, lv: E.MODS[mi].l }))) };
+    assert.equal(E.nextStep(design, fresh()).kind, 'base');
+  }
+  const father = E.specialTargets(S.list.find((x) => x.id === 'father'));
+  assert.ok(father.targets[1].some((mi) => /Cast Speed/.test(E.MODS[mi].x)), 'the Runefather’s takes Cast Speed from the ring pool');
+});
