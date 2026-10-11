@@ -305,6 +305,15 @@ async function addTarget(page, side, i, query, famText) {
     await page.waitForSelector('#p-intel[open]');
     assert.match(await page.locator('#p-intel').innerText(), /Market notes · Runefather’s Grasping Mail[\s\S]*Who buys it\./);
     assert.ok(await page.locator('#p-intel .intel-src a').count() >= 2, 'sources');
+    // Mods by priority: six top lines and two alternatives, ticked against the item
+    assert.equal(await page.locator('#p-intel .prio li').count(), 8);
+    assert.match(await page.locator('#p-intel .prio li').first().innerText(), /^1\s*Cast Speed/);
+    assert.equal(await page.locator('#p-intel .prio-sum').count(), 0, 'nothing on the item yet');
+    await page.click('#p-item [data-act="start-copy"]');
+    await page.waitForSelector('#p-intel .prio-sum');
+    assert.match(await page.locator('#p-intel .prio-sum').innerText(), /^Your item: 6 of the top 6\.$/);
+    assert.equal(await page.locator('#p-intel .prio li.hit').count(), 6);
+    assert.ok(await page.locator('#p-intel').evaluate((el) => el.open), 'hand edits leave the notes open');
     await page.screenshot({ path: `${OUT}/${scheme}-special.png` });
     await page.waitForTimeout(400);
     await page.reload();

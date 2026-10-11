@@ -328,6 +328,21 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
 .intel-body{display:grid;gap:.55rem;padding:.1rem .85rem .85rem;font-size:.92rem;line-height:1.5}
 .intel-body b{color:var(--fg)}
 .intel-src{font-size:.8rem;color:var(--muted)}
+.prio-wrap{display:grid;gap:.4rem;padding-top:.35rem;border-top:1px dashed var(--line-2)}
+.prio-sum{color:var(--brass);font-weight:500}
+.prio{list-style:none;margin:0;padding:0;display:grid;gap:.25rem}
+.prio li{display:grid;grid-template-columns:1.6rem minmax(0,1fr) auto;gap:.15rem .55rem;align-items:start;padding:.35rem .5rem;border:1px solid var(--line);border-radius:5px;background:var(--surface-2)}
+.prio .pn{font-family:var(--font-mono);font-size:.8rem;color:var(--muted);text-align:right;padding-top:.08rem}
+.prio .pm{min-width:0}
+.prio .pm small{display:block;color:var(--muted);font-size:.8rem;line-height:1.35}
+.prio .pk{display:inline-flex;align-items:center;gap:.25rem;font-family:var(--font-mono);font-size:.76rem;white-space:nowrap;padding-top:.1rem}
+.prio .pk svg{width:.9rem;height:.9rem}
+.prio li.hit{border-color:color-mix(in srgb,var(--hit) 50%,transparent)}
+.prio li.hit .pk,.prio li.hit .pn{color:var(--hit)}
+.prio li.low{border-color:color-mix(in srgb,var(--low) 50%,transparent)}
+.prio li.low .pk{color:var(--low)}
+.prio-alt{font-family:var(--font-mono);font-size:.68rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-top:.3rem}
+.prio-avoid{font-size:.86rem;color:var(--muted)}
 .intel-src a{color:var(--brass)}
 .imp-row{display:flex;justify-content:flex-end;margin:.1rem 0 -.2rem}
 .imp-btn{display:inline-flex;align-items:center;gap:.4rem;background:none;border:1px solid var(--tip-edge-2);border-radius:999px;padding:.3rem .8rem;font-size:.86rem;color:var(--tip-rare);cursor:pointer}
@@ -999,7 +1014,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
     <a class="brand" href="#design" data-go="design" aria-label="Crafting Playbook, design screen">
       <span class="brand-mark" aria-hidden="true"></span>
       <span class="brand-name">Crafting Playbook</span>
-      <span class="brand-v" title="App version: V7">V7</span>
+      <span class="brand-v" title="App version: V8">V8</span>
       <span class="brand-sub">PoE2 · 0.5.5</span>
     </a>
     <nav class="tabs" aria-label="Screens">
@@ -1322,11 +1337,17 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
 /* Special crafts: ready-made designs for items that sell, each with market notes for the Forge.
    Targets name a mod family by its text template (data.json fams[].t) and a tier label (T1, T2... or Alloy); the app
    resolves them on the base at its item level. The notes come from build guides and poe.ninja snapshots found in
-   October 2026 (patch 0.5.5); play shares move, so they say where they come from and when. */
+   October 2026 (patch 0.5.5); play shares move, so they say where they come from and when.
+   prio: what makes the item good, best first: { m: label, f: [family templates that count], min: tier to aim for
+   (2 = T2 or better), tip, alt: a good alternative when the top ones don't land }. avoid: mods to skip. */
 (function (root) {
   var CHECKED = 'October 11, 2026';
   var NINJA_FR = ['poe.ninja: Forbidden Rites builds', 'https://poe.ninja/poe2/builds/forbiddenrites'];
   var NINJA_ROA = ['poe.ninja: Runes of Aldur builds', 'https://poe.ninja/poe2/builds/runesofaldur'];
+  var RES = ['+#% to Fire Resistance', '+#% to Cold Resistance', '+#% to Lightning Resistance', '+#% to Chaos Resistance',
+    '+#% to Fire and Chaos Resistances', '+#% to Cold and Chaos Resistances', '+#% to Lightning and Chaos Resistances'];
+  var EV_ES = ['#% increased Evasion and Energy Shield', '#% increased Evasion and Energy Shield / +# to maximum Life',
+    '#% increased Evasion and Energy Shield / +# to Stun Threshold', '+# to Evasion Rating / +# to maximum Energy Shield'];
   var SPECIALS = [
     {
       id: 'ma-gloves', name: 'Martial Artist gloves', tag: 'Popular build',
@@ -1335,6 +1356,16 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
       targets: [
         [['Adds # to # Lightning damage to Attacks', 'T1'], ['Adds # to # Cold damage to Attacks', 'T1'], ['+# to maximum Life', 'T2']],
         [['+# to Level of all Melee Skills', 'T1'], ['#% increased Attack Speed', 'T1'], ['+#% to Fire Resistance', 'T2']]
+      ],
+      prio: [
+        { m: '+Level of all Melee Skills', f: ['+# to Level of all Melee Skills'], tip: '+2 is the top roll; guides put skill levels first on Martial Artist gloves' },
+        { m: 'Adds Lightning damage to Attacks', f: ['Adds # to # Lightning damage to Attacks'], min: 2 },
+        { m: 'A second flat damage: Cold, Fire or Physical to Attacks', f: ['Adds # to # Cold damage to Attacks', 'Adds # to # Fire damage to Attacks', 'Adds # to # Physical Damage to Attacks'], min: 2 },
+        { m: 'Attack Speed', f: ['#% increased Attack Speed'], min: 2, tip: '11% or more' },
+        { m: 'Maximum Life', f: ['+# to maximum Life'], min: 3 },
+        { m: 'Any resistance', f: RES, min: 3 },
+        { m: 'Another resistance', f: RES, min: 3, alt: true },
+        { m: 'Increased Evasion and Energy Shield', f: EV_ES, alt: true, tip: 'guides list evasion and energy shield for Martial Artists' }
       ],
       notes: [
         { h: 'Who buys it', p: 'Martial Artist (Monk) is one of the most played ascendancies: about 19% of Runes of Aldur characters early in the league, and about 10% in Forbidden Rites. Attack builds such as Gemling Legionnaire want flat damage, attack speed, life and resistances on gloves too.' },
@@ -1356,6 +1387,16 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
         [['#% increased Movement Speed', 'T1'], ['+# to maximum Life', 'T2']],
         [['+#% to Fire Resistance', 'T2'], ['+#% to Cold Resistance', 'T2'], ['+#% to Lightning Resistance', 'T2']]
       ],
+      prio: [
+        { m: 'Movement Speed', f: ['#% increased Movement Speed'], min: 2, tip: '30% is T2, 35% is T1: the number buyers filter on' },
+        { m: 'Maximum Life', f: ['+# to maximum Life'], min: 3 },
+        { m: 'Any resistance', f: RES, min: 3 },
+        { m: 'A second resistance', f: RES, min: 3 },
+        { m: 'A third resistance', f: RES, min: 3 },
+        { m: 'Increased Evasion and Energy Shield', f: EV_ES },
+        { m: 'Rarity of Items found', f: ['#% increased Rarity of Items found'], alt: true, tip: 'mappers pay for it' },
+        { m: 'Dexterity or Intelligence', f: ['+# to Dexterity', '+# to Intelligence', '+# to Dexterity and Intelligence'], alt: true }
+      ],
       notes: [
         { h: 'Who buys it', p: 'Everyone. Martial Artist guides put movement speed first on boots, then resistances, life and evasion.' },
         { h: 'Competition', p: 'The most crafted item there is, so prices are lower and sales depend on the rolls: 30% movement speed or more with three resistances, or a high life roll, sells fastest.' },
@@ -1373,6 +1414,17 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
         [['+# to maximum Life', 'T1'], ['+# to Spirit', 'T1'], ['#% increased Runic Ward', 'Alloy']],
         [['#% increased Cast Speed', 'T1'], ['+#% to all Elemental Resistances', 'T1'], ['+#% to Chaos Resistance', 'T2']]
       ],
+      prio: [
+        { m: 'Cast Speed', f: ['#% increased Cast Speed'], min: 2, tip: 'no other body armour rolls it: the reason to buy this one' },
+        { m: 'Maximum Life', f: ['+# to maximum Life'], min: 3 },
+        { m: '+all Elemental Resistances', f: ['+#% to all Elemental Resistances'], min: 3 },
+        { m: 'Spirit', f: ['+# to Spirit'], min: 3 },
+        { m: 'Increased Runic Ward (Sovereign Alloy)', f: ['#% increased Runic Ward'] },
+        { m: 'Any resistance (chaos is best)', f: RES, min: 3 },
+        { m: 'Increased Cold, Fire or Lightning Damage', f: ['#% increased Cold Damage', '#% increased Fire Damage', '#% increased Lightning Damage'], alt: true },
+        { m: 'Intelligence or maximum Mana', f: ['+# to Intelligence', '+# to maximum Mana'], alt: true }
+      ],
+      avoid: 'Increased Armour, Evasion and Energy Shield: the Runefather’s has none of them to increase.',
       notes: [
         { h: 'Why it’s special', p: 'Grasping Mail rolls ring mods too, so it can have Cast Speed and +all Elemental Resistances, which no other body armour rolls. The Runefather’s version is pure Runic Ward (550 base), made from a Grasping Mail in three changes at the Verisium Anvil.' },
         { h: 'Who buys it', p: 'Runic Ward casters, such as the Ice Nova Chronomancer: one 0.5 guide for that build wears a runeforged Grasping Mail. Olroth’s Resolve, the flask those builds use, sold for about 10 div in Runes of Aldur (6 in Forbidden Rites) in October.' },
@@ -1391,6 +1443,16 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
         [['Adds # to # Lightning Damage', 'T1'], ['Adds # to # Cold Damage', 'T1'], ['#% increased Elemental Damage with Attacks', 'T1']],
         [['#% increased Attack Speed', 'T1'], ['+# to Level of all Projectile Skills', 'T1'], ['+#% to Critical Hit Chance', 'T1']]
       ],
+      prio: [
+        { m: 'Attack Speed', f: ['#% increased Attack Speed'], min: 2, tip: 'guides rank it first' },
+        { m: '+Level of all Projectile Skills', f: ['+# to Level of all Projectile Skills'], min: 3, tip: '+3 or more' },
+        { m: 'Adds Lightning Damage', f: ['Adds # to # Lightning Damage'], min: 3 },
+        { m: 'Adds Cold or Fire Damage', f: ['Adds # to # Cold Damage', 'Adds # to # Fire Damage'], min: 3 },
+        { m: 'Increased Elemental Damage with Attacks', f: ['#% increased Elemental Damage with Attacks'], min: 3 },
+        { m: 'Critical Hit Chance', f: ['+#% to Critical Hit Chance'], min: 3 },
+        { m: 'Critical Damage Bonus', f: ['+#% to Critical Damage Bonus'], alt: true },
+        { m: 'Increased or added Physical Damage, for physical builds', f: ['#% increased Physical Damage', 'Adds # to # Physical Damage'], alt: true }
+      ],
       notes: [
         { h: 'Who buys it', p: 'Gemling Legionnaire leads Forbidden Rites with about 35% of characters, and was about 9% of Runes of Aldur early in the league. The crossbow is its biggest upgrade.' },
         { h: 'What they want', p: 'Guides rank attack speed first, then + levels of projectile skills, added elemental damage and flat lightning. Physical builds want increased and added physical damage instead.' },
@@ -1407,6 +1469,16 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
       targets: [
         [['Gain #% of Damage as Extra Cold Damage', 'T1'], ['#% increased Cold Damage', 'T1'], ['+# to maximum Mana', 'T1']],
         [['+# to Level of all Cold Spell Skills', 'T1'], ['#% increased Cast Speed', 'T1'], ['#% increased Critical Hit Chance for Spells', 'T1']]
+      ],
+      prio: [
+        { m: '+Level of all Cold Spell Skills (or all Spell Skills)', f: ['+# to Level of all Cold Spell Skills', '+# to Level of all Spell Skills'], min: 3, tip: 'guides call it the most important stat' },
+        { m: 'Gain % of Damage as Extra Cold Damage', f: ['Gain #% of Damage as Extra Cold Damage'], min: 3 },
+        { m: 'Increased Cold Damage or Spell Damage', f: ['#% increased Cold Damage', '#% increased Spell Damage', '#% increased Spell Damage / +# to maximum Mana'], min: 3 },
+        { m: 'Cast Speed', f: ['#% increased Cast Speed'], min: 3 },
+        { m: 'Gain % of Damage as Extra Lightning Damage', f: ['Gain #% of Damage as Extra Lightning Damage'], tip: 'cold caster guides use lightning to apply Shock' },
+        { m: 'Critical Hit Chance for Spells', f: ['#% increased Critical Hit Chance for Spells'] },
+        { m: 'Critical Spell Damage Bonus', f: ['#% increased Critical Spell Damage Bonus'], alt: true },
+        { m: 'Maximum Mana', f: ['+# to maximum Mana'], alt: true }
       ],
       notes: [
         { h: 'What they want', p: 'Cold caster guides put + levels of cold spell skills first, then spell and cold damage, extra damage as cold or lightning, and cast speed. Chiming Staff grants Sigil of Power, which the Ice Nova Chronomancer guides use.' },
@@ -5290,7 +5362,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
     var cat = catOf(c), b = cat.base, design = designOf(c);
     var skip = (c.st && c.st.skip) || {};
     var L = [];
-    L.push('Path of Exile 2 crafting, patch 0.5.5. This is a craft I’m working on, copied from the crafting planner app I use (PoE2 Crafting Playbook V7). Prices are from the ' + (app.league === 'roa' ? 'Runes of Aldur' : 'Forbidden Rites') + ' league, in divines (div) and exalts (ex).');
+    L.push('Path of Exile 2 crafting, patch 0.5.5. This is a craft I’m working on, copied from the crafting planner app I use (PoE2 Crafting Playbook V8). Prices are from the ' + (app.league === 'roa' ? 'Runes of Aldur' : 'Forbidden Rites') + ' league, in divines (div) and exalts (ex).');
     L.push('How to read it: T1 is a mod’s best tier. Crafted mods come from an essence or an alloy, one per item (two with the rune Astrid’s Creativity socketed). Desecrated mods come from a desecration at the Well of Souls, one per item. The app’s odds count every eligible tier as equally likely, so they’re rough.');
     L.push('', 'THE ITEM');
     L.push(c.base + ' (' + CLS[c.cls].n + (b.sub ? ', ' + b.sub : '') + '), item level ' + c.ilvl + '.');
@@ -5300,7 +5372,10 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
     var sp = E.special(c.base);
     if (sp.ring) L.push('Grasping Mail can also roll ring modifiers (the app includes them) and takes catalysts. It comes from the Grasping Orchid on the Genesis Tree (60 Breach Rings).');
     var spx = c.spc && SPECIAL[c.spc];
-    if (spx) L.push('It’s the app’s “' + spx.name + '” special craft idea: ' + spx.pitch + ' I mean to sell it.');
+    if (spx) {
+      L.push('It’s the app’s “' + spx.name + '” special craft idea: ' + spx.pitch + ' I mean to sell it.');
+      if (spx.prio) L.push('Mods by priority for it: ' + spx.prio.map(function (p, i) { return (i + 1) + '. ' + p.m + (p.min ? ' (T' + p.min + '+)' : '') + (p.alt ? ' (a good alternative)' : ''); }).join('; ') + '.' + (spx.avoid ? ' Skip: ' + spx.avoid : ''));
+    }
     if (sp.father) L.push('A Runefather’s Grasping Mail is made from a Grasping Mail at the Verisium Anvil in three changes (Runeforged, Runemastered, Runefather’s), keeping its mods, so I craft the mods on a Grasping Mail first. Its only defence is Runic Ward (550 base): increased Armour, Evasion or Energy Shield does nothing on it.');
     if ((b.rf || b.rfw) && c.runeforge && !sp.father) L.push('I plan to runeforge it at the Verisium Anvil at the end.');
     if (c.astrid && E.socketable(b)) L.push('I plan to use Astrid’s Creativity so it can hold two crafted mods.');
@@ -5564,14 +5639,52 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
     revealSlot();
     toast(x.name + ': the mods are in your design. Market notes are in the Forge.' + (d.prev ? ' The ' + d.prev.base + ' craft is in My crafts.' : ''), 6500);
   }
-  /* The Forge's market notes for a special craft: open while the craft hasn't started, folded once it has (a toggle
-     sticks for the visit). */
+  /* A special craft's mods by priority, matched against the item in the Forge: each mod on the item counts once, for
+     the best-ranked line it fits, best tier first ("Any resistance" takes the better resistance, "Another resistance" the next). */
+  function prioMatch(c, x) {
+    var cat = catOf(c), used = {};
+    var mods = ((c.st && c.st.mods) || []).filter(function (m) { return m.mi !== null && m.mi !== undefined && E.MODS[m.mi]; });
+    var tierOf = function (m) { var tl = E.labelTier(cat, { f: famOf(m.mi), mi: m.mi }), n = /^T(\d+)$/.exec(tl); return { tl: tl, n: n ? +n[1] : 0 }; };
+    return (x.prio || []).map(function (p) {
+      // the best tier that fits takes the line, so "Any resistance" gets the better of two
+      var best = null;
+      mods.forEach(function (q) {
+        if (used[q.id] || p.f.indexOf(E.FAMS[famOf(q.mi)].t) < 0) return;
+        var t = tierOf(q);
+        if (!best || t.n < best.t.n) best = { m: q, t: t };
+      });
+      if (!best) return null;
+      used[best.m.id] = 1;
+      return { tier: best.t.tl, low: !!(p.min && best.t.n && best.t.n > p.min) };
+    });
+  }
+  function prioHTML(c, x) {
+    if (!x.prio || !x.prio.length) return '';
+    var got = prioMatch(c, x), any = got.some(Boolean);
+    var core = [], alts = [];
+    x.prio.forEach(function (p, i) { (p.alt ? alts : core).push(i); });
+    var row = function (i) {
+      var p = x.prio[i], g = got[i];
+      var aim = p.min ? 'T' + p.min + '+' : '';
+      return '<li class="' + (g ? (g.low ? 'low' : 'hit') : '') + '"><span class="pn">' + (i + 1) + '</span><span class="pm">' + modHTML(p.m) +
+        (aim || p.tip ? '<small>' + esc([aim ? 'Aim for ' + aim : '', p.tip || ''].filter(Boolean).join(' · ')) + '</small>' : '') + '</span>' +
+        (g ? '<span class="pk">' + (g.low ? esc(g.tier) + ' · low' : ico('u-check') + esc(g.tier)) + '</span>' : '') + '</li>';
+    };
+    var nCore = core.filter(function (i) { return got[i] && !got[i].low; }).length, nAlt = alts.filter(function (i) { return got[i]; }).length;
+    return '<div class="prio-wrap"><p class="prio-h"><b>Mods by priority.</b> What makes this item good, best first, so you can judge it even when the design doesn’t all land.' +
+      (any ? ' <span class="prio-sum">Your item: ' + nCore + ' of the top ' + core.length + (nAlt ? ', plus ' + plural(nAlt, 'alternative') : '') + '.</span>' : '') + '</p>' +
+      '<ol class="prio">' + core.map(row).join('') + '</ol>' +
+      (alts.length ? '<p class="prio-alt">Good alternatives if the top ones don’t land</p><ol class="prio" start="' + (alts[0] + 1) + '">' + alts.map(row).join('') + '</ol>' : '') +
+      (x.avoid ? '<p class="prio-avoid"><b>Skip:</b> ' + esc(x.avoid) + '</p>' : '') + '</div>';
+  }
+  /* The Forge's market notes for a special craft: open until the first step is recorded, folded after (a toggle sticks
+     for the visit). */
   function intelHTML(c) {
     var x = c.spc && SPECIAL[c.spc];
     if (!x) return '';
-    var open = app.ui.intel && app.ui.intel[c.id] !== undefined ? app.ui.intel[c.id] : !c.hist.length;
+    var open = app.ui.intel && app.ui.intel[c.id] !== undefined ? app.ui.intel[c.id] : !doneCount(c);   // hand edits don't fold it
     return '<details class="intel" id="p-intel"' + (open ? ' open' : '') + '><summary data-act="intel">' + ico('u-spark') + '<span><b>Market notes</b> · ' + esc(x.name) + '</span><span class="tag sp-tag">' + esc(x.tag) + '</span>' + ico('u-chev') + '</summary>' +
-      '<div class="intel-body">' + x.notes.map(function (n) { return '<p><b>' + esc(n.h) + '.</b> ' + esc(n.p) + '</p>'; }).join('') +
+      '<div class="intel-body">' + x.notes.map(function (n) { return '<p><b>' + esc(n.h) + '.</b> ' + esc(n.p) + '</p>'; }).join('') + prioHTML(c, x) +
       '<p class="intel-src">Sources: ' + x.sources.map(function (sr) { return '<a href="' + esc(sr[1]) + '" target="_blank" rel="noopener">' + esc(sr[0]) + '</a>'; }).join(' · ') + '</p>' +
       '<p class="intel-src">From guides and poe.ninja snapshots, checked ' + esc(window.SPECIALS.checked) + '. Price-check on trade before you craft.</p></div></details>';
   }

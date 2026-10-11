@@ -2117,7 +2117,10 @@
     var sp = E.special(c.base);
     if (sp.ring) L.push('Grasping Mail can also roll ring modifiers (the app includes them) and takes catalysts. It comes from the Grasping Orchid on the Genesis Tree (60 Breach Rings).');
     var spx = c.spc && SPECIAL[c.spc];
-    if (spx) L.push('It’s the app’s “' + spx.name + '” special craft idea: ' + spx.pitch + ' I mean to sell it.');
+    if (spx) {
+      L.push('It’s the app’s “' + spx.name + '” special craft idea: ' + spx.pitch + ' I mean to sell it.');
+      if (spx.prio) L.push('Mods by priority for it: ' + spx.prio.map(function (p, i) { return (i + 1) + '. ' + p.m + (p.min ? ' (T' + p.min + '+)' : '') + (p.alt ? ' (a good alternative)' : ''); }).join('; ') + '.' + (spx.avoid ? ' Skip: ' + spx.avoid : ''));
+    }
     if (sp.father) L.push('A Runefather’s Grasping Mail is made from a Grasping Mail at the Verisium Anvil in three changes (Runeforged, Runemastered, Runefather’s), keeping its mods, so I craft the mods on a Grasping Mail first. Its only defence is Runic Ward (550 base): increased Armour, Evasion or Energy Shield does nothing on it.');
     if ((b.rf || b.rfw) && c.runeforge && !sp.father) L.push('I plan to runeforge it at the Verisium Anvil at the end.');
     if (c.astrid && E.socketable(b)) L.push('I plan to use Astrid’s Creativity so it can hold two crafted mods.');
@@ -2381,14 +2384,52 @@
     revealSlot();
     toast(x.name + ': the mods are in your design. Market notes are in the Forge.' + (d.prev ? ' The ' + d.prev.base + ' craft is in My crafts.' : ''), 6500);
   }
-  /* The Forge's market notes for a special craft: open while the craft hasn't started, folded once it has (a toggle
-     sticks for the visit). */
+  /* A special craft's mods by priority, matched against the item in the Forge: each mod on the item counts once, for
+     the best-ranked line it fits, best tier first ("Any resistance" takes the better resistance, "Another resistance" the next). */
+  function prioMatch(c, x) {
+    var cat = catOf(c), used = {};
+    var mods = ((c.st && c.st.mods) || []).filter(function (m) { return m.mi !== null && m.mi !== undefined && E.MODS[m.mi]; });
+    var tierOf = function (m) { var tl = E.labelTier(cat, { f: famOf(m.mi), mi: m.mi }), n = /^T(\d+)$/.exec(tl); return { tl: tl, n: n ? +n[1] : 0 }; };
+    return (x.prio || []).map(function (p) {
+      // the best tier that fits takes the line, so "Any resistance" gets the better of two
+      var best = null;
+      mods.forEach(function (q) {
+        if (used[q.id] || p.f.indexOf(E.FAMS[famOf(q.mi)].t) < 0) return;
+        var t = tierOf(q);
+        if (!best || t.n < best.t.n) best = { m: q, t: t };
+      });
+      if (!best) return null;
+      used[best.m.id] = 1;
+      return { tier: best.t.tl, low: !!(p.min && best.t.n && best.t.n > p.min) };
+    });
+  }
+  function prioHTML(c, x) {
+    if (!x.prio || !x.prio.length) return '';
+    var got = prioMatch(c, x), any = got.some(Boolean);
+    var core = [], alts = [];
+    x.prio.forEach(function (p, i) { (p.alt ? alts : core).push(i); });
+    var row = function (i) {
+      var p = x.prio[i], g = got[i];
+      var aim = p.min ? 'T' + p.min + '+' : '';
+      return '<li class="' + (g ? (g.low ? 'low' : 'hit') : '') + '"><span class="pn">' + (i + 1) + '</span><span class="pm">' + modHTML(p.m) +
+        (aim || p.tip ? '<small>' + esc([aim ? 'Aim for ' + aim : '', p.tip || ''].filter(Boolean).join(' · ')) + '</small>' : '') + '</span>' +
+        (g ? '<span class="pk">' + (g.low ? esc(g.tier) + ' · low' : ico('u-check') + esc(g.tier)) + '</span>' : '') + '</li>';
+    };
+    var nCore = core.filter(function (i) { return got[i] && !got[i].low; }).length, nAlt = alts.filter(function (i) { return got[i]; }).length;
+    return '<div class="prio-wrap"><p class="prio-h"><b>Mods by priority.</b> What makes this item good, best first, so you can judge it even when the design doesn’t all land.' +
+      (any ? ' <span class="prio-sum">Your item: ' + nCore + ' of the top ' + core.length + (nAlt ? ', plus ' + plural(nAlt, 'alternative') : '') + '.</span>' : '') + '</p>' +
+      '<ol class="prio">' + core.map(row).join('') + '</ol>' +
+      (alts.length ? '<p class="prio-alt">Good alternatives if the top ones don’t land</p><ol class="prio" start="' + (alts[0] + 1) + '">' + alts.map(row).join('') + '</ol>' : '') +
+      (x.avoid ? '<p class="prio-avoid"><b>Skip:</b> ' + esc(x.avoid) + '</p>' : '') + '</div>';
+  }
+  /* The Forge's market notes for a special craft: open until the first step is recorded, folded after (a toggle sticks
+     for the visit). */
   function intelHTML(c) {
     var x = c.spc && SPECIAL[c.spc];
     if (!x) return '';
-    var open = app.ui.intel && app.ui.intel[c.id] !== undefined ? app.ui.intel[c.id] : !c.hist.length;
+    var open = app.ui.intel && app.ui.intel[c.id] !== undefined ? app.ui.intel[c.id] : !doneCount(c);   // hand edits don't fold it
     return '<details class="intel" id="p-intel"' + (open ? ' open' : '') + '><summary data-act="intel">' + ico('u-spark') + '<span><b>Market notes</b> · ' + esc(x.name) + '</span><span class="tag sp-tag">' + esc(x.tag) + '</span>' + ico('u-chev') + '</summary>' +
-      '<div class="intel-body">' + x.notes.map(function (n) { return '<p><b>' + esc(n.h) + '.</b> ' + esc(n.p) + '</p>'; }).join('') +
+      '<div class="intel-body">' + x.notes.map(function (n) { return '<p><b>' + esc(n.h) + '.</b> ' + esc(n.p) + '</p>'; }).join('') + prioHTML(c, x) +
       '<p class="intel-src">Sources: ' + x.sources.map(function (sr) { return '<a href="' + esc(sr[1]) + '" target="_blank" rel="noopener">' + esc(sr[0]) + '</a>'; }).join(' · ') + '</p>' +
       '<p class="intel-src">From guides and poe.ninja snapshots, checked ' + esc(window.SPECIALS.checked) + '. Price-check on trade before you craft.</p></div></details>';
   }

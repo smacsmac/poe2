@@ -856,3 +856,26 @@ test('special crafts: every one resolves on its base, with notes and sources', (
   const father = E.specialTargets(S.list.find((x) => x.id === 'father'));
   assert.ok(father.targets[1].some((mi) => /Cast Speed/.test(E.MODS[mi].x)), 'the Runefather’s takes Cast Speed from the ring pool');
 });
+
+test('special crafts: every line of the priority list names mods the base can roll, alternatives last', () => {
+  const S = require('../src/specials.js');
+  for (const sp of S.list) {
+    const cat = E.catalog(sp.base, sp.ilvl);
+    const have = new Set(cat.sides.flat().map((F) => F.t));
+    assert.ok(sp.prio.length >= 6 && sp.prio.length <= 9, sp.id + ': 6 to 9 lines');
+    const firstAlt = sp.prio.findIndex((p) => p.alt);
+    assert.ok(firstAlt >= 4, sp.id + ': at least 4 top lines before the alternatives');
+    assert.ok(sp.prio.slice(firstAlt).every((p) => p.alt), sp.id + ': alternatives come last');
+    for (const p of sp.prio) {
+      assert.ok(p.m && Array.isArray(p.f) && p.f.length, sp.id + ': ' + p.m);
+      assert.ok(p.f.some((t) => have.has(t)), sp.id + ': "' + p.m + '" rolls on ' + sp.base);
+      if (p.min) assert.ok(p.min >= 1 && p.min <= 5);
+    }
+    // every design target is somewhere in the list
+    const r = E.specialTargets(sp);
+    for (const mi of r.targets.flat()) {
+      const t = E.FAMS[E.MODS[mi].f].t;
+      assert.ok(sp.prio.some((p) => p.f.includes(t)), sp.id + ': target ' + t + ' is ranked');
+    }
+  }
+});
