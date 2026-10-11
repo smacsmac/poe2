@@ -16,32 +16,33 @@
     {
       id: 'ma-gloves', name: 'Martial Artist gloves', tag: 'Popular build',
       base: 'Secured Wraps', ilvl: 82,
-      pitch: 'Damage gloves: Martial Artists make every glove mod stronger, and attack builds want the same mods.',
+      pitch: 'Stonefist gloves: Way of the Stonefist turns each glove mod into a related, stronger one, so pick mods for what they become.',
       targets: [
-        [['Adds # to # Lightning damage to Attacks', 'T1'], ['Adds # to # Cold damage to Attacks', 'T1'], ['+# to maximum Life', 'T2']],
-        [['+# to Level of all Melee Skills', 'T1'], ['#% increased Attack Speed', 'T1'], ['+#% to Fire Resistance', 'T2']]
+        [['Adds # to # Lightning damage to Attacks', 'T1'], ['Adds # to # Cold damage to Attacks', 'T1'], ['#% increased Evasion and Energy Shield', 'T1']],
+        [['+# to Level of all Melee Skills', 'T1'], ['#% increased Critical Damage Bonus', 'T1'], ['+#% to Fire Resistance', 'T2']]
       ],
       prio: [
-        { m: '+Level of all Melee Skills', f: ['+# to Level of all Melee Skills'], tip: '+2 is the top roll; guides put skill levels first on Martial Artist gloves' },
-        { m: 'Adds Lightning damage to Attacks', f: ['Adds # to # Lightning damage to Attacks'], min: 2 },
-        { m: 'A second flat damage: Cold, Fire or Physical to Attacks', f: ['Adds # to # Cold damage to Attacks', 'Adds # to # Fire damage to Attacks', 'Adds # to # Physical Damage to Attacks'], min: 2 },
-        { m: 'Attack Speed', f: ['#% increased Attack Speed'], min: 2, tip: '11% or more' },
-        { m: 'Maximum Life', f: ['+# to maximum Life'], min: 3 },
-        { m: 'Any resistance', f: RES, min: 3 },
-        { m: 'Another resistance', f: RES, min: 3, alt: true },
-        { m: 'Increased Evasion and Energy Shield', f: EV_ES, alt: true, tip: 'guides list evasion and energy shield for Martial Artists' }
+        { m: '+Level of all Melee Skills', f: ['+# to Level of all Melee Skills'], tip: 'Stonefist: +1 to Level of all Melee Skills and +10–12% to Quality of all Skills (from +2)' },
+        { m: 'Adds Lightning damage to Attacks', f: ['Adds # to # Lightning damage to Attacks'], min: 2, tip: 'Stonefist: Attacks gain 21–23% of Damage as Extra Lightning (T1)' },
+        { m: 'A second flat damage: Cold, Fire or Physical to Attacks', f: ['Adds # to # Cold damage to Attacks', 'Adds # to # Fire damage to Attacks', 'Adds # to # Physical Damage to Attacks'], min: 2, tip: 'Stonefist: extra damage of that type, 21–23% at T1' },
+        { m: 'Increased Evasion and Energy Shield', f: EV_ES, min: 2, tip: 'Stonefist: 19–20% more global Evasion and Energy Shield (T1); with life, 8% of damage taken recouped as Life, Mana and ES' },
+        { m: 'Critical Damage Bonus', f: ['#% increased Critical Damage Bonus'], min: 2, tip: 'Stonefist: +2.5–3% to Critical Hit Chance (T1)' },
+        { m: 'Any resistance', f: RES, min: 2, tip: 'Stonefist: +3% to its maximum resistance, plus 36–40% (T1)' },
+        { m: 'Attack Speed', f: ['#% increased Attack Speed'], alt: true, tip: 'Stonefist: 26–30% chance to gain Onslaught on Hit (T1), not attack speed' },
+        { m: 'Arcane Surge on Critical Hit (desecrated)', f: ['#% chance to Gain Arcane Surge when you deal a Critical Hit'], alt: true, tip: 'Stonefist: 5–10% chance to gain a Power Charge on Critical Hit' }
       ],
+      avoid: 'Maximum Life and Maximum Mana: on Fists of Stone they become “17% less damage taken while on Low Life” and “more Attack damage while on Low Mana”.',
       notes: [
-        { h: 'Who buys it', p: 'Martial Artist (Monk) is one of the most played ascendancies: about 19% of Runes of Aldur characters early in the league, and about 10% in Forbidden Rites. Attack builds such as Gemling Legionnaire want flat damage, attack speed, life and resistances on gloves too.' },
-        { h: 'Why it sells', p: 'Way of the Stonefist turns the gloves into Fists of Stone and makes their explicit mods stronger, so guides call high-roll damage gloves best in slot. The base is replaced, so any base with a high item level works: only the mods matter.' },
-        { h: 'Before you craft', p: 'On trade, search gloves with two “Adds … damage to Attacks” mods, Attack Speed and +Level of all Melee Skills. Look at the prices and at how many are listed: few listings at good prices is the sign.' },
-        { h: 'Tip', p: 'Sell what lands: two flat damage mods with Attack Speed already sell. Don’t chase a perfect six.' },
-        { h: 'Watch out', p: 'One review says Way of the Stonefist was weakened in 0.5.5d, so check current prices before spending much.' }
+        { h: 'Who buys it', p: 'Martial Artist (Monk) is one of the most played ascendancies: about 19% of tracked Runes of Aldur characters on poe.ninja (October 2026), and about 10% in Forbidden Rites.' },
+        { h: 'Why it sells', p: 'Way of the Stonefist turns the gloves into Fists of Stone and swaps each explicit mod for a related one, tier for tier (Path of Building’s data). Buyers pay for the result, so the mods are ranked here by what they become. The base is replaced too, so any base with a high item level works.' },
+        { h: 'Before you craft', p: 'Paste a finished pair into the community Stonefist converter to see the result. On trade, look at what gloves with two flat damage mods, +Melee Skills and Critical Damage Bonus sell for, and how many are listed.' },
+        { h: 'Watch out', p: 'Other attack builds want life on gloves, so Stonefist gloves without life sell mostly to Martial Artists. One review says Way of the Stonefist was weakened in 0.5.5d: check current prices before spending much.' }
       ],
       sources: [NINJA_ROA, NINJA_FR,
+        ['Path of Building PoE2 data (Fists of Stone mods)', 'https://github.com/PathOfBuildingCommunity/PathOfBuilding-PoE2'],
+        ['Stonefist converter (community)', 'https://stonefist.kamiops.co/'],
         ['poe2database: Way of the Stonefist', 'https://poe2database.com/passives/way-of-the-stonefist'],
-        ['IGGM: Martial Artist ascendancy review', 'https://www.iggm.com/news/poe-2-patch-0-5-0-martial-artist-ascendacy-review-way-of-the-stonefist-outrageous-glove-mechanic'],
-        ['Mobalytics: Giga Bonk Martial Artist (0.5.5)', 'https://mobalytics.gg/poe-2/builds/martial-artist-league-starter-build']]
+        ['IGGM: Martial Artist ascendancy review', 'https://www.iggm.com/news/poe-2-patch-0-5-0-martial-artist-ascendacy-review-way-of-the-stonefist-outrageous-glove-mechanic']]
     },
     {
       id: 'ms-boots', name: 'Movement speed boots', tag: 'Every build',
@@ -69,6 +70,61 @@
       ],
       sources: [NINJA_ROA, NINJA_FR,
         ['Mobalytics: Martial Artist league starter (0.5)', 'https://mobalytics.gg/poe-2/builds/martial-artist-leveling-and-early-mapping-nicktew']]
+    },
+    {
+      id: 'rf-boots', name: 'Premium Runeforged boots', tag: 'Every build',
+      base: 'Cryptic Leggings', ilvl: 82, runeforge: true,
+      pitch: 'Boots with top rolls first (35% movement speed, high life, two high resistances), then Runic Ward as the extra.',
+      targets: [
+        [['#% increased Movement Speed', 'T1'], ['+# to maximum Life', 'T1'], ['#% increased Runic Ward', 'Alloy']],
+        [['+#% to Fire Resistance', 'T1'], ['+#% to Cold Resistance', 'T1'], ['+#% to Chaos Resistance', 'T2']]
+      ],
+      prio: [
+        { m: 'Movement Speed', f: ['#% increased Movement Speed'], min: 1, tip: '35% is what makes them premium' },
+        { m: 'Maximum Life', f: ['+# to maximum Life'], min: 2 },
+        { m: 'A high resistance', f: RES, min: 2, tip: '36% or more' },
+        { m: 'A second high resistance', f: RES, min: 2 },
+        { m: 'Increased Runic Ward (Sovereign Alloy)', f: ['#% increased Runic Ward'], tip: 'the extra for Runic Ward builds; runeforging adds the ward to the base' },
+        { m: 'Chaos resistance, or a third resistance', f: RES, min: 3 },
+        { m: 'Increased Armour and Energy Shield', f: ['#% increased Armour and Energy Shield', '#% increased Armour and Energy Shield / +# to Stun Threshold', '+# to Armour / +# to maximum Energy Shield'], alt: true },
+        { m: 'Rarity of Items found or Stun Threshold', f: ['#% increased Rarity of Items found', '+# to Stun Threshold'], alt: true }
+      ],
+      notes: [
+        { h: 'Who buys it', p: 'Every build needs boots, including the two biggest in Runes of Aldur: Spirit Walker (about 30% of tracked characters on poe.ninja in October 2026) and Martial Artist (about 19%).' },
+        { h: 'Competition', p: 'Plain life and resistance boots are the most crafted item there is. The top rolls are what set a pair apart: 35% movement speed with high life and two T1–T2 resistances.' },
+        { h: 'The Runic Ward part', p: 'Ward mods only add value for Runic Ward builds, a smaller market, so get the base stats right first and treat the Sovereign Alloy as the extra, not the point.' },
+        { h: 'Before you craft', p: 'On trade, compare 35% movement speed boots with life and two resistances to 30% ones: the gap is what the top roll is worth.' }
+      ],
+      sources: [NINJA_ROA, NINJA_FR]
+    },
+    {
+      id: 'sw-spear', name: 'Spirit Walker fast spear', tag: 'To test',
+      base: 'Soaring Spear', ilvl: 82,
+      pitch: 'The second weapon set of Twister Spirit Walkers: a fast spear for Whirling Slash, where attack speed matters more than big damage.',
+      targets: [
+        [['Adds # to # Physical Damage', 'T2'], ['#% increased Physical Damage', 'T2'], ['+# to Accuracy Rating', 'T2']],
+        [['#% increased Attack Speed', 'T1'], ['Leeches #% of Physical Damage as Life', 'T2'], ['Leeches #% of Physical Damage as Mana', 'T2']]
+      ],
+      prio: [
+        { m: 'Attack Speed', f: ['#% increased Attack Speed'], min: 2, tip: 'the point of this spear: Whirling Slash builds its whirlwind faster' },
+        { m: 'Life Leech', f: ['Leeches #% of Physical Damage as Life'], min: 3 },
+        { m: 'Mana Leech', f: ['Leeches #% of Physical Damage as Mana'], min: 3, tip: 'helps pay for Whirling Slash' },
+        { m: 'Adds Physical Damage', f: ['Adds # to # Physical Damage'], min: 3 },
+        { m: 'Increased Physical Damage', f: ['#% increased Physical Damage', '#% increased Physical Damage / +# to Accuracy Rating'], min: 3 },
+        { m: 'Critical Hit Chance', f: ['+#% to Critical Hit Chance'], min: 3 },
+        { m: 'Accuracy Rating', f: ['+# to Accuracy Rating', '+# to Accuracy Rating / #% increased Light Radius'], alt: true },
+        { m: 'Adds Cold, Fire or Lightning Damage', f: ['Adds # to # Cold Damage', 'Adds # to # Fire Damage', 'Adds # to # Lightning Damage'], alt: true }
+      ],
+      notes: [
+        { h: 'Who buys it', p: 'Spirit Walker is the most played ascendancy in Runes of Aldur: about 30% of tracked characters on poe.ninja (October 2026). Twister guides run two weapon sets: one fast for Whirling Slash, one with big flat damage for Twister.' },
+        { h: 'Why it could sell', p: 'Crafters chase the big damage spear, so a purpose-built fast spear may face less competition, and it doesn’t need every damage roll to be useful.' },
+        { h: 'To test first', p: 'This one is an idea, not a proven market: the guides confirm the fast weapon set, but the leech lines come from a market suggestion the guides don’t mention. Check trade for fast spears and what they sell for before spending much.' },
+        { h: 'Watch out', p: 'Guides keep Whirling Slash at level 1 to keep its mana cost low, so + levels to melee skills add little on this spear.' }
+      ],
+      sources: [NINJA_ROA,
+        ['nexttier: Twister Spirit Walker (0.5)', 'https://nexttier.pro/guide/poe2-twister-spirit-walker-build-guide'],
+        ['Odealo: Twister Spirit Walker (0.5)', 'https://odealo.com/articles/twister-spirit-walker-poe2-build'],
+        ['Mobalytics: Twister Spirit Walker (0.5)', 'https://mobalytics.gg/poe-2/builds/twister-spirit-walker-snoobae']]
     },
     {
       id: 'father', name: 'Runefather’s Grasping Mail', tag: 'Niche',

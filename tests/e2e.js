@@ -294,7 +294,7 @@ async function addTarget(page, side, i, query, famText) {
     // Special crafts: the list under the slots, a pick fills the design, and the Forge has its market notes
     await page.click('#rail [data-act="sp-open"]');
     await page.waitForSelector('#spbox:not([hidden])');
-    assert.equal(await page.locator('.sp-item').count(), 5);
+    assert.equal(await page.locator('.sp-item').count(), 7);
     await page.locator('[data-act="sp-pick"][data-k="father"]').click();
     assert.ok(await page.locator('#spbox').isHidden());
     assert.match(await page.locator('#toast').innerText(), /^Runefather’s Grasping Mail: the mods are in your design\./);
