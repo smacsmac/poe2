@@ -341,6 +341,7 @@ async function addTarget(page, side, i, query, famText) {
     await page.waitForSelector('#drawer .craft');
     assert.match(await page.locator('#drawer .craft.special .cn').first().innerText(), /^Runefather’s Grasping Mail/);
     assert.equal(await page.locator('#drawer [data-act="dr-del"]').isVisible(), false, 'no delete until something is ticked');
+    await page.evaluate(() => { document.querySelector('#drawer .drawer-card').dataset.keep = '1'; });
     await page.click('#drawer .craft.cur [data-act="dr-ren"]');
     await page.fill('#dr-name', 'Blight Caress copy');
     await page.keyboard.press('Enter');
@@ -351,6 +352,8 @@ async function addTarget(page, side, i, query, famText) {
     await boxes.nth(0).check();
     await boxes.nth(1).check();
     assert.match(await page.locator('#drawer .dr-sel').innerText(), /^2 selected/);
+    assert.equal(await page.evaluate(() => document.querySelector('#drawer .drawer-card').dataset.keep), '1', 'renaming and ticking keep the drawer as it is: only the list changes');
+    assert.equal(await page.evaluate(() => document.querySelector('#drawer .drawer-card').getAnimations().length), 0, 'no slide-in replay');
     await page.screenshot({ path: `${OUT}/${scheme}-crafts.png` });
     await page.click('#drawer [data-act="dr-del"]');
     assert.match(await page.locator('#drawer .dr-sel').innerText(), /^Delete 2 crafts\? This can’t be undone\./);

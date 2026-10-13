@@ -2466,18 +2466,18 @@
     var x = $('drawer').querySelector('.x'); if (x) x.focus();
   }
   function closeDrawer() { $('drawer').hidden = true; $('drawer').innerHTML = ''; var b = $('crafts-open'); if (b) b.focus(); }
-  /* My crafts: tick crafts to delete them together (Delete asks once), and rename any craft in place. focusSel puts
-     focus back where it was after the list is drawn again. */
+  /* My crafts: tick crafts to delete them together (Delete asks once), and rename any craft in place. The card is
+     drawn once when the drawer opens; after that only the list is drawn again, so a tick or a rename doesn't replay
+     the drawer sliding in. focusSel puts focus back where it was. */
   function renderDrawer(focusSel) {
     var list = Object.keys(app.crafts).map(function (id) { return app.crafts[id]; }).filter(function (c) { return worth(c) || c.id === app.curId; }).sort(function (a, b) { return b.at - a.at; });
     var sel = app.ui.drSel || (app.ui.drSel = {});
     Object.keys(sel).forEach(function (id) { if (!app.crafts[id]) delete sel[id]; });
     var nSel = Object.keys(sel).length;
-    var h = '<div class="drawer-card" role="dialog" aria-modal="true" aria-labelledby="dr-t"><div class="dr-head"><h2 id="dr-t">My crafts</h2><button type="button" class="btn small quiet x" data-act="dr-close" aria-label="Close">' + ico('u-x') + '</button></div>';
-    h += '<div class="dr-sel" role="region" aria-label="Selected crafts"' + (nSel ? '' : ' hidden') + '>' + (app.ui.confirmDel
+    var h = '<div class="dr-sel" role="region" aria-label="Selected crafts"' + (nSel ? '' : ' hidden') + '>' + (app.ui.confirmDel
       ? '<span>Delete ' + plural(nSel, 'craft') + '? This can’t be undone.</span><button type="button" class="btn small danger" data-act="dr-del-yes">Delete</button><button type="button" class="btn small quiet" data-act="dr-del-no">Keep</button>'
       : '<span>' + nSel + ' selected</span><button type="button" class="btn small danger" data-act="dr-del">' + ico('u-trash') + 'Delete</button><button type="button" class="btn small quiet" data-act="dr-sel-none">Cancel</button>') + '</div>';
-    h = h.replace('<div class="dr-sel"', '<div class="dr-list"><div class="dr-sel"');   // the bar sits at the top of the list and stays in view
+    // the bar sits at the top of the list and stays in view
     list.forEach(function (c) {
       var isCur = c.id === app.curId, x = c.spc && SPECIAL[c.spc], nm = craftName(c), ren = app.ui.drRen === c.id;
       h += '<div class="craft' + (isCur ? ' cur' : '') + (x ? ' special' : '') + (sel[c.id] ? ' picked' : '') + '">' +
@@ -2489,8 +2489,13 @@
         (ren ? '<button type="button" class="btn small" data-act="dr-ren-ok" data-id="' + esc(c.id) + '" aria-label="Save the name">' + ico('u-check') + '</button><button type="button" class="btn small quiet" data-act="dr-ren-no" data-id="' + esc(c.id) + '" aria-label="Keep the old name">' + ico('u-x') + '</button>'
           : '<button type="button" class="btn small quiet" data-act="dr-ren" data-id="' + esc(c.id) + '" aria-label="Rename ' + esc(nm) + '" title="Rename">' + ico('u-edit') + '</button>') + '</span></div>';
     });
-    h += '</div><div class="dr-foot"><button type="button" class="btn primary" data-act="new-craft">' + ico('u-plus') + 'New craft</button><div id="dr-store">' + storeLine() + '</div></div></div>';
-    $('drawer').innerHTML = h;
+    var listEl = $('dr-list');
+    if (listEl) listEl.innerHTML = h;
+    else {
+      $('drawer').innerHTML = '<div class="drawer-card" role="dialog" aria-modal="true" aria-labelledby="dr-t"><div class="dr-head"><h2 id="dr-t">My crafts</h2><button type="button" class="btn small quiet x" data-act="dr-close" aria-label="Close">' + ico('u-x') + '</button></div>' +
+        '<div class="dr-list" id="dr-list">' + h + '</div>' +
+        '<div class="dr-foot"><button type="button" class="btn primary" data-act="new-craft">' + ico('u-plus') + 'New craft</button><div id="dr-store">' + storeLine() + '</div></div></div>';
+    }
     var f = focusSel && $('drawer').querySelector(focusSel);
     if (f) { try { f.focus(); if (f.id === 'dr-name') f.select(); } catch (e) { /* ignore */ } }
   }
