@@ -176,7 +176,7 @@
         return { t: h.t, o: h.o, e: h.e ? 1 : 0, st: packSt(h.st), ps: packSt(h.ps), sl: false, a: h.as === undefined ? undefined : (h.as ? 1 : 0), u: h.su,
           sp: Array.isArray(h.sp) ? h.sp : undefined, b: h.b ? 1 : undefined, y: h.bu ? 1 : undefined, buy: h.buy ? 1 : undefined };
       }),
-      su: c.su | 0, bu: c.bu ? 1 : undefined, sx: c.spc || undefined, g: c.got && Object.keys(c.got).length ? Object.keys(c.got) : undefined,
+      su: c.su | 0, bu: c.bu ? 1 : undefined, sx: c.spc || undefined, nm: c.name || undefined, g: c.got && Object.keys(c.got).length ? Object.keys(c.got) : undefined,
       hd: meta.hdrop || undefined, h0: meta.hdrop ? packSt(meta.h0) : undefined, hs: meta.hs || undefined,
       at: c.at, dev: c.dev
     }));
@@ -215,6 +215,7 @@
     c.su = o.su !== undefined ? o.su : underWay(c) ? 3 : 0;
     c.bu = !!o.bu;
     c.spc = typeof o.sx === 'string' && SPECIAL[o.sx] ? o.sx : null;
+    c.name = typeof o.nm === 'string' && o.nm.trim() ? o.nm.trim().slice(0, 60) : null;
     c.got = {};
     (Array.isArray(o.g) ? o.g : []).forEach(function (k) { if (typeof k === 'string') c.got[k] = 1; });
     return c;
@@ -294,8 +295,8 @@
     if (state === 'saving') return 'Saving your latest change…';
     if (state === 'fail') return 'Not saved: this browser blocks storage here (a private window can do that), so your crafts only last while this page is open.';
     if (!worth(c)) return 'Crafts save automatically ' + where + '. This one is empty so far.';
-    if (state === 'account') return 'The ' + c.base + ' craft is saved to your account, so it follows you to other devices. Every change saves as you go. Find it again in My crafts.';
-    return 'The ' + c.base + ' craft is saved in this browser. Every change saves as you go. Find it again in My crafts.';
+    if (state === 'account') return 'The ' + craftName(c) + ' craft is saved to your account, so it follows you to other devices. Every change saves as you go. Find it again in My crafts.';
+    return 'The ' + craftName(c) + ' craft is saved in this browser. Every change saves as you go. Find it again in My crafts.';
   }
   var savedKey = '';
   function renderSaved() {
@@ -2339,7 +2340,7 @@
     var n = [0, 1].map(function (s) { return c.targets[s].filter(Boolean).length; });
     toast('Imported ' + r.base + ', item level ' + c.ilvl + ': ' + plural(n[0], 'prefix', 'prefixes') + ' and ' + plural(n[1], 'suffix', 'suffixes') + (mine ? ', on your item in the Forge too' : '') + '.' +
       (r.skipped.length + extra ? ' ' + plural(r.skipped.length + extra, 'mod') + ' left out.' : '') +
-      (keep ? ' The ' + prev.base + ' craft is in My crafts.' : ''), 6500);
+      (keep ? ' The ' + craftName(prev) + ' craft is in My crafts.' : ''), 6500);
   }
 
   /* ---------- special crafts: ready-made designs with market notes (src/specials.js) ---------- */
@@ -2382,7 +2383,7 @@
     closeSpecials();
     if (app.view !== 'design') go('design'); else { renderDesign(); refreshBadges(); }
     revealSlot();
-    toast(x.name + ': the mods are in your design. Market notes are in the Forge.' + (d.prev ? ' The ' + d.prev.base + ' craft is in My crafts.' : ''), 6500);
+    toast(x.name + ': the mods are in your design. Market notes are in the Forge.' + (d.prev ? ' The ' + craftName(d.prev) + ' craft is in My crafts.' : ''), 6500);
   }
   /* A special craft's mods by priority, matched against the item in the Forge: each mod on the item counts once, for
      the best-ranked line it fits, best tier first ("Any resistance" takes the better resistance, "Another resistance" the next). */
@@ -2435,6 +2436,12 @@
   }
 
   /* ---------- crafts drawer ---------- */
+  /* What a craft is called: the name you gave it, else its special craft's name, else its base. */
+  function craftName(c) {
+    if (c.name) return c.name;
+    var x = c.spc && SPECIAL[c.spc];
+    return x ? x.name : c.base;
+  }
   function craftMeta(c) {
     var t = targetCount(c);
     if (!underWay(c)) return t ? plural(t, 'target') + ' · not started' : 'Empty design';
@@ -2453,25 +2460,57 @@
   function renderStore() { var el = $('dr-store'); if (el) el.innerHTML = storeLine(); renderSaved(); }
   function openDrawer() {
     hideToast();
-    app.ui.confirmDel = null;
+    app.ui.confirmDel = null; app.ui.drSel = {}; app.ui.drRen = null;
     $('drawer').hidden = false;
     renderDrawer();
     var x = $('drawer').querySelector('.x'); if (x) x.focus();
   }
   function closeDrawer() { $('drawer').hidden = true; $('drawer').innerHTML = ''; var b = $('crafts-open'); if (b) b.focus(); }
-  function renderDrawer() {
+  /* My crafts: tick crafts to delete them together (Delete asks once), and rename any craft in place. focusSel puts
+     focus back where it was after the list is drawn again. */
+  function renderDrawer(focusSel) {
     var list = Object.keys(app.crafts).map(function (id) { return app.crafts[id]; }).filter(function (c) { return worth(c) || c.id === app.curId; }).sort(function (a, b) { return b.at - a.at; });
-    var h = '<div class="drawer-card" role="dialog" aria-modal="true" aria-labelledby="dr-t"><div class="dr-head"><h2 id="dr-t">My crafts</h2><button type="button" class="btn small quiet x" data-act="dr-close" aria-label="Close">' + ico('u-x') + '</button></div><div class="dr-list">';
+    var sel = app.ui.drSel || (app.ui.drSel = {});
+    Object.keys(sel).forEach(function (id) { if (!app.crafts[id]) delete sel[id]; });
+    var nSel = Object.keys(sel).length;
+    var h = '<div class="drawer-card" role="dialog" aria-modal="true" aria-labelledby="dr-t"><div class="dr-head"><h2 id="dr-t">My crafts</h2><button type="button" class="btn small quiet x" data-act="dr-close" aria-label="Close">' + ico('u-x') + '</button></div>';
+    h += '<div class="dr-sel" role="region" aria-label="Selected crafts"' + (nSel ? '' : ' hidden') + '>' + (app.ui.confirmDel
+      ? '<span>Delete ' + plural(nSel, 'craft') + '? This can’t be undone.</span><button type="button" class="btn small danger" data-act="dr-del-yes">Delete</button><button type="button" class="btn small quiet" data-act="dr-del-no">Keep</button>'
+      : '<span>' + nSel + ' selected</span><button type="button" class="btn small danger" data-act="dr-del">' + ico('u-trash') + 'Delete</button><button type="button" class="btn small quiet" data-act="dr-sel-none">Cancel</button>') + '</div>';
+    h = h.replace('<div class="dr-sel"', '<div class="dr-list"><div class="dr-sel"');   // the bar sits at the top of the list and stays in view
     list.forEach(function (c) {
-      var isCur = c.id === app.curId;
-      h += '<div class="craft' + (isCur ? ' cur' : '') + '"><svg aria-hidden="true"><use href="#i-' + c.cls + '"/></svg>' +
-        '<button type="button" class="cn" data-act="dr-open" data-id="' + esc(c.id) + '">' + esc(c.base) + (isCur ? ' <span class="rec">Open</span>' : '') + '</button>' +
-        '<span class="cm">' + esc(craftMeta(c)) + ' · ' + esc(ago(c.at)) + '</span><span class="ca">' +
-        (app.ui.confirmDel === c.id ? '<button type="button" class="btn small danger" data-act="dr-del-yes" data-id="' + esc(c.id) + '">Delete</button><button type="button" class="btn small quiet" data-act="dr-del-no">Keep</button>'
-          : '<button type="button" class="btn small quiet" data-act="dr-del" data-id="' + esc(c.id) + '" aria-label="Delete ' + esc(c.base) + '">' + ico('u-trash') + '</button>') + '</span></div>';
+      var isCur = c.id === app.curId, x = c.spc && SPECIAL[c.spc], nm = craftName(c), ren = app.ui.drRen === c.id;
+      h += '<div class="craft' + (isCur ? ' cur' : '') + (x ? ' special' : '') + (sel[c.id] ? ' picked' : '') + '">' +
+        '<label class="csel"><input type="checkbox" data-sel="' + esc(c.id) + '"' + (sel[c.id] ? ' checked' : '') + '><span class="vh">Select ' + esc(nm) + '</span></label>' +
+        '<svg aria-hidden="true"><use href="#i-' + c.cls + '"/></svg>' +
+        (ren ? '<input class="cn-in" id="dr-name" value="' + esc(c.name || '') + '" placeholder="' + esc(x ? x.name : c.base) + '" maxlength="60" aria-label="Name for this craft" autocomplete="off">'
+          : '<button type="button" class="cn" data-act="dr-open" data-id="' + esc(c.id) + '">' + esc(nm) + (isCur ? ' <span class="rec">Open</span>' : '') + '</button>') +
+        '<span class="cm">' + esc((nm.replace(/’/g, "'") !== c.base ? c.base + ' · ' : '') + craftMeta(c) + ' · ' + ago(c.at)) + '</span><span class="ca">' +
+        (ren ? '<button type="button" class="btn small" data-act="dr-ren-ok" data-id="' + esc(c.id) + '" aria-label="Save the name">' + ico('u-check') + '</button><button type="button" class="btn small quiet" data-act="dr-ren-no" data-id="' + esc(c.id) + '" aria-label="Keep the old name">' + ico('u-x') + '</button>'
+          : '<button type="button" class="btn small quiet" data-act="dr-ren" data-id="' + esc(c.id) + '" aria-label="Rename ' + esc(nm) + '" title="Rename">' + ico('u-edit') + '</button>') + '</span></div>';
     });
     h += '</div><div class="dr-foot"><button type="button" class="btn primary" data-act="new-craft">' + ico('u-plus') + 'New craft</button><div id="dr-store">' + storeLine() + '</div></div></div>';
     $('drawer').innerHTML = h;
+    var f = focusSel && $('drawer').querySelector(focusSel);
+    if (f) { try { f.focus(); if (f.id === 'dr-name') f.select(); } catch (e) { /* ignore */ } }
+  }
+  function renameDone(id, save) {
+    var c = app.crafts[id], inp = $('dr-name');
+    if (c && save && inp) {
+      var v = inp.value.replace(/\s+/g, ' ').trim().slice(0, 60), x = c.spc && SPECIAL[c.spc];
+      c.name = v && v !== (x ? x.name : c.base) ? v : null;   // empty, or the default name, goes back to the default
+      touch(c);
+    }
+    app.ui.drRen = null;
+    renderDrawer('[data-act="dr-ren"][data-id="' + id + '"]');
+  }
+  function deleteSelected() {
+    var ids = Object.keys(app.ui.drSel || {}), curGone = false;
+    ids.forEach(function (id) { if (id === app.curId) curGone = true; delete app.crafts[id]; deleteRemote(id); });
+    if (curGone) { var n = blankCraft(); app.crafts[n.id] = n; app.curId = n.id; renderAll(); }
+    app.ui.drSel = {}; app.ui.confirmDel = null;
+    saveLocal(); renderDrawer('.x'); renderCraftsBadge();
+    toast('Deleted ' + plural(ids.length, 'craft') + '.');
   }
   function newCraft() {
     var prev = cur();
@@ -2481,7 +2520,7 @@
     if (!$('drawer').hidden) closeDrawer();
     go('design');
     renderCraftsBadge();
-    toast(!worth(prev) ? 'New craft started.' : 'New craft started. The ' + prev.base + ' craft is ' + (canSave() ? 'saved in My crafts.' : 'still in My crafts until you close this page.'));
+    toast(!worth(prev) ? 'New craft started.' : 'New craft started. The ' + craftName(prev) + ' craft is ' + (canSave() ? 'saved in My crafts.' : 'still in My crafts until you close this page.'));
   }
 
   /* ---------- toast ---------- */
@@ -2579,18 +2618,27 @@
       case 'pk-junk': finishPick(null, 'junk'); break;
       case 'dr-close': closeDrawer(); break;
       case 'dr-open': app.curId = a.getAttribute('data-id'); app.ui.optFor = null; app.ui.confirmReset = false; closeDrawer(); renderAll(); saveLocalSoon(); break;
-      case 'dr-del': app.ui.confirmDel = a.getAttribute('data-id'); renderDrawer(); break;
-      case 'dr-del-no': app.ui.confirmDel = null; renderDrawer(); break;
-      case 'dr-del-yes': (function (id) {
-        delete app.crafts[id]; deleteRemote(id);
-        if (id === app.curId) { var n = blankCraft(); app.crafts[n.id] = n; app.curId = n.id; renderAll(); }
-        app.ui.confirmDel = null; saveLocal(); renderDrawer(); renderCraftsBadge();
-      })(a.getAttribute('data-id')); break;
+      case 'dr-del': app.ui.confirmDel = true; renderDrawer('[data-act="dr-del-yes"]'); break;
+      case 'dr-del-no': app.ui.confirmDel = null; renderDrawer('[data-act="dr-del"]'); break;
+      case 'dr-del-yes': deleteSelected(); break;
+      case 'dr-sel-none': app.ui.drSel = {}; app.ui.confirmDel = null; renderDrawer('.x'); break;
+      case 'dr-ren': app.ui.drRen = a.getAttribute('data-id'); renderDrawer('#dr-name'); break;
+      case 'dr-ren-ok': renameDone(a.getAttribute('data-id'), true); break;
+      case 'dr-ren-no': renameDone(a.getAttribute('data-id'), false); break;
     }
   });
   // "What drives the average" keeps its open state across re-renders
   document.addEventListener('toggle', function (e) { if (e.target && e.target.classList && e.target.classList.contains('cost-more')) app.ui.costMore = e.target.open; }, true);
   document.addEventListener('input', function (e) { if (e.target && e.target.id === 'imp-text') renderImportPreview(); });
+  document.addEventListener('change', function (e) {
+    var t = e.target;
+    if (!t || !t.hasAttribute || !t.hasAttribute('data-sel')) return;
+    var id = t.getAttribute('data-sel');
+    app.ui.drSel = app.ui.drSel || {};
+    if (t.checked) app.ui.drSel[id] = 1; else delete app.ui.drSel[id];
+    app.ui.confirmDel = null;
+    renderDrawer('[data-sel="' + id + '"]');
+  });
   // the Forge's market notes remember being opened or folded for the visit
   document.addEventListener('toggle', function (e) {
     if (!e.target || e.target.id !== 'p-intel') return;
@@ -2630,6 +2678,11 @@
     }
   });
   document.addEventListener('keydown', function (e) {
+    if (e.target && e.target.id === 'dr-name' && app.ui.drRen && (e.key === 'Enter' || e.key === 'Escape')) {
+      e.preventDefault(); e.stopPropagation();
+      renameDone(app.ui.drRen, e.key === 'Enter');
+      return;
+    }
     if (e.key !== 'Escape') return;
     if (copyBoxOpen()) { closeCopyBox(); e.preventDefault(); return; }
     if (importOpen()) { closeImport(); e.preventDefault(); return; }

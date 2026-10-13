@@ -330,12 +330,38 @@ async function addTarget(page, side, i, query, famText) {
     await page.screenshot({ path: `${OUT}/${scheme}-import.png` });
     await page.click('[data-act="imp-go"]');
     assert.ok(await page.locator('#impbox').isHidden());
-    assert.match(await page.locator('#toast').innerText(), /^Imported Blacksteel Gauntlets, item level 80: 3 prefixes and 3 suffixes\. The Runefather's Grasping Mail craft is in My crafts\.$/);
+    assert.match(await page.locator('#toast').innerText(), /^Imported Blacksteel Gauntlets, item level 80: 3 prefixes and 3 suffixes\. The Runefather’s Grasping Mail craft is in My crafts\.$/, 'a special craft goes by its name');
     assert.equal(await page.locator('.bp-name').textContent(), 'Blacksteel Gauntlets');
     assert.equal(await page.inputValue('#d-ilvl'), '80');
     assert.ok(await page.isChecked('#d-rf'), 'runeforged');
     assert.deepEqual((await page.locator('.box:not(.empty) .box-text').allInnerTexts()), ['+(120–149) to maximum Life', '+(105–124) to maximum Mana', '(31–40)% increased Runic Ward', '+(36–40)% to Cold Resistance', '+(31–35)% to Fire Resistance', '+(31–33) to Dexterity']);
     assert.deepEqual(await page.locator('.box-tier select').evaluateAll((els) => els.map((e) => e.selectedOptions[0].textContent)), ['T1+ · lvl 60', 'T1+ · lvl 60', 'Alloy', 'T2+ · lvl 71', 'T3+ · lvl 60', 'T2+ · lvl 74'], 'the tiers it has, numbered as in game');
+    // My crafts: special crafts by name and in purple, rename in place, tick crafts to delete them together
+    await page.click('#crafts-open');
+    await page.waitForSelector('#drawer .craft');
+    assert.match(await page.locator('#drawer .craft.special .cn').first().innerText(), /^Runefather’s Grasping Mail/);
+    assert.equal(await page.locator('#drawer [data-act="dr-del"]').isVisible(), false, 'no delete until something is ticked');
+    await page.click('#drawer .craft.cur [data-act="dr-ren"]');
+    await page.fill('#dr-name', 'Blight Caress copy');
+    await page.keyboard.press('Enter');
+    assert.match(await page.locator('#drawer .craft.cur .cn').innerText(), /^Blight Caress copy/);
+    assert.match(await page.locator('#drawer .craft.cur .cm').innerText(), /^Blacksteel Gauntlets · /, 'the base shows under a name');
+    const before = await page.locator('#drawer .craft').count();
+    const boxes = page.locator('#drawer .craft:not(.cur) [data-sel]');
+    await boxes.nth(0).check();
+    await boxes.nth(1).check();
+    assert.match(await page.locator('#drawer .dr-sel').innerText(), /^2 selected/);
+    await page.screenshot({ path: `${OUT}/${scheme}-crafts.png` });
+    await page.click('#drawer [data-act="dr-del"]');
+    assert.match(await page.locator('#drawer .dr-sel').innerText(), /^Delete 2 crafts\? This can’t be undone\./);
+    await page.click('#drawer [data-act="dr-del-yes"]');
+    assert.equal(await page.locator('#drawer .craft').count(), before - 2);
+    assert.match(await page.locator('#toast').innerText(), /^Deleted 2 crafts\.$/);
+    await page.waitForTimeout(400);
+    await page.reload();
+    await page.click('#crafts-open');
+    assert.match(await page.locator('#drawer .craft.cur .cn').innerText(), /^Blight Caress copy/, 'the name is saved');
+    await page.keyboard.press('Escape');
     await ctx.close();
   }
 

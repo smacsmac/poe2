@@ -14,9 +14,9 @@
     '#% increased Evasion and Energy Shield / +# to Stun Threshold', '+# to Evasion Rating / +# to maximum Energy Shield'];
   var SPECIALS = [
     {
-      id: 'ma-gloves', name: 'Martial Artist gloves', tag: 'Popular build',
+      id: 'ma-gloves', name: 'Stonefist gloves', tag: 'Popular build',
       base: 'Secured Wraps', ilvl: 82,
-      pitch: 'Stonefist gloves: Way of the Stonefist turns each glove mod into a related, stronger one, so pick mods for what they become.',
+      pitch: 'For Martial Artists: Way of the Stonefist turns each glove mod into a related, stronger one, so pick mods for what they become.',
       targets: [
         [['Adds # to # Lightning damage to Attacks', 'T1'], ['Adds # to # Cold damage to Attacks', 'T1'], ['#% increased Evasion and Energy Shield', 'T1']],
         [['+# to Level of all Melee Skills', 'T1'], ['#% increased Critical Damage Bonus', 'T1'], ['+#% to Fire Resistance', 'T2']]

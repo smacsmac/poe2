@@ -37,6 +37,7 @@
   /* Attribute and element words in mod text, in the game's colours (Strength red, Dexterity green, Intelligence blue,
      Fire, Cold, Lightning, Chaos a darker red). */
   --rar-magic:#959bff; --rar-rare:#f2e27d;
+  --special:#b48df2; --special-dim:#5f4a8a; --special-wash:rgba(180,141,242,.12);
   --kw-str:#f0675c; --kw-dex:#7dd068; --kw-int:#6584ff; --kw-fire:#ff8f45; --kw-cold:#8edcff; --kw-light:#f4d348; --kw-chaos:#e0506a;
   /* The item tooltip is an in-game object and keeps one look in both themes. */
   --tip-bg:#0d0c0b;
@@ -54,6 +55,7 @@
   --tip-junk:#f08a7a;
   --tip-keep:#93bdf2;
   --tip-suffix:#7fd0c3;
+  --tip-special:#b48df2; --tip-special-dim:#4d3d70;
   --tip-kw-str:#f0675c; --tip-kw-dex:#7dd068; --tip-kw-int:#6584ff; --tip-kw-fire:#ff8f45; --tip-kw-cold:#8edcff; --tip-kw-light:#f4d348; --tip-kw-chaos:#e0506a;
   --tip-shadow:#000000;
   --art-steel-hi:#6a7080;
@@ -79,6 +81,7 @@
     --src-drops:#7a6e55; --src-ritual:#a8362c; --src-abyss:#6a41ba; --src-essence:#1f6d93;
     --src-aldur:#1c7a62; --src-breach:#9a2c8a; --src-delirium:#5b5f66;
     --kw-str:#b3261e; --kw-dex:#24702a; --kw-int:#2747c9; --kw-fire:#a83f0a; --kw-cold:#095f8a; --kw-light:#6e5700; --kw-chaos:#8c1d2e; --rar-magic:#3b40c8; --rar-rare:#6e5a00;
+    --special:#6b3fc4; --special-dim:#c3b0e8; --special-wash:rgba(107,63,196,.08);
   }
 }
 :root[data-theme="light"]{
@@ -90,6 +93,7 @@
   --src-drops:#7a6e55; --src-ritual:#a8362c; --src-abyss:#6a41ba; --src-essence:#1f6d93;
   --src-aldur:#1c7a62; --src-breach:#9a2c8a; --src-delirium:#5b5f66;
   --kw-str:#b3261e; --kw-dex:#24702a; --kw-int:#2747c9; --kw-fire:#a83f0a; --kw-cold:#095f8a; --kw-light:#6e5700; --kw-chaos:#8c1d2e; --rar-magic:#3b40c8; --rar-rare:#6e5a00;
+  --special:#6b3fc4; --special-dim:#c3b0e8; --special-wash:rgba(107,63,196,.08);
 }
 
 *{box-sizing:border-box}
@@ -302,26 +306,30 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
 .copy-chat:hover{color:var(--fg)}
 .copy-card{grid-template-rows:auto minmax(0,1fr) auto}
 .cb-body{display:grid;min-height:0;padding:0 1.1rem 1rem}
-.slot.special svg{color:var(--brass)}
-.slot.special span{color:var(--brass)}
+.slot.special svg{color:var(--special)}
+.slot.special span{color:var(--special)}
 .sp-card{grid-template-rows:auto minmax(0,1fr) auto}
 .sp-list{list-style:none;margin:0;padding:0 1.1rem;display:grid;gap:.5rem;overflow:auto;min-height:0}
 .sp-item{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:.8rem;align-items:center;width:100%;text-align:left;padding:.7rem .8rem;border:1px solid var(--line);border-radius:6px;background:var(--surface-2);color:var(--fg);cursor:pointer}
-.sp-item:hover,.sp-item:focus-visible{border-color:var(--brass-dim);background:var(--brass-wash)}
-.sp-item[aria-current="true"]{border-color:var(--brass)}
-.sp-item>svg{width:30px;height:30px;color:var(--muted);stroke-width:2.2}
+.sp-item:hover,.sp-item:focus-visible{border-color:var(--special-dim);background:var(--special-wash)}
+.sp-item[aria-current="true"]{border-color:var(--special)}
+.sp-item>svg{width:30px;height:30px;color:var(--special);stroke-width:2.2}
 .sp-item>svg:last-child{width:16px;height:16px;transform:rotate(-90deg)}
 .sp-main{display:grid;gap:.15rem;min-width:0}
 .sp-n{font-weight:700;font-size:1rem;display:flex;flex-wrap:wrap;align-items:center;gap:.2rem .5rem}
 .sp-b{font-family:var(--font-mono);font-size:.74rem;color:var(--muted)}
 .sp-p{font-size:.88rem;color:var(--muted);line-height:1.4}
-.tag.sp-tag{color:var(--brass);border-color:var(--brass-dim);text-transform:uppercase;letter-spacing:.06em}
+.tag.sp-tag{color:var(--special);border-color:var(--special-dim);text-transform:uppercase;letter-spacing:.06em}
+.rf-info.sp-info{border-color:var(--tip-special-dim)}
+.rf-info.sp-info>svg{color:var(--tip-special)}
+.sp-info .linkish{color:var(--tip-special)}
+.sp-info .tag.sp-tag{color:var(--tip-special);border-color:var(--tip-special-dim)}
 .sp-foot{padding:.8rem 1.1rem 1rem;font-size:.82rem;color:var(--muted);border-top:1px solid var(--line);margin-top:.8rem}
 .linkish{background:none;border:0;padding:0;font:inherit;color:var(--tip-rare);text-decoration:underline;text-underline-offset:2px;cursor:pointer}
-.intel{margin:.75rem 0 .25rem;border:1px solid var(--brass-dim);border-radius:6px;background:var(--surface);scroll-margin-top:calc(var(--bar-h) + 16px)}
+.intel{margin:.75rem 0 .25rem;border:1px solid var(--special-dim);border-radius:6px;background:var(--surface);scroll-margin-top:calc(var(--bar-h) + 16px)}
 .intel summary{display:flex;align-items:center;gap:.6rem;padding:.6rem .85rem;cursor:pointer;list-style:none;font-size:.95rem}
 .intel summary::-webkit-details-marker{display:none}
-.intel summary>svg{width:1rem;height:1rem;flex:none;color:var(--brass)}
+.intel summary>svg{width:1rem;height:1rem;flex:none;color:var(--special)}
 .intel summary>svg:last-child{margin-left:auto;color:var(--muted);transition:transform .15s}
 .intel[open] summary>svg:last-child{transform:rotate(180deg)}
 .intel summary>span:first-of-type{flex:0 1 auto;min-width:0}
@@ -329,7 +337,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
 .intel-body b{color:var(--fg)}
 .intel-src{font-size:.8rem;color:var(--muted)}
 .prio-wrap{display:grid;gap:.4rem;padding-top:.35rem;border-top:1px dashed var(--line-2)}
-.prio-sum{color:var(--brass);font-weight:500}
+.prio-sum{color:var(--special);font-weight:500}
 .prio{list-style:none;margin:0;padding:0;display:grid;gap:.25rem}
 .prio li{display:grid;grid-template-columns:1.6rem minmax(0,1fr) auto;gap:.15rem .55rem;align-items:start;padding:.35rem .5rem;border:1px solid var(--line);border-radius:5px;background:var(--surface-2)}
 .prio .pn{font-family:var(--font-mono);font-size:.8rem;color:var(--muted);text-align:right;padding-top:.08rem}
@@ -343,7 +351,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
 .prio li.low .pk{color:var(--low)}
 .prio-alt{font-family:var(--font-mono);font-size:.68rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-top:.3rem}
 .prio-avoid{font-size:.86rem;color:var(--muted)}
-.intel-src a{color:var(--brass)}
+.intel-src a{color:var(--special)}
 .imp-row{display:flex;justify-content:flex-end;margin:.1rem 0 -.2rem}
 .imp-btn{display:inline-flex;align-items:center;gap:.4rem;background:none;border:1px solid var(--tip-edge-2);border-radius:999px;padding:.3rem .8rem;font-size:.86rem;color:var(--tip-rare);cursor:pointer}
 .imp-btn:hover{border-color:var(--tip-edge);background:var(--tip-slot-hover)}
@@ -647,13 +655,25 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
 @keyframes scrim-in{from{background-color:transparent}}
 @keyframes slide-r{from{transform:translateX(100%)}}
 @keyframes slide-l{from{transform:translateX(-100%)}}
-.craft{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:.1rem .7rem;align-items:center;padding:.6rem .6rem;border:1px solid var(--line);border-radius:6px}
+.craft{display:grid;grid-template-columns:auto auto minmax(0,1fr) auto;gap:.1rem .65rem;align-items:center;padding:.55rem .6rem;border:1px solid var(--line);border-radius:6px}
 .craft.cur{border-color:var(--brass);background:var(--brass-wash)}
-.craft>svg{width:30px;height:30px;color:var(--brass);stroke-width:2.2;grid-row:span 2}
-.craft .cn{font-weight:500;line-height:1.25;background:none;border:0;padding:0;text-align:left}
+.craft.special{border-color:var(--special-dim)}
+.craft.special.cur{border-color:var(--special);background:var(--special-wash)}
+.craft.picked{box-shadow:inset 3px 0 0 var(--junk)}
+.craft .csel{grid-row:1/span 2;grid-column:1;display:grid;place-items:center;padding:.2rem;cursor:pointer}
+.craft .csel input{width:1.05rem;height:1.05rem;margin:0;accent-color:var(--junk);cursor:pointer}
+.craft>svg{width:30px;height:30px;color:var(--brass);stroke-width:2.2;grid-row:1/span 2;grid-column:2}
+.craft.special>svg{color:var(--special)}
+.craft .cn,.craft .cn-in{grid-column:3;grid-row:1}
+.craft .cn{font-weight:500;line-height:1.25;background:none;border:0;padding:0;text-align:left;min-width:0;overflow-wrap:anywhere}
 .craft .cn:hover{color:var(--brass)}
-.craft .cm{font-size:.8rem;color:var(--muted);font-family:var(--font-mono)}
-.craft .ca{grid-row:1/span 2;grid-column:3;display:flex;gap:.3rem}
+.craft.special .cn:hover{color:var(--special)}
+.craft.special .rec{color:var(--special);border-color:var(--special-dim)}
+.craft .cn-in{width:100%;min-width:0;font-weight:500;padding:.2rem .4rem;border:1px solid var(--brass);border-radius:4px;background:var(--surface-2)}
+.craft .cm{grid-column:3;grid-row:2;font-size:.8rem;color:var(--muted);font-family:var(--font-mono);min-width:0;overflow-wrap:anywhere}
+.craft .ca{grid-row:1/span 2;grid-column:4;display:flex;gap:.3rem}
+.dr-sel{position:sticky;top:-.5rem;z-index:1;display:flex;flex-wrap:wrap;align-items:center;gap:.4rem .6rem;margin:-.5rem -.7rem .2rem;padding:.6rem 1.1rem;border-bottom:1px solid var(--line);background:var(--surface-2);font-size:.9rem}
+.dr-sel span{margin-right:auto}
 .dr-foot{border-top:1px solid var(--line);padding:.8rem 1.1rem;display:grid;gap:.5rem}
 .store{font-size:.82rem;color:var(--muted);display:flex;gap:.45rem;align-items:center}
 .store i{width:7px;height:7px;border-radius:50%;background:var(--muted)}
@@ -1014,7 +1034,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
     <a class="brand" href="#design" data-go="design" aria-label="Crafting Playbook, design screen">
       <span class="brand-mark" aria-hidden="true"></span>
       <span class="brand-name">Crafting Playbook</span>
-      <span class="brand-v" title="App version: V9">V9</span>
+      <span class="brand-v" title="App version: V10">V10</span>
       <span class="brand-sub">PoE2 · 0.5.5</span>
     </a>
     <nav class="tabs" aria-label="Screens">
@@ -1350,9 +1370,9 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
     '#% increased Evasion and Energy Shield / +# to Stun Threshold', '+# to Evasion Rating / +# to maximum Energy Shield'];
   var SPECIALS = [
     {
-      id: 'ma-gloves', name: 'Martial Artist gloves', tag: 'Popular build',
+      id: 'ma-gloves', name: 'Stonefist gloves', tag: 'Popular build',
       base: 'Secured Wraps', ilvl: 82,
-      pitch: 'Stonefist gloves: Way of the Stonefist turns each glove mod into a related, stronger one, so pick mods for what they become.',
+      pitch: 'For Martial Artists: Way of the Stonefist turns each glove mod into a related, stronger one, so pick mods for what they become.',
       targets: [
         [['Adds # to # Lightning damage to Attacks', 'T1'], ['Adds # to # Cold damage to Attacks', 'T1'], ['#% increased Evasion and Energy Shield', 'T1']],
         [['+# to Level of all Melee Skills', 'T1'], ['#% increased Critical Damage Bonus', 'T1'], ['+#% to Fire Resistance', 'T2']]
@@ -3487,7 +3507,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
         return { t: h.t, o: h.o, e: h.e ? 1 : 0, st: packSt(h.st), ps: packSt(h.ps), sl: false, a: h.as === undefined ? undefined : (h.as ? 1 : 0), u: h.su,
           sp: Array.isArray(h.sp) ? h.sp : undefined, b: h.b ? 1 : undefined, y: h.bu ? 1 : undefined, buy: h.buy ? 1 : undefined };
       }),
-      su: c.su | 0, bu: c.bu ? 1 : undefined, sx: c.spc || undefined, g: c.got && Object.keys(c.got).length ? Object.keys(c.got) : undefined,
+      su: c.su | 0, bu: c.bu ? 1 : undefined, sx: c.spc || undefined, nm: c.name || undefined, g: c.got && Object.keys(c.got).length ? Object.keys(c.got) : undefined,
       hd: meta.hdrop || undefined, h0: meta.hdrop ? packSt(meta.h0) : undefined, hs: meta.hs || undefined,
       at: c.at, dev: c.dev
     }));
@@ -3526,6 +3546,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
     c.su = o.su !== undefined ? o.su : underWay(c) ? 3 : 0;
     c.bu = !!o.bu;
     c.spc = typeof o.sx === 'string' && SPECIAL[o.sx] ? o.sx : null;
+    c.name = typeof o.nm === 'string' && o.nm.trim() ? o.nm.trim().slice(0, 60) : null;
     c.got = {};
     (Array.isArray(o.g) ? o.g : []).forEach(function (k) { if (typeof k === 'string') c.got[k] = 1; });
     return c;
@@ -3605,8 +3626,8 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
     if (state === 'saving') return 'Saving your latest change…';
     if (state === 'fail') return 'Not saved: this browser blocks storage here (a private window can do that), so your crafts only last while this page is open.';
     if (!worth(c)) return 'Crafts save automatically ' + where + '. This one is empty so far.';
-    if (state === 'account') return 'The ' + c.base + ' craft is saved to your account, so it follows you to other devices. Every change saves as you go. Find it again in My crafts.';
-    return 'The ' + c.base + ' craft is saved in this browser. Every change saves as you go. Find it again in My crafts.';
+    if (state === 'account') return 'The ' + craftName(c) + ' craft is saved to your account, so it follows you to other devices. Every change saves as you go. Find it again in My crafts.';
+    return 'The ' + craftName(c) + ' craft is saved in this browser. Every change saves as you go. Find it again in My crafts.';
   }
   var savedKey = '';
   function renderSaved() {
@@ -5418,7 +5439,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
     var cat = catOf(c), b = cat.base, design = designOf(c);
     var skip = (c.st && c.st.skip) || {};
     var L = [];
-    L.push('Path of Exile 2 crafting, patch 0.5.5. This is a craft I’m working on, copied from the crafting planner app I use (PoE2 Crafting Playbook V9). Prices are from the ' + (app.league === 'roa' ? 'Runes of Aldur' : 'Forbidden Rites') + ' league, in divines (div) and exalts (ex).');
+    L.push('Path of Exile 2 crafting, patch 0.5.5. This is a craft I’m working on, copied from the crafting planner app I use (PoE2 Crafting Playbook V10). Prices are from the ' + (app.league === 'roa' ? 'Runes of Aldur' : 'Forbidden Rites') + ' league, in divines (div) and exalts (ex).');
     L.push('How to read it: T1 is a mod’s best tier. Crafted mods come from an essence or an alloy, one per item (two with the rune Astrid’s Creativity socketed). Desecrated mods come from a desecration at the Well of Souls, one per item. The app’s odds count every eligible tier as equally likely, so they’re rough.');
     L.push('', 'THE ITEM');
     L.push(c.base + ' (' + CLS[c.cls].n + (b.sub ? ', ' + b.sub : '') + '), item level ' + c.ilvl + '.');
@@ -5650,7 +5671,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
     var n = [0, 1].map(function (s) { return c.targets[s].filter(Boolean).length; });
     toast('Imported ' + r.base + ', item level ' + c.ilvl + ': ' + plural(n[0], 'prefix', 'prefixes') + ' and ' + plural(n[1], 'suffix', 'suffixes') + (mine ? ', on your item in the Forge too' : '') + '.' +
       (r.skipped.length + extra ? ' ' + plural(r.skipped.length + extra, 'mod') + ' left out.' : '') +
-      (keep ? ' The ' + prev.base + ' craft is in My crafts.' : ''), 6500);
+      (keep ? ' The ' + craftName(prev) + ' craft is in My crafts.' : ''), 6500);
   }
 
   /* ---------- special crafts: ready-made designs with market notes (src/specials.js) ---------- */
@@ -5693,7 +5714,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
     closeSpecials();
     if (app.view !== 'design') go('design'); else { renderDesign(); refreshBadges(); }
     revealSlot();
-    toast(x.name + ': the mods are in your design. Market notes are in the Forge.' + (d.prev ? ' The ' + d.prev.base + ' craft is in My crafts.' : ''), 6500);
+    toast(x.name + ': the mods are in your design. Market notes are in the Forge.' + (d.prev ? ' The ' + craftName(d.prev) + ' craft is in My crafts.' : ''), 6500);
   }
   /* A special craft's mods by priority, matched against the item in the Forge: each mod on the item counts once, for
      the best-ranked line it fits, best tier first ("Any resistance" takes the better resistance, "Another resistance" the next). */
@@ -5746,6 +5767,12 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
   }
 
   /* ---------- crafts drawer ---------- */
+  /* What a craft is called: the name you gave it, else its special craft's name, else its base. */
+  function craftName(c) {
+    if (c.name) return c.name;
+    var x = c.spc && SPECIAL[c.spc];
+    return x ? x.name : c.base;
+  }
   function craftMeta(c) {
     var t = targetCount(c);
     if (!underWay(c)) return t ? plural(t, 'target') + ' · not started' : 'Empty design';
@@ -5764,25 +5791,57 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
   function renderStore() { var el = $('dr-store'); if (el) el.innerHTML = storeLine(); renderSaved(); }
   function openDrawer() {
     hideToast();
-    app.ui.confirmDel = null;
+    app.ui.confirmDel = null; app.ui.drSel = {}; app.ui.drRen = null;
     $('drawer').hidden = false;
     renderDrawer();
     var x = $('drawer').querySelector('.x'); if (x) x.focus();
   }
   function closeDrawer() { $('drawer').hidden = true; $('drawer').innerHTML = ''; var b = $('crafts-open'); if (b) b.focus(); }
-  function renderDrawer() {
+  /* My crafts: tick crafts to delete them together (Delete asks once), and rename any craft in place. focusSel puts
+     focus back where it was after the list is drawn again. */
+  function renderDrawer(focusSel) {
     var list = Object.keys(app.crafts).map(function (id) { return app.crafts[id]; }).filter(function (c) { return worth(c) || c.id === app.curId; }).sort(function (a, b) { return b.at - a.at; });
-    var h = '<div class="drawer-card" role="dialog" aria-modal="true" aria-labelledby="dr-t"><div class="dr-head"><h2 id="dr-t">My crafts</h2><button type="button" class="btn small quiet x" data-act="dr-close" aria-label="Close">' + ico('u-x') + '</button></div><div class="dr-list">';
+    var sel = app.ui.drSel || (app.ui.drSel = {});
+    Object.keys(sel).forEach(function (id) { if (!app.crafts[id]) delete sel[id]; });
+    var nSel = Object.keys(sel).length;
+    var h = '<div class="drawer-card" role="dialog" aria-modal="true" aria-labelledby="dr-t"><div class="dr-head"><h2 id="dr-t">My crafts</h2><button type="button" class="btn small quiet x" data-act="dr-close" aria-label="Close">' + ico('u-x') + '</button></div>';
+    h += '<div class="dr-sel" role="region" aria-label="Selected crafts"' + (nSel ? '' : ' hidden') + '>' + (app.ui.confirmDel
+      ? '<span>Delete ' + plural(nSel, 'craft') + '? This can’t be undone.</span><button type="button" class="btn small danger" data-act="dr-del-yes">Delete</button><button type="button" class="btn small quiet" data-act="dr-del-no">Keep</button>'
+      : '<span>' + nSel + ' selected</span><button type="button" class="btn small danger" data-act="dr-del">' + ico('u-trash') + 'Delete</button><button type="button" class="btn small quiet" data-act="dr-sel-none">Cancel</button>') + '</div>';
+    h = h.replace('<div class="dr-sel"', '<div class="dr-list"><div class="dr-sel"');   // the bar sits at the top of the list and stays in view
     list.forEach(function (c) {
-      var isCur = c.id === app.curId;
-      h += '<div class="craft' + (isCur ? ' cur' : '') + '"><svg aria-hidden="true"><use href="#i-' + c.cls + '"/></svg>' +
-        '<button type="button" class="cn" data-act="dr-open" data-id="' + esc(c.id) + '">' + esc(c.base) + (isCur ? ' <span class="rec">Open</span>' : '') + '</button>' +
-        '<span class="cm">' + esc(craftMeta(c)) + ' · ' + esc(ago(c.at)) + '</span><span class="ca">' +
-        (app.ui.confirmDel === c.id ? '<button type="button" class="btn small danger" data-act="dr-del-yes" data-id="' + esc(c.id) + '">Delete</button><button type="button" class="btn small quiet" data-act="dr-del-no">Keep</button>'
-          : '<button type="button" class="btn small quiet" data-act="dr-del" data-id="' + esc(c.id) + '" aria-label="Delete ' + esc(c.base) + '">' + ico('u-trash') + '</button>') + '</span></div>';
+      var isCur = c.id === app.curId, x = c.spc && SPECIAL[c.spc], nm = craftName(c), ren = app.ui.drRen === c.id;
+      h += '<div class="craft' + (isCur ? ' cur' : '') + (x ? ' special' : '') + (sel[c.id] ? ' picked' : '') + '">' +
+        '<label class="csel"><input type="checkbox" data-sel="' + esc(c.id) + '"' + (sel[c.id] ? ' checked' : '') + '><span class="vh">Select ' + esc(nm) + '</span></label>' +
+        '<svg aria-hidden="true"><use href="#i-' + c.cls + '"/></svg>' +
+        (ren ? '<input class="cn-in" id="dr-name" value="' + esc(c.name || '') + '" placeholder="' + esc(x ? x.name : c.base) + '" maxlength="60" aria-label="Name for this craft" autocomplete="off">'
+          : '<button type="button" class="cn" data-act="dr-open" data-id="' + esc(c.id) + '">' + esc(nm) + (isCur ? ' <span class="rec">Open</span>' : '') + '</button>') +
+        '<span class="cm">' + esc((nm.replace(/’/g, "'") !== c.base ? c.base + ' · ' : '') + craftMeta(c) + ' · ' + ago(c.at)) + '</span><span class="ca">' +
+        (ren ? '<button type="button" class="btn small" data-act="dr-ren-ok" data-id="' + esc(c.id) + '" aria-label="Save the name">' + ico('u-check') + '</button><button type="button" class="btn small quiet" data-act="dr-ren-no" data-id="' + esc(c.id) + '" aria-label="Keep the old name">' + ico('u-x') + '</button>'
+          : '<button type="button" class="btn small quiet" data-act="dr-ren" data-id="' + esc(c.id) + '" aria-label="Rename ' + esc(nm) + '" title="Rename">' + ico('u-edit') + '</button>') + '</span></div>';
     });
     h += '</div><div class="dr-foot"><button type="button" class="btn primary" data-act="new-craft">' + ico('u-plus') + 'New craft</button><div id="dr-store">' + storeLine() + '</div></div></div>';
     $('drawer').innerHTML = h;
+    var f = focusSel && $('drawer').querySelector(focusSel);
+    if (f) { try { f.focus(); if (f.id === 'dr-name') f.select(); } catch (e) { /* ignore */ } }
+  }
+  function renameDone(id, save) {
+    var c = app.crafts[id], inp = $('dr-name');
+    if (c && save && inp) {
+      var v = inp.value.replace(/\s+/g, ' ').trim().slice(0, 60), x = c.spc && SPECIAL[c.spc];
+      c.name = v && v !== (x ? x.name : c.base) ? v : null;   // empty, or the default name, goes back to the default
+      touch(c);
+    }
+    app.ui.drRen = null;
+    renderDrawer('[data-act="dr-ren"][data-id="' + id + '"]');
+  }
+  function deleteSelected() {
+    var ids = Object.keys(app.ui.drSel || {}), curGone = false;
+    ids.forEach(function (id) { if (id === app.curId) curGone = true; delete app.crafts[id]; deleteRemote(id); });
+    if (curGone) { var n = blankCraft(); app.crafts[n.id] = n; app.curId = n.id; renderAll(); }
+    app.ui.drSel = {}; app.ui.confirmDel = null;
+    saveLocal(); renderDrawer('.x'); renderCraftsBadge();
+    toast('Deleted ' + plural(ids.length, 'craft') + '.');
   }
   function newCraft() {
     var prev = cur();
@@ -5792,7 +5851,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
     if (!$('drawer').hidden) closeDrawer();
     go('design');
     renderCraftsBadge();
-    toast(!worth(prev) ? 'New craft started.' : 'New craft started. The ' + prev.base + ' craft is ' + (canSave() ? 'saved in My crafts.' : 'still in My crafts until you close this page.'));
+    toast(!worth(prev) ? 'New craft started.' : 'New craft started. The ' + craftName(prev) + ' craft is ' + (canSave() ? 'saved in My crafts.' : 'still in My crafts until you close this page.'));
   }
 
   /* ---------- toast ---------- */
@@ -5890,18 +5949,27 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
       case 'pk-junk': finishPick(null, 'junk'); break;
       case 'dr-close': closeDrawer(); break;
       case 'dr-open': app.curId = a.getAttribute('data-id'); app.ui.optFor = null; app.ui.confirmReset = false; closeDrawer(); renderAll(); saveLocalSoon(); break;
-      case 'dr-del': app.ui.confirmDel = a.getAttribute('data-id'); renderDrawer(); break;
-      case 'dr-del-no': app.ui.confirmDel = null; renderDrawer(); break;
-      case 'dr-del-yes': (function (id) {
-        delete app.crafts[id]; deleteRemote(id);
-        if (id === app.curId) { var n = blankCraft(); app.crafts[n.id] = n; app.curId = n.id; renderAll(); }
-        app.ui.confirmDel = null; saveLocal(); renderDrawer(); renderCraftsBadge();
-      })(a.getAttribute('data-id')); break;
+      case 'dr-del': app.ui.confirmDel = true; renderDrawer('[data-act="dr-del-yes"]'); break;
+      case 'dr-del-no': app.ui.confirmDel = null; renderDrawer('[data-act="dr-del"]'); break;
+      case 'dr-del-yes': deleteSelected(); break;
+      case 'dr-sel-none': app.ui.drSel = {}; app.ui.confirmDel = null; renderDrawer('.x'); break;
+      case 'dr-ren': app.ui.drRen = a.getAttribute('data-id'); renderDrawer('#dr-name'); break;
+      case 'dr-ren-ok': renameDone(a.getAttribute('data-id'), true); break;
+      case 'dr-ren-no': renameDone(a.getAttribute('data-id'), false); break;
     }
   });
   // "What drives the average" keeps its open state across re-renders
   document.addEventListener('toggle', function (e) { if (e.target && e.target.classList && e.target.classList.contains('cost-more')) app.ui.costMore = e.target.open; }, true);
   document.addEventListener('input', function (e) { if (e.target && e.target.id === 'imp-text') renderImportPreview(); });
+  document.addEventListener('change', function (e) {
+    var t = e.target;
+    if (!t || !t.hasAttribute || !t.hasAttribute('data-sel')) return;
+    var id = t.getAttribute('data-sel');
+    app.ui.drSel = app.ui.drSel || {};
+    if (t.checked) app.ui.drSel[id] = 1; else delete app.ui.drSel[id];
+    app.ui.confirmDel = null;
+    renderDrawer('[data-sel="' + id + '"]');
+  });
   // the Forge's market notes remember being opened or folded for the visit
   document.addEventListener('toggle', function (e) {
     if (!e.target || e.target.id !== 'p-intel') return;
@@ -5941,6 +6009,11 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
     }
   });
   document.addEventListener('keydown', function (e) {
+    if (e.target && e.target.id === 'dr-name' && app.ui.drRen && (e.key === 'Enter' || e.key === 'Escape')) {
+      e.preventDefault(); e.stopPropagation();
+      renameDone(app.ui.drRen, e.key === 'Enter');
+      return;
+    }
     if (e.key !== 'Escape') return;
     if (copyBoxOpen()) { closeCopyBox(); e.preventDefault(); return; }
     if (importOpen()) { closeImport(); e.preventDefault(); return; }
