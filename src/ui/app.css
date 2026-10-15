@@ -394,6 +394,10 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
 .tbtn[aria-disabled="true"]{opacity:.45;cursor:default}
 .tbtn[aria-disabled="true"]:hover{border-color:var(--tip-edge)}
 .cols-h{display:grid;grid-template-columns:minmax(0,.8fr) minmax(0,1.35fr);gap:.5rem;font-family:var(--font-mono);font-size:.62rem;letter-spacing:.14em;text-transform:uppercase;color:var(--tip-muted);padding:0 .1rem}
+.cols-h .chl{display:flex;align-items:center;gap:.5rem;min-width:0}
+.imp-mini{display:inline-flex;align-items:center;gap:.3rem;background:none;border:1px solid var(--tip-edge-2);border-radius:999px;padding:.12rem .55rem;font-family:var(--font-mono);font-size:.62rem;letter-spacing:.08em;text-transform:uppercase;color:var(--tip-rare);cursor:pointer}
+.imp-mini:hover{border-color:var(--tip-edge);background:var(--tip-slot-hover)}
+.imp-mini svg{width:.85rem;height:.85rem;flex:none}
 .srows{display:grid;gap:.4rem}
 /* Forge: prefixes and suffixes each in their own box, suffixes in their own colour */
 .sbox{--side:var(--tip-magic);display:grid;gap:.45rem;padding:.55rem .55rem .6rem;border:1px solid color-mix(in srgb,var(--side) 38%,var(--tip-edge-2));border-radius:4px;background:color-mix(in srgb,var(--side) 4%,transparent)}
@@ -853,7 +857,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
   .srow{grid-template-columns:minmax(0,1fr)}
   .srow .want{border:0;padding:.1rem .1rem 0;display:flex;gap:.5rem;align-items:baseline;flex-wrap:wrap}
   .srow .want.none{display:none}
-  .cols-h{display:none}
+  .cols-h{grid-template-columns:1fr 1fr}
   .card{padding:.9rem .9rem 1rem}
   .card h3{font-size:1.22rem}
   .timeline::before{left:13px}

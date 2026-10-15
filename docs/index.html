@@ -400,6 +400,10 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
 .tbtn[aria-disabled="true"]{opacity:.45;cursor:default}
 .tbtn[aria-disabled="true"]:hover{border-color:var(--tip-edge)}
 .cols-h{display:grid;grid-template-columns:minmax(0,.8fr) minmax(0,1.35fr);gap:.5rem;font-family:var(--font-mono);font-size:.62rem;letter-spacing:.14em;text-transform:uppercase;color:var(--tip-muted);padding:0 .1rem}
+.cols-h .chl{display:flex;align-items:center;gap:.5rem;min-width:0}
+.imp-mini{display:inline-flex;align-items:center;gap:.3rem;background:none;border:1px solid var(--tip-edge-2);border-radius:999px;padding:.12rem .55rem;font-family:var(--font-mono);font-size:.62rem;letter-spacing:.08em;text-transform:uppercase;color:var(--tip-rare);cursor:pointer}
+.imp-mini:hover{border-color:var(--tip-edge);background:var(--tip-slot-hover)}
+.imp-mini svg{width:.85rem;height:.85rem;flex:none}
 .srows{display:grid;gap:.4rem}
 /* Forge: prefixes and suffixes each in their own box, suffixes in their own colour */
 .sbox{--side:var(--tip-magic);display:grid;gap:.45rem;padding:.55rem .55rem .6rem;border:1px solid color-mix(in srgb,var(--side) 38%,var(--tip-edge-2));border-radius:4px;background:color-mix(in srgb,var(--side) 4%,transparent)}
@@ -859,7 +863,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
   .srow{grid-template-columns:minmax(0,1fr)}
   .srow .want{border:0;padding:.1rem .1rem 0;display:flex;gap:.5rem;align-items:baseline;flex-wrap:wrap}
   .srow .want.none{display:none}
-  .cols-h{display:none}
+  .cols-h{grid-template-columns:1fr 1fr}
   .card{padding:.9rem .9rem 1rem}
   .card h3{font-size:1.22rem}
   .timeline::before{left:13px}
@@ -1034,7 +1038,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
     <a class="brand" href="#design" data-go="design" aria-label="Crafting Playbook, design screen">
       <span class="brand-mark" aria-hidden="true"></span>
       <span class="brand-name">Crafting Playbook</span>
-      <span class="brand-v" title="App version: V11">V11</span>
+      <span class="brand-v" title="App version: V12">V12</span>
       <span class="brand-sub">PoE2 · 0.5.5</span>
     </a>
     <nav class="tabs" aria-label="Screens">
@@ -4196,7 +4200,8 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
       '<button type="button" class="tbtn sm" data-act="start-copy">Copy targets in</button>' +
       '<button type="button" class="tbtn sm" data-act="start-blank">Clear item</button>' +
       '<button type="button" class="tbtn sm tb-undo" data-act="undo"' + (canUndo ? ' title="Undo: ' + esc(undoLabel(c)) + '"' : ' aria-disabled="true" title="Nothing to undo yet"') + '>' + ico('u-undo') + 'Undo</button></div>';
-    h += '<div class="cols-h" aria-hidden="true"><span>Want</span><span>Have</span></div>';
+    h += '<div class="cols-h"><span class="chl"><span aria-hidden="true">Want</span><button type="button" class="imp-mini" data-act="imp-open" aria-label="Import a design from the game" title="Import an item from the game as your design">' + ico('u-import') + 'Import</button></span>' +
+      '<span class="chl"><span aria-hidden="true">Have</span><button type="button" class="imp-mini" data-act="imp-have" aria-label="Import your item from the game" title="Import your item in progress from the game">' + ico('u-import') + 'Import</button></span></div>';
     [0, 1].forEach(function (s) {
       if (!cat.caps[s]) return;
       h += '<section class="sbox ' + (s ? 'suf' : 'pre') + '" aria-label="' + (s ? 'Suffixes' : 'Prefixes') + '"><p class="grp">' + (s ? 'Suffixes' : 'Prefixes') + '</p><div class="srows">';
@@ -4410,9 +4415,10 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
       s2 = 'ok';
     } else {
       b2 = '<p class="sm">' + (rar === 'magic' ? '<b>Suggest</b> fills in the magic base worth buying: your hardest targets.' : '<b>Suggest</b> fills in the item as the plan has it right after it turns rare.') +
-        ' Or <b>Copy targets in</b>, then press ✕ on your item for any it doesn’t have. You can also add mods one at a time on your item.' +
+        ' Or <b>Copy targets in</b>, then press ✕ on your item for any it doesn’t have. Already have the item? <b>Import from game</b> reads it from what the game copies. You can also add mods one at a time on your item.' +
         (stage === 2 ? ' Press <b>Done</b> when it matches your item.' : '') + '</p>' +
         '<div class="setup-row"><button type="button" class="btn small" data-act="suggest">Suggest</button><button type="button" class="btn small" data-act="start-copy">Copy targets in</button>' +
+        '<button type="button" class="btn small" data-act="imp-have">' + ico('u-import') + 'Import from game</button>' +
         (stage === 2 ? '<button type="button" class="btn small primary" data-act="setup-done">' + ico('u-check') + 'Done</button>' : '') +
         '<button type="button" class="btn small quiet to-item" data-act="to-item">Your item' + ico('u-chev') + '</button></div>' +
         '<p class="now-on">On it now: ' + esc(modsTiers(c.st, catOf(c))) + '.' + buyHint(c) + '</p>';
@@ -5439,7 +5445,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
     var cat = catOf(c), b = cat.base, design = designOf(c);
     var skip = (c.st && c.st.skip) || {};
     var L = [];
-    L.push('Path of Exile 2 crafting, patch 0.5.5. This is a craft I’m working on, copied from the crafting planner app I use (PoE2 Crafting Playbook V11). Prices are from the ' + (app.league === 'roa' ? 'Runes of Aldur' : 'Forbidden Rites') + ' league, in divines (div) and exalts (ex).');
+    L.push('Path of Exile 2 crafting, patch 0.5.5. This is a craft I’m working on, copied from the crafting planner app I use (PoE2 Crafting Playbook V12). Prices are from the ' + (app.league === 'roa' ? 'Runes of Aldur' : 'Forbidden Rites') + ' league, in divines (div) and exalts (ex).');
     L.push('How to read it: T1 is a mod’s best tier. Crafted mods come from an essence or an alloy, one per item (two with the rune Astrid’s Creativity socketed). Desecrated mods come from a desecration at the Well of Souls, one per item. The app’s odds count every eligible tier as equally likely, so they’re rough.');
     L.push('', 'THE ITEM');
     L.push(c.base + ' (' + CLS[c.cls].n + (b.sub ? ', ' + b.sub : '') + '), item level ' + c.ilvl + '.');
@@ -5582,25 +5588,34 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
   /* ---------- importing an item copied in game ----------
      Paste the item's text (Ctrl+Alt+C in game); the preview shows what was recognised as you paste, and Import
      makes it the design: base, item level, runeforged, and each mod as a target at the tier it has. */
-  var impRet = null;
-  function openImport() {
+  /* Two modes: 'design' makes the pasted item the design (Design screen, and Want in the Forge); 'have' puts its mods
+     on the craft's item in the Forge (Have, and step 2), leaving the design as it is. */
+  var impRet = null, impRetSel = null, impMode = 'design';
+  function openImport(mode) {
+    impMode = mode === 'have' ? 'have' : 'design';
     impRet = document.activeElement;
+    impRetSel = impRet && impRet.getAttribute && impRet.getAttribute('data-act') ? '[data-act="' + impRet.getAttribute('data-act') + '"]' : null;
+    var have = impMode === 'have';
     var el = $('impbox');
     el.hidden = false;
     el.innerHTML = '<div class="modal-card imp-card" role="dialog" aria-modal="true" aria-labelledby="imp-t">' +
-      '<div class="pk-head"><div><h2 id="imp-t">Import an item from the game</h2><p>In game, hover over the item and press <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>C</kbd>, then paste it here. Its mods become your targets, each at the tier it has. (<kbd>Ctrl</kbd>+<kbd>C</kbd> works too, but without the tiers’ ranges.)</p></div>' +
+      '<div class="pk-head"><div><h2 id="imp-t">' + (have ? 'Import your item from the game' : 'Import an item from the game') + '</h2><p>In game, hover over the item and press <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>C</kbd>, then paste it here. ' +
+      (have ? 'Its mods go on your item in the Forge, each at the tier it has, and the steps follow. Your design stays as it is.' : 'Its mods become your targets, each at the tier it has.') +
+      ' (<kbd>Ctrl</kbd>+<kbd>C</kbd> works too, but without the tiers’ ranges.)</p></div>' +
       '<button type="button" class="x" data-act="imp-close" aria-label="Close">' + ico('u-x') + '</button></div>' +
       '<div class="imp-body"><textarea id="imp-text" spellcheck="false" aria-label="The item’s text" placeholder="Item Class: Gloves&#10;Rarity: Rare&#10;Blight Caress&#10;Runeforged Blacksteel Gauntlets&#10;--------&#10;…"></textarea>' +
       '<div id="imp-prev" class="imp-prev" role="status" aria-live="polite"></div></div>' +
-      '<div class="pk-foot"><label><input type="checkbox" id="imp-mine">It’s my item: put these mods on my item in the Forge too</label>' +
-      '<button type="button" class="btn small sp" data-act="imp-go" disabled>Import</button><button type="button" class="btn small quiet" data-act="imp-close">Cancel</button></div></div>';
+      '<div class="pk-foot">' + (have ? '' : '<label><input type="checkbox" id="imp-mine">It’s my item: put these mods on my item in the Forge too</label>') +
+      '<button type="button" class="btn small sp" data-act="imp-go" disabled>' + (have ? 'Put it on my item' : 'Import') + '</button><button type="button" class="btn small quiet" data-act="imp-close">Cancel</button></div></div>';
     setTimeout(function () { var t = $('imp-text'); if (t) t.focus(); }, 0);
   }
   function closeImport() {
     var el = $('impbox');
     el.hidden = true; el.innerHTML = '';
-    if (impRet && document.body.contains(impRet)) { try { impRet.focus(); } catch (e) { /* ignore */ } }
-    impRet = null;
+    // the button that opened it, or the same button after a redraw
+    var back = impRet && document.body.contains(impRet) ? impRet : impRetSel ? document.querySelector('#v-' + app.view + ' ' + impRetSel) : null;
+    if (back) { try { back.focus({ preventScroll: true }); } catch (e) { /* ignore */ } }
+    impRet = null; impRetSel = null;
   }
   function importOpen() { return !$('impbox').hidden; }
   function readImport() { var t = $('imp-text'); return t && t.value.trim() ? E.importItem(t.value) : null; }
@@ -5611,14 +5626,21 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
     if (go) go.disabled = !r || !r.base;
     if (!r) { el.innerHTML = ''; return; }
     if (!r.base) { el.innerHTML = '<p class="imp-err">No base found in this text. Copy the item in game and paste all of it, starting with “Item Class”.</p>'; return; }
-    var cat = E.catalog(r.base, r.ilvl || 82);
+    var cat = E.catalog(r.base, r.ilvl || 82), have = impMode === 'have', c = cur();
     var h = '<p class="imp-base"><b>' + esc(r.base) + '</b>' + (r.runeforged ? ' · runeforged' : '') + ' · item level ' + (r.ilvl || '82 (not in the text)') + (r.rarity ? ' · ' + (r.rarity === 'unique' ? 'Unique' : rarHTML(r.rarity)) : '') + '</p>';
+    if (have) {
+      var why = r.cls !== c.cls ? 'This item’s slot is ' + CLS[r.cls].n + ', and this craft is for ' + CLS[c.cls].n + '. To craft it, use Import next to Want: it starts a craft for it.'
+        : r.rarity === 'unique' ? 'Unique items can’t be crafted this way.' : '';
+      if (why) { if (go) go.disabled = true; el.innerHTML = h + '<p class="imp-err">' + esc(why) + '</p>'; return; }
+      if (r.base !== c.base) h += '<p class="imp-note">Your design is for ' + esc(c.base) + '. The mods still go on your item.</p>';
+      if (r.ilvl && r.ilvl !== c.ilvl) h += '<p class="imp-note">Your design uses item level ' + c.ilvl + '; this item is ' + r.ilvl + '.</p>';
+    }
     [0, 1].forEach(function (s) {
       var list = r.mods.filter(function (m) { return m.s === s; });
       if (!list.length) return;
       h += '<p class="imp-side">' + (s ? 'Suffixes' : 'Prefixes') + '</p><ul class="imp-mods">' + list.map(function (m, i) {
         var f = E.MODS[m.mi].f, tl = E.labelTier(cat, { f: f, mi: m.mi });
-        var extra = i >= cat.caps[s] ? ' <span class="imp-x">no box left</span>' : '';
+        var extra = !have && i >= cat.caps[s] ? ' <span class="imp-x">no box left</span>' : '';
         return '<li><span>' + modHTML(E.famName(f)) + extra + '</span><span class="imp-tier">' + esc(tl === 'alloy' ? 'Crafted' : tl === 'desecrated' ? 'Desecrated' : tl + (m.desec ? ' · desecrated' : m.crafted ? ' · crafted' : m.fract ? ' · fractured' : '')) + '</span></li>';
       }).join('') + '</ul>';
     });
@@ -5646,28 +5668,44 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
     fitTargets(c);
     return { c: c, prev: keep ? prev : null, extra: extra };
   }
+  function itemMods(r) {
+    return r.mods.map(function (m) {
+      var x = { id: E.newId(), s: m.s, mi: m.mi, mark: 'auto' };
+      if (m.crafted) x.crafted = true;
+      if (m.desec) x.desec = true;
+      if (m.fract) x.fract = true;
+      return x;
+    });
+  }
+  function rarOf(r) { return r.rarity === 'magic' ? 'magic' : r.rarity === 'none' ? 'none' : 'rare'; }
+  function doImportHave(r) {
+    var c = cur();
+    if (r.cls !== c.cls || r.rarity === 'unique') return;
+    closeImport();
+    manualEdit(c, function () {
+      var done = clone((c.st && c.st.done) || {});
+      if (r.runeforged) done.runeforge = true;
+      c.st = { rarity: rarOf(r), mods: itemMods(r), done: done, skip: (c.st && c.st.skip) || {} };
+      c.su = 3; c.bu = false;
+    }, 'Imported from the game');
+    toast('Your item now has its ' + plural(r.mods.length, 'mod') + ' from the game' + (r.skipped.length ? ', ' + r.skipped.length + ' left out' : '') + '. The steps follow it.', 6500);
+  }
   function doImport() {
     var r = readImport();
     if (!r || !r.base) return;
+    if (impMode === 'have') { doImportHave(r); return; }
     var mine = !!($('imp-mine') && $('imp-mine').checked) && r.rarity !== 'unique';
     var d = startDesign({ cls: r.cls, base: r.base, ilvl: r.ilvl, runeforge: r.runeforged || r.cls === 'gloves',
       targets: [0, 1].map(function (s) { return r.mods.filter(function (m) { return m.s === s; }).map(function (m) { return m.mi; }); }) });
     var c = d.c, prev = d.prev, keep = !!prev, extra = d.extra;
     if (mine) {
-      c.st = { rarity: r.rarity === 'magic' ? 'magic' : r.rarity === 'none' ? 'none' : 'rare', done: r.runeforged ? { runeforge: true } : {}, skip: {},
-        mods: r.mods.map(function (m) {
-          var x = { id: E.newId(), s: m.s, mi: m.mi, mark: 'auto' };
-          if (m.crafted) x.crafted = true;
-          if (m.desec) x.desec = true;
-          if (m.fract) x.fract = true;
-          return x;
-        }) };
+      c.st = { rarity: rarOf(r), done: r.runeforged ? { runeforge: true } : {}, skip: {}, mods: itemMods(r) };
       c.hist = []; c.su = 3; c.bu = false;
     }
     replan(c);
     touch(c);
     closeImport();
-    renderDesign(); refreshBadges(); revealSlot();
+    renderAll(); revealSlot();
     var n = [0, 1].map(function (s) { return c.targets[s].filter(Boolean).length; });
     toast('Imported ' + r.base + ', item level ' + c.ilvl + ': ' + plural(n[0], 'prefix', 'prefixes') + ' and ' + plural(n[1], 'suffix', 'suffixes') + (mine ? ', on your item in the Forge too' : '') + '.' +
       (r.skipped.length + extra ? ' ' + plural(r.skipped.length + extra, 'mod') + ' left out.' : '') +
@@ -5932,7 +5970,8 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
       case 'shop-untick': c.got = {}; touch(c); renderPlan(); break;
       case 'shop-copy': copyText(shopText(c), 'Copied the shopping list.', { title: 'Copy the shopping list', label: 'The shopping list as text', then: 'paste it where you need it' }); break;
       case 'cb-close': closeCopyBox(); break;
-      case 'imp-open': openImport(); break;
+      case 'imp-open': openImport('design'); break;
+      case 'imp-have': openImport('have'); break;
       case 'sp-open': openSpecials(); break;
       case 'sp-close': closeSpecials(); break;
       case 'sp-pick': pickSpecial(a.getAttribute('data-k')); break;

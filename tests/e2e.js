@@ -321,7 +321,7 @@ async function addTarget(page, side, i, query, famText) {
     assert.match(await page.locator('#p-intel summary').innerText(), /Runefather’s Grasping Mail/, 'the craft remembers it’s a special');
     await page.click('.tabs [data-go="design"]');
     // Import an item copied in game: the preview shows what was recognised, Import makes it the design
-    await page.click('[data-act="imp-open"]');
+    await page.click('.imp-btn[data-act="imp-open"]');
     await page.waitForFunction(() => document.activeElement.id === 'imp-text');
     assert.ok(await page.locator('[data-act="imp-go"]').isDisabled(), 'nothing to import yet');
     await page.fill('#imp-text', GAME_ITEM);
@@ -501,7 +501,7 @@ async function addTarget(page, side, i, query, famText) {
   await p.locator('[data-act="sp-pick"][data-k="ma-gloves"]').tap();
   assert.equal(await p.locator('.bp-name').textContent(), 'Secured Wraps');
   // Import on a phone, as my item in progress: the Forge starts from it
-  await p.locator('[data-act="imp-open"]').tap();
+  await p.locator('.imp-btn[data-act="imp-open"]').tap();
   await p.fill('#imp-text', GAME_ITEM);
   await p.locator('#imp-mine').check();
   const [sw5, w5] = await p.evaluate(() => [document.documentElement.scrollWidth, window.innerWidth]);
@@ -513,6 +513,35 @@ async function addTarget(page, side, i, query, famText) {
   const have = await p.locator('#p-item').innerText();
   for (const t of ['maximum Life', 'maximum Mana', 'Runic Ward', 'Cold Resistance', 'Fire Resistance', 'Dexterity']) assert.ok(have.includes(t), 'on the item: ' + t);
   assert.doesNotMatch(await p.locator('.st.now .card h3').innerText(), /What kind of item|What’s on it/, 'the setup is done: the plan goes on from the item');
+
+  // The Forge's two imports: next to Want (the design, as on Design) and next to Have (your item in progress, also at step 2)
+  const fctx = await browser.newContext({ viewport: { width: 1440, height: 1000 }, colorScheme: 'dark' });
+  const f = await fctx.newPage();
+  f.on('pageerror', (e) => errors.push('forge import: ' + e.message));
+  await f.goto(URL);
+  await f.click('.tabs [data-go="plan"]');
+  await f.click('#p-item [data-act="imp-open"]');
+  await f.fill('#imp-text', GAME_ITEM);
+  await f.click('[data-act="imp-go"]');
+  assert.ok(await f.locator('#v-plan').isVisible(), 'the Want import stays in the Forge');
+  assert.equal(await f.locator('#p-item .want .wn').count(), 6, 'six targets on the Want side');
+  await f.locator('.st.now button', { hasText: 'Rare' }).first().click();
+  await f.locator('.st.now [data-act="imp-have"]').click();
+  assert.equal(await f.locator('#imp-mine').count(), 0, 'no "it\'s my item" box: it is your item');
+  await f.fill('#imp-text', GAME_ITEM.replace('+113(105-124) to maximum Mana', '+95(90-104) to maximum Mana'));
+  assert.equal(await f.locator('[data-act="imp-go"]').innerText(), 'Put it on my item');
+  await f.click('[data-act="imp-go"]');
+  assert.match(await f.locator('#toast').innerText(), /^Your item now has its 6 mods from the game\. The steps follow it\.$/);
+  assert.doesNotMatch(await f.locator('.st.now .card h3').innerText(), /What kind of item|What’s on it/, 'the setup is done');
+  assert.match(await f.locator('#p-item').innerText(), /T2/, 'the mana it has, at T2');
+  assert.match(await f.getAttribute('.steps-tools [data-act="undo"]', 'title'), /Imported from the game/, 'one undoable edit');
+  await f.click('#p-item [data-act="imp-have"]');
+  await f.fill('#imp-text', 'Item Class: Body Armours\nRarity: Rare\nX\nGrasping Mail\n--------\nItem Level: 81\n--------\n+100 to maximum Life');
+  assert.match(await f.locator('#imp-prev .imp-err').innerText(), /this craft is for Gloves/);
+  assert.ok(await f.locator('[data-act="imp-go"]').isDisabled(), 'another slot can’t go on this item');
+  await f.keyboard.press('Escape');
+  await f.screenshot({ path: `${OUT}/dark-forge-import.png` });
+  await fctx.close();
 
   await browser.close();
   if (errors.length) { console.error(errors.join('\n')); process.exit(1); }
