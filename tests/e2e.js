@@ -543,6 +543,70 @@ async function addTarget(page, side, i, query, famText) {
   await f.screenshot({ path: `${OUT}/dark-forge-import.png` });
   await fctx.close();
 
+  // Moving a mod to another row of its box: Cold Resistance kept in place of Fire Resistance (drag, keyboard, Keep)
+  const MOVE_STATE = (() => {
+    const DATA = require('../data/data.json');
+    const E = require('../src/engine.js').createEngine(DATA, require('../src/prices.js'));
+    const cat = E.catalog('Secured Wraps', 82);
+    const mi = (s, t, tl) => E.tierOptions(cat, cat.sides[s].find((x) => x.t === t).f).find((o) => o.label === tl).mi;
+    const k = (s, t, tl) => ({ k: DATA.ids[mi(s, t, tl)] });
+    const craft = { v: 2, id: 'mv1', cls: 'gloves', base: 'Secured Wraps', ilvl: 82, su: 3, at: 1, h: [],
+      t: [[k(0, 'Adds # to # Lightning damage to Attacks', 'T1'), k(0, 'Adds # to # Cold damage to Attacks', 'T1'), k(0, '#% increased Evasion and Energy Shield', 'T1')],
+        [k(1, '+# to Level of all Melee Skills', 'T1'), k(1, '#% increased Critical Damage Bonus', 'T1'), k(1, '+#% to Fire Resistance', 'T2')]],
+      st: { r: 'rare', d: {}, sk: [], m: [
+        Object.assign({ id: 'ev', s: 0, mk: 'auto' }, k(0, '#% increased Evasion and Energy Shield', 'T1')),
+        Object.assign({ id: 'cold', s: 1, mk: 'auto' }, k(1, '+#% to Cold Resistance', 'T4')),
+        Object.assign({ id: 'crit', s: 1, mk: 'auto' }, k(1, '#% increased Critical Damage Bonus', 'T1'))] } };
+    return JSON.stringify({ crafts: { mv1: craft }, cur: 'mv1', league: 'fr', view: 'plan' });
+  })();
+  const mctx = await browser.newContext({ viewport: { width: 1440, height: 1000 }, colorScheme: 'dark' });
+  await mctx.addInitScript((st) => { if (!sessionStorage.getItem('seeded')) { localStorage.setItem('poe2-crafting-playbook-app-v2', st); sessionStorage.setItem('seeded', '1'); } }, MOVE_STATE);
+  const mv = await mctx.newPage();
+  mv.on('pageerror', (e) => errors.push('move: ' + e.message));
+  await mv.goto(URL + '#forge');
+  const nowTitle = () => mv.locator('.st.now .card h3').innerText();
+  assert.equal(await nowTitle(), 'Make room on the suffix side');
+  const skips = await mv.locator('.st.now .opt .ol').allInnerTexts();
+  assert.ok(skips.some((t) => /^Skip Level of all Melee Skills/.test(t)) && skips.some((t) => /^Skip Fire Resistance/.test(t)), 'a skip for each target that needs the slot');
+  assert.equal(await mv.locator('#p-item .h-grip').count(), 1, 'only the mod that isn’t a target can move');
+  // Drag it by its grip onto the Fire Resistance row
+  const gb = await mv.locator('#p-item .h-grip[data-id="cold"]').boundingBox();
+  const tb = await mv.locator('#p-item .srow[data-s="1"][data-r="2"]').boundingBox();
+  await mv.mouse.move(gb.x + gb.width / 2, gb.y + gb.height / 2);
+  await mv.mouse.down();
+  await mv.mouse.move(gb.x + 20, gb.y + 30, { steps: 4 });
+  await mv.mouse.move(tb.x + tb.width * 0.7, tb.y + tb.height / 2, { steps: 8 });
+  assert.equal(await mv.locator('#p-item .srow.drop-over').getAttribute('data-r'), '2', 'the row under the pointer lights up');
+  await mv.mouse.up();
+  assert.match(await mv.locator('#toast').innerText(), /^Cold Resistance now counts in place of Fire Resistance\./);
+  const fireRow = mv.locator('#p-item .srow[data-s="1"][data-r="2"]');
+  assert.match(await fireRow.innerText(), /Cold Resistance[\s\S]*In place of Fire Resistance · T4/);
+  assert.equal(await fireRow.locator('[data-act="mark"][data-v="keep"]').getAttribute('aria-pressed'), 'true', 'kept');
+  assert.notEqual(await nowTitle(), 'Make room on the suffix side', 'no room to make: the steps go on');
+  await mv.reload();
+  assert.match(await mv.locator('#p-item .srow[data-s="1"][data-r="2"]').innerText(), /In place of Fire Resistance/, 'saved with the craft');
+  await mv.screenshot({ path: `${OUT}/dark-forge-move.png` });
+  await mv.click('#p-item [data-act="undo"]');
+  assert.equal(await nowTitle(), 'Make room on the suffix side', 'Undo takes it back');
+  // Keyboard: the grip picks it up, the rows it can go to become buttons, Escape puts it down
+  await mv.focus('#p-item .h-grip[data-id="cold"]');
+  await mv.keyboard.press('Enter');
+  assert.equal(await mv.locator('#p-item .have.drop').count(), 1);
+  assert.equal(await mv.evaluate(() => document.activeElement.getAttribute('data-act')), 'move-to', 'focus on the first row it can go to');
+  await mv.keyboard.press('Escape');
+  assert.equal(await mv.locator('#p-item .have.drop').count(), 0);
+  assert.equal(await mv.evaluate(() => document.activeElement.getAttribute('data-act')), 'move', 'focus back on the grip');
+  await mv.keyboard.press('Enter');
+  await mv.keyboard.press('Enter');
+  assert.match(await mv.locator('#p-item .srow[data-s="1"][data-r="2"]').innerText(), /In place of Fire Resistance/);
+  // Ditch puts it back as junk; Keep in a target's row keeps it in place of that target
+  await mv.click('#p-item .srow[data-s="1"][data-r="2"] [data-act="mark"][data-v="junk"]');
+  const firstRow = mv.locator('#p-item .srow[data-s="1"][data-r="0"]');
+  assert.match(await firstRow.innerText(), /Cold Resistance[\s\S]*Not wanted/);
+  await firstRow.locator('[data-act="mark"][data-v="keep"]').click();
+  assert.match(await firstRow.innerText(), /In place of Level of all Melee Skills/);
+  await mctx.close();
+
   await browser.close();
   if (errors.length) { console.error(errors.join('\n')); process.exit(1); }
   console.log('e2e passed. Screenshots in tests/shots/');

@@ -433,6 +433,24 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
 .kd button[aria-pressed="true"][data-v="junk"]{background:color-mix(in srgb,var(--tip-junk) 20%,transparent);color:var(--tip-junk)}
 .h-x{background:none;border:0;color:var(--tip-muted);padding:.1rem .25rem;line-height:1}
 .h-x:hover{color:var(--tip-junk)}
+/* Moving a mod to another row: a grip to drag (or click), and the rows it can go to */
+.have.mv{grid-template-columns:auto minmax(0,1fr) auto}
+.h-grip{background:none;border:0;padding:0 .1rem 0 .55rem;color:var(--tip-muted);cursor:grab;touch-action:none;display:flex;align-items:center}
+.h-grip svg{width:.95rem;height:.95rem}
+.h-grip:hover,.h-grip[aria-pressed="true"]{color:var(--tip-rare)}
+.have.mv .h-main{padding-left:.35rem}
+.have.moving{outline:1px solid var(--tip-rare);outline-offset:-1px}
+.have.dragging{opacity:.4}
+.have.drop{display:block;width:100%;text-align:left;padding:0;border:1px dashed var(--tip-rare);background:color-mix(in srgb,var(--tip-rare) 7%,transparent);color:var(--tip-text);cursor:pointer;box-shadow:none}
+.have.drop .h-main{display:grid}
+.have.drop .h-st{color:var(--tip-muted)}
+.have.drop:hover,.have.drop:focus-visible{background:color-mix(in srgb,var(--tip-rare) 14%,transparent)}
+.srow.drop-ok .have{outline:1px dashed var(--tip-rare);outline-offset:-1px}
+.srow.drop-over .have{outline:2px solid var(--tip-rare);background:color-mix(in srgb,var(--tip-rare) 12%,var(--tip-slot))}
+.drag-ghost{position:fixed;left:0;top:0;z-index:60;pointer-events:none;opacity:.92;box-shadow:inset 3px 0 0 var(--st),var(--shadow)}
+.dragging-mod,.dragging-mod *{cursor:grabbing !important;user-select:none}
+.mv-hint{margin:0;font-size:.8rem;line-height:1.4;color:var(--tip-text)}
+.mv-cancel{background:none;border:0;padding:0;margin-left:.3rem;color:var(--tip-rare);font-size:.78rem;text-decoration:underline;text-underline-offset:.2em}
 .live-hint{font-size:.85rem;color:var(--tip-muted);text-align:center;margin-top:.35rem}
 .item.flash{animation:flash 1.2s ease-out}
 @keyframes flash{0%{box-shadow:0 0 0 3px var(--tip-rare)}100%{box-shadow:0 0 0 0 transparent}}

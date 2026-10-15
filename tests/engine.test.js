@@ -879,3 +879,46 @@ test('special crafts: every line of the priority list names mods the base can ro
     }
   }
 });
+
+test('a kept mod can stand in for a target: Cold Resistance in place of Fire Resistance', () => {
+  const W = 'Secured Wraps';
+  const cat = E.catalog(W, 82);
+  const fam = (side, tmpl) => cat.sides[side].find((f) => f.t === tmpl).f;
+  const design = {
+    cls: 'gloves', base: W, ilvl: 82, league: 'fr',
+    targets: [
+      [tgt(cat, 0, 'Adds # to # Lightning damage to Attacks', 'T1'), tgt(cat, 0, 'Adds # to # Cold damage to Attacks', 'T1'), tgt(cat, 0, '#% increased Evasion and Energy Shield', 'T1')],
+      [tgt(cat, 1, '+# to Level of all Melee Skills', 'T1'), tgt(cat, 1, '#% increased Critical Damage Bonus', 'T1'), tgt(cat, 1, '+#% to Fire Resistance', 'T2')]
+    ]
+  };
+  const cold = mod(cat, 1, '+#% to Cold Resistance', 'T4');
+  const st = { rarity: 'rare', done: {}, skip: {}, mods: [mod(cat, 0, '#% increased Evasion and Energy Shield', 'T1'), cold, mod(cat, 1, '#% increased Critical Damage Bonus', 'T1')] };
+  // As junk it blocks a suffix target, and every target on that side can be skipped, the hardest first
+  const rm = E.nextStep(design, st);
+  assert.equal(rm.kind, 'remove');
+  const skips = rm.options.filter((o) => o.skip).map((o) => o.label);
+  assert.deepEqual(skips, ['Skip Level of all Melee Skills', 'Skip Fire Resistance']);
+  assert.ok(rm.options.find((o) => o.key === 'settle'), 'the hardest one keeps the key the advice uses');
+  const cc = E.choiceCosts(design, st, rm);
+  assert.equal(cc.filter((x) => x.kind === 'skip').length, 2);
+  assert.ok(cc.every((x) => x.finish > 0));
+  // Kept in place of Fire Resistance: it fills that target, so the suffixes only need Level of all Melee Skills
+  cold.mark = 'keep';
+  cold.for = fam(1, '+#% to Fire Resistance');
+  const A = E.analyze(cat, design, st);
+  assert.equal(cold.status, 'hit');
+  assert.equal(cold.counts, true);
+  assert.deepEqual(A.sides[1].unfilled.map((t) => t.f), [fam(1, '+# to Level of all Melee Skills')]);
+  const steps = E.plan(design, st);
+  assert.ok(!steps.some((s) => s.kind === 'remove'), 'no room to make');
+  assert.equal(steps[steps.length - 1].kind, 'done');
+  // Only kept: a ditched mod never counts, and the real mod on the item wins
+  cold.mark = 'junk';
+  E.analyze(cat, design, st);
+  assert.equal(cold.counts, false);
+  cold.mark = 'keep';
+  st.mods.push(mod(cat, 1, '+#% to Fire Resistance', 'T1'));
+  E.analyze(cat, design, st);
+  assert.equal(cold.status, 'keep');
+  assert.equal(cold.counts, false);
+});

@@ -274,6 +274,7 @@
           var t = mod ? T[S.s].find(function (x) { return x.f === mod.f; }) : null;
           var status;
           m.accepted = false;
+          m.counts = false;
           if (m.mark === 'junk') status = 'junk';
           else if (t && mod.l >= t.lv) { status = 'hit'; filled.add(t); }
           else if (t && m.mark === 'keep') { status = 'hit'; filled.add(t); m.accepted = true; }
@@ -281,6 +282,16 @@
           else if (t) status = 'low';
           else status = 'junk';
           m.status = status;
+        });
+        /* A kept mod that isn't a target can stand in for one the player names (m.for, a family on this side): it fills
+           that target, unless the real mod is on the item too. */
+        S.mods.forEach(function (m) {
+          if (m.status !== 'keep' || m.for === undefined || m.for === null) return;
+          var t = T[S.s].find(function (x) { return x.f === m.for && !filled.has(x); });
+          if (t) { m.status = 'hit'; m.counts = true; filled.add(t); }
+        });
+        S.mods.forEach(function (m) {
+          var status = m.status;
           if (status === 'hit') S.hits.push(m);
           else if (status === 'keep') S.keeps.push(m);
           else { S.junk.push(m); if (status === 'low') S.low.push(m); }
@@ -912,12 +923,13 @@
             outcomes: makeOutcomesAdd(s, aims, S.unfilled, lowSide.id), project: proj(lowSide.id) });
         }
       }
-      var hardest = S.unfilled.slice().sort(byHardness(cat, A))[0];
-      if (hardest) {
-        options.push({ key: 'settle', label: 'Skip ' + tName(hardest), mats: [], p: 1,
-          text: 'Keep the junk and finish without ' + tName(hardest) + '. Costs nothing, and you can bring it back later.',
-          outcomes: [{ label: 'Skip ' + tName(hardest), o: { type: 'skip', f: hardest.f } }], project: { type: 'skip', f: hardest.f } });
-      }
+      /* Skipping: the hardest target first (the one the advice settles on), then each other one, so the player picks
+         which to give up. */
+      S.unfilled.slice().sort(byHardness(cat, A)).forEach(function (t, i) {
+        options.push({ key: i ? 'settle-' + t.f : 'settle', skip: true, label: 'Skip ' + tName(t), mats: [], p: 1,
+          text: 'Keep the junk and finish without ' + tName(t) + '. Costs nothing, and you can bring it back later.',
+          outcomes: [{ label: 'Skip ' + tName(t), o: { type: 'skip', f: t.f } }], project: { type: 'skip', f: t.f } });
+      });
       options.push({ key: 'restart', label: 'Start a new base', mats: [], p: 1, text: 'Throws this item away. Often the cheapest fix while only one or two of your mods are on it.',
         outcomes: [{ label: 'Start a new base', o: { type: 'restart' } }], project: { type: 'restart' } });
       /* Rough average spend to make progress: certain fixes cost their price; a random removal pays again on misses
@@ -1259,7 +1271,7 @@
       try { return fn(); } finally { LEAGUE = saved; }
     }
     function mkey(m) {
-      return [m.s, m.mi === null || m.mi === undefined ? -1 : m.mi, m.pseudo ? 1 : 0, m.mark || 'auto', m.crafted ? 1 : 0, m.desec ? 1 : 0, m.fract ? 1 : 0].join('|');
+      return [m.s, m.mi === null || m.mi === undefined ? -1 : m.mi, m.pseudo ? 1 : 0, m.mark || 'auto', m.crafted ? 1 : 0, m.desec ? 1 : 0, m.fract ? 1 : 0, m.for === undefined || m.for === null ? '' : m.for].join('|');
     }
     /* Same item, same node: mods sorted by what they are, ids renumbered, analysis fields dropped. */
     function canon(st) {
@@ -1269,6 +1281,7 @@
         if (m.crafted) o.crafted = true;
         if (m.desec) o.desec = true;
         if (m.fract) o.fract = true;
+        if (m.for !== undefined && m.for !== null) o.for = m.for;
         return o;
       });
       var out = { rarity: st.rarity, mods: mods, done: {}, skip: {} };
@@ -1576,13 +1589,13 @@
       if (nx.kind !== 'remove') return { type: 'route' };
       var op = suggestedOpt(nx);
       if (op.key === 'restart') return { type: 'restart' };
-      if (op.key === 'settle') return { type: 'skip', what: op.label.replace(/^Skip /, '') };
+      if (op.skip) return { type: 'skip', what: op.label.replace(/^Skip /, '') };
       var need = required(op.mats);
       return { type: 'fix', key: op.key, label: op.label, mats: need, each: matsCost(need, design.league === 'roa' ? 'roa' : 'fr').sum };
     }
     /* The choices a step offers that are worth pricing side by side, or null. */
     function choicesOf(step) {
-      if (step.options) return step.options.map(function (o) { return { key: o.key, label: o.label, op: o, kind: o.key === 'restart' ? 'restart' : o.key === 'settle' ? 'skip' : 'fix' }; });
+      if (step.options) return step.options.map(function (o) { return { key: o.key, label: o.label, op: o, kind: o.key === 'restart' ? 'restart' : o.skip ? 'skip' : 'fix' }; });
       if (step.kind === 'fixMagic') {
         return [{ key: 'restart', label: 'Start a new base', kind: 'restart', op: { key: 'restart', mats: [] } },
           { key: 'annul1', label: 'Orb of Annulment', kind: 'fix', op: { key: 'annul1', mats: [{ k: 'annul', n: 'Orb of Annulment' }] } }];

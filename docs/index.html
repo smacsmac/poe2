@@ -439,6 +439,24 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
 .kd button[aria-pressed="true"][data-v="junk"]{background:color-mix(in srgb,var(--tip-junk) 20%,transparent);color:var(--tip-junk)}
 .h-x{background:none;border:0;color:var(--tip-muted);padding:.1rem .25rem;line-height:1}
 .h-x:hover{color:var(--tip-junk)}
+/* Moving a mod to another row: a grip to drag (or click), and the rows it can go to */
+.have.mv{grid-template-columns:auto minmax(0,1fr) auto}
+.h-grip{background:none;border:0;padding:0 .1rem 0 .55rem;color:var(--tip-muted);cursor:grab;touch-action:none;display:flex;align-items:center}
+.h-grip svg{width:.95rem;height:.95rem}
+.h-grip:hover,.h-grip[aria-pressed="true"]{color:var(--tip-rare)}
+.have.mv .h-main{padding-left:.35rem}
+.have.moving{outline:1px solid var(--tip-rare);outline-offset:-1px}
+.have.dragging{opacity:.4}
+.have.drop{display:block;width:100%;text-align:left;padding:0;border:1px dashed var(--tip-rare);background:color-mix(in srgb,var(--tip-rare) 7%,transparent);color:var(--tip-text);cursor:pointer;box-shadow:none}
+.have.drop .h-main{display:grid}
+.have.drop .h-st{color:var(--tip-muted)}
+.have.drop:hover,.have.drop:focus-visible{background:color-mix(in srgb,var(--tip-rare) 14%,transparent)}
+.srow.drop-ok .have{outline:1px dashed var(--tip-rare);outline-offset:-1px}
+.srow.drop-over .have{outline:2px solid var(--tip-rare);background:color-mix(in srgb,var(--tip-rare) 12%,var(--tip-slot))}
+.drag-ghost{position:fixed;left:0;top:0;z-index:60;pointer-events:none;opacity:.92;box-shadow:inset 3px 0 0 var(--st),var(--shadow)}
+.dragging-mod,.dragging-mod *{cursor:grabbing !important;user-select:none}
+.mv-hint{margin:0;font-size:.8rem;line-height:1.4;color:var(--tip-text)}
+.mv-cancel{background:none;border:0;padding:0;margin-left:.3rem;color:var(--tip-rare);font-size:.78rem;text-decoration:underline;text-underline-offset:.2em}
 .live-hint{font-size:.85rem;color:var(--tip-muted);text-align:center;margin-top:.35rem}
 .item.flash{animation:flash 1.2s ease-out}
 @keyframes flash{0%{box-shadow:0 0 0 3px var(--tip-rare)}100%{box-shadow:0 0 0 0 transparent}}
@@ -1017,6 +1035,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
 <symbol id="u-scroll" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4h11a2 2 0 0 1 0 4h-2v10a2 2 0 0 1-2 2H6a2 2 0 0 1 0-4h2V6a2 2 0 0 0-2-2"/><path d="M11 9h3M11 12h3"/></symbol>
 <symbol id="u-book" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4.5c3-1 6-.5 8 1.5v14c-2-2-5-2.5-8-1.5zM20 4.5c-3-1-6-.5-8 1.5v14c2-2 5-2.5 8-1.5z"/></symbol>
 <symbol id="u-stack" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l9 4.5-9 4.5-9-4.5z"/><path d="M3 12l9 4.5 9-4.5M3 16.5l9 4.5 9-4.5"/></symbol>
+<symbol id="u-grip" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></symbol>
 <symbol id="u-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></symbol>
 <symbol id="u-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></symbol>
 <symbol id="u-list" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6.5h11M9 12h11M9 17.5h11"/><path d="M4.5 6.5h.01M4.5 12h.01M4.5 17.5h.01" stroke-width="3"/></symbol>
@@ -1038,7 +1057,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
     <a class="brand" href="#design" data-go="design" aria-label="Crafting Playbook, design screen">
       <span class="brand-mark" aria-hidden="true"></span>
       <span class="brand-name">Crafting Playbook</span>
-      <span class="brand-v" title="App version: V12">V12</span>
+      <span class="brand-v" title="App version: V13">V13</span>
       <span class="brand-sub">PoE2 · 0.5.5</span>
     </a>
     <nav class="tabs" aria-label="Screens">
@@ -1852,6 +1871,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
           var t = mod ? T[S.s].find(function (x) { return x.f === mod.f; }) : null;
           var status;
           m.accepted = false;
+          m.counts = false;
           if (m.mark === 'junk') status = 'junk';
           else if (t && mod.l >= t.lv) { status = 'hit'; filled.add(t); }
           else if (t && m.mark === 'keep') { status = 'hit'; filled.add(t); m.accepted = true; }
@@ -1859,6 +1879,16 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
           else if (t) status = 'low';
           else status = 'junk';
           m.status = status;
+        });
+        /* A kept mod that isn't a target can stand in for one the player names (m.for, a family on this side): it fills
+           that target, unless the real mod is on the item too. */
+        S.mods.forEach(function (m) {
+          if (m.status !== 'keep' || m.for === undefined || m.for === null) return;
+          var t = T[S.s].find(function (x) { return x.f === m.for && !filled.has(x); });
+          if (t) { m.status = 'hit'; m.counts = true; filled.add(t); }
+        });
+        S.mods.forEach(function (m) {
+          var status = m.status;
           if (status === 'hit') S.hits.push(m);
           else if (status === 'keep') S.keeps.push(m);
           else { S.junk.push(m); if (status === 'low') S.low.push(m); }
@@ -2490,12 +2520,13 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
             outcomes: makeOutcomesAdd(s, aims, S.unfilled, lowSide.id), project: proj(lowSide.id) });
         }
       }
-      var hardest = S.unfilled.slice().sort(byHardness(cat, A))[0];
-      if (hardest) {
-        options.push({ key: 'settle', label: 'Skip ' + tName(hardest), mats: [], p: 1,
-          text: 'Keep the junk and finish without ' + tName(hardest) + '. Costs nothing, and you can bring it back later.',
-          outcomes: [{ label: 'Skip ' + tName(hardest), o: { type: 'skip', f: hardest.f } }], project: { type: 'skip', f: hardest.f } });
-      }
+      /* Skipping: the hardest target first (the one the advice settles on), then each other one, so the player picks
+         which to give up. */
+      S.unfilled.slice().sort(byHardness(cat, A)).forEach(function (t, i) {
+        options.push({ key: i ? 'settle-' + t.f : 'settle', skip: true, label: 'Skip ' + tName(t), mats: [], p: 1,
+          text: 'Keep the junk and finish without ' + tName(t) + '. Costs nothing, and you can bring it back later.',
+          outcomes: [{ label: 'Skip ' + tName(t), o: { type: 'skip', f: t.f } }], project: { type: 'skip', f: t.f } });
+      });
       options.push({ key: 'restart', label: 'Start a new base', mats: [], p: 1, text: 'Throws this item away. Often the cheapest fix while only one or two of your mods are on it.',
         outcomes: [{ label: 'Start a new base', o: { type: 'restart' } }], project: { type: 'restart' } });
       /* Rough average spend to make progress: certain fixes cost their price; a random removal pays again on misses
@@ -2837,7 +2868,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
       try { return fn(); } finally { LEAGUE = saved; }
     }
     function mkey(m) {
-      return [m.s, m.mi === null || m.mi === undefined ? -1 : m.mi, m.pseudo ? 1 : 0, m.mark || 'auto', m.crafted ? 1 : 0, m.desec ? 1 : 0, m.fract ? 1 : 0].join('|');
+      return [m.s, m.mi === null || m.mi === undefined ? -1 : m.mi, m.pseudo ? 1 : 0, m.mark || 'auto', m.crafted ? 1 : 0, m.desec ? 1 : 0, m.fract ? 1 : 0, m.for === undefined || m.for === null ? '' : m.for].join('|');
     }
     /* Same item, same node: mods sorted by what they are, ids renumbered, analysis fields dropped. */
     function canon(st) {
@@ -2847,6 +2878,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
         if (m.crafted) o.crafted = true;
         if (m.desec) o.desec = true;
         if (m.fract) o.fract = true;
+        if (m.for !== undefined && m.for !== null) o.for = m.for;
         return o;
       });
       var out = { rarity: st.rarity, mods: mods, done: {}, skip: {} };
@@ -3154,13 +3186,13 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
       if (nx.kind !== 'remove') return { type: 'route' };
       var op = suggestedOpt(nx);
       if (op.key === 'restart') return { type: 'restart' };
-      if (op.key === 'settle') return { type: 'skip', what: op.label.replace(/^Skip /, '') };
+      if (op.skip) return { type: 'skip', what: op.label.replace(/^Skip /, '') };
       var need = required(op.mats);
       return { type: 'fix', key: op.key, label: op.label, mats: need, each: matsCost(need, design.league === 'roa' ? 'roa' : 'fr').sum };
     }
     /* The choices a step offers that are worth pricing side by side, or null. */
     function choicesOf(step) {
-      if (step.options) return step.options.map(function (o) { return { key: o.key, label: o.label, op: o, kind: o.key === 'restart' ? 'restart' : o.key === 'settle' ? 'skip' : 'fix' }; });
+      if (step.options) return step.options.map(function (o) { return { key: o.key, label: o.label, op: o, kind: o.key === 'restart' ? 'restart' : o.skip ? 'skip' : 'fix' }; });
       if (step.kind === 'fixMagic') {
         return [{ key: 'restart', label: 'Start a new base', kind: 'restart', op: { key: 'restart', mats: [] } },
           { key: 'annul1', label: 'Orb of Annulment', kind: 'fix', op: { key: 'annul1', mats: [{ k: 'annul', n: 'Orb of Annulment' }] } }];
@@ -3478,6 +3510,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
     if (m.desec) o.d = 1;
     if (m.fract) o.f = 1;
     if (m.est) o.e = 1;
+    if (m.for !== undefined && m.for !== null) o.fo = FAMS[m.for].s + ':' + FAMS[m.for].g;
     return o;
   }
   function unpackMod(o) {
@@ -3488,6 +3521,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
     if (o.d) m.desec = true;
     if (o.f) m.fract = true;
     if (o.e) m.est = true;
+    if (o.fo && FAMKEY[o.fo] !== undefined) m.for = FAMKEY[o.fo];
     return m;
   }
   function packSt(st) {
@@ -3597,6 +3631,8 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
   }
   var localTimer = null;
   function saveLocalSoon() { clearTimeout(localTimer); localTimer = setTimeout(saveLocal, 250); }
+  // A change made just before the page closes or reloads is still saved
+  window.addEventListener('pagehide', function () { if (localDirty || localTimer) saveLocal(); });
   function pushRemote(id) {
     clearTimeout(store.timers[id]); store.timers[id] = null;
     var c = app.crafts[id];
@@ -4157,7 +4193,8 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
     var tier = tierLab(catOf(cur()), m.mi);
     var tl = m.est ? tier + ' or better' : tier;
     switch (m.status) {
-      case 'hit': return m.accepted ? { cls: 'st-keep', text: 'Kept at ' + tier + ' (lower than wanted)' } : { cls: 'st-hit', text: 'On target · ' + tl };
+      case 'hit': return m.counts ? { cls: 'st-keep', text: 'In place of ' + E.famName(m.for) + ' · ' + tier }
+        : m.accepted ? { cls: 'st-keep', text: 'Kept at ' + tier + ' (lower than wanted)' } : { cls: 'st-hit', text: 'On target · ' + tl };
       case 'low': return { cls: 'st-low', text: 'Lower tier than wanted · ' + tier + (t ? ' vs ' + tierLab(catOf(cur()), t.mi) : '') };
       case 'keep': return { cls: 'st-keep', text: 'Not a target, keeping it · ' + tier };
       default: return { cls: 'st-junk', text: 'Not wanted · ' + tier };
@@ -4174,12 +4211,80 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
       }
       return { t: t, m: have };
     });
+    // A kept mod standing in for a target (E.analyze sets m.counts) sits in that target's row
+    rows.forEach(function (r) {
+      if (!r.t || r.m) return;
+      var f = famOf(r.t.mi);
+      var sub = mods.find(function (m) { return !used.has(m) && m.counts && m.for === f; });
+      if (sub) { r.m = sub; used.add(sub); }
+    });
     mods.filter(function (m) { return !used.has(m); }).forEach(function (m) {
       var r = rows.find(function (x) { return !x.m && !x.t; }) || rows.find(function (x) { return !x.m; });
       if (r) r.m = m; else rows.push({ t: null, m: m });
     });
     while (rows.length < cat.caps[s]) rows.push({ t: null, m: null });
     return rows;
+  }
+  /* Moving a mod to another row of its box: only a mod that isn't one of the side's targets can move (a target's own
+     mod belongs in its row). In a target's row it is kept in place of that target; in an Any row it stands in for
+     nothing. A stand-in already in the row swaps into the mod's old row. */
+  function movable(c, m) {
+    if (!m || m.pseudo || m.mi === null || m.mi === undefined) return false;
+    var f = famOf(m.mi);
+    return !c.targets[m.s].some(function (t) { return t && famOf(t.mi) === f; });
+  }
+  function hasFor(m) { return m.for !== undefined && m.for !== null; }
+  function moveDrops(c, rows, m) {
+    var out = {}, from = rows.findIndex(function (r) { return r.m === m; });
+    rows.forEach(function (r, i) {
+      if (i === from) return;
+      if (r.m && !r.m.pseudo && !movable(c, r.m)) return;
+      if (r.t) out[i] = { f: famOf(r.t.mi), other: r.m };
+      else if (hasFor(m)) out[i] = { f: null, other: r.m };
+    });
+    return out;
+  }
+  function dropText(m, d) {
+    var o = d.other && !d.other.pseudo ? modName(d.other) : null;
+    return (d.f !== null ? 'Keep it in place of ' + E.famName(d.f) : 'Keep it, not in place of a target') + (o ? ' · swaps with ' + o : '');
+  }
+  function moveMod(c, id, ri) {
+    var cat = catOf(c), m = findMod(c, id);
+    app.ui.move = null;
+    if (!m) { renderPlanItem(); return; }
+    E.analyze(cat, designOf(c), c.st);
+    var rows = rowsFor(c, m.s, cat), d = moveDrops(c, rows, m)[ri];
+    if (!d) { renderPlanItem(); return; }
+    var from = rows.find(function (r) { return r.m === m; });
+    var oldF = from && from.t ? famOf(from.t.mi) : null;
+    var n = d.other && !d.other.pseudo && d.other !== m && hasFor(d.other) ? d.other : null;
+    var label = n ? 'Swapped ' + modName(m) + ' and ' + modName(n) : d.f !== null ? modName(m) + ' in place of ' + E.famName(d.f) : 'Moved ' + modName(m);
+    var done = manualEdit(c, function () {
+      if (d.f !== null) { m.for = d.f; m.mark = 'keep'; if (c.st.skip) delete c.st.skip[d.f]; } else delete m.for;
+      if (n) { if (oldF !== null) n.for = oldF; else delete n.for; }
+    }, label);
+    if (done) toast(d.f !== null ? modName(m) + ' now counts in place of ' + E.famName(d.f) + '. The steps follow it, and Undo takes it back.' : modName(m) + ' no longer stands in for a target.', 6000);
+    var g = document.querySelector('#p-item [data-act="move"][data-id="' + id + '"]');
+    if (g) { try { g.focus({ preventScroll: true }); } catch (err) { /* ignore */ } }
+  }
+  function startMove(c, id) {
+    var m = findMod(c, id);
+    if (!m) return;
+    if (app.ui.move === id) { cancelMove(); return; }
+    var cat = catOf(c);
+    E.analyze(cat, designOf(c), c.st);
+    if (!Object.keys(moveDrops(c, rowsFor(c, m.s, cat), m)).length) { toast('There’s no other row ' + modName(m) + ' can go to.'); return; }
+    app.ui.move = id;
+    renderPlanItem();
+    var b = document.querySelector('#p-item .have.drop');
+    if (b) { try { b.focus({ preventScroll: true }); } catch (err) { /* ignore */ } }
+  }
+  function cancelMove() {
+    var id = app.ui.move;
+    app.ui.move = null;
+    renderPlanItem();
+    var g = id && document.querySelector('#p-item [data-act="move"][data-id="' + id + '"]');
+    if (g) { try { g.focus({ preventScroll: true }); } catch (err) { /* ignore */ } }
   }
   function renderPlanItem() {
     var c = cur();
@@ -4202,10 +4307,16 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
       '<button type="button" class="tbtn sm tb-undo" data-act="undo"' + (canUndo ? ' title="Undo: ' + esc(undoLabel(c)) + '"' : ' aria-disabled="true" title="Nothing to undo yet"') + '>' + ico('u-undo') + 'Undo</button></div>';
     h += '<div class="cols-h"><span class="chl"><span aria-hidden="true">Want</span><button type="button" class="imp-mini" data-act="imp-open" aria-label="Import a design from the game" title="Import an item from the game as your design">' + ico('u-import') + 'Import</button></span>' +
       '<span class="chl"><span aria-hidden="true">Have</span><button type="button" class="imp-mini" data-act="imp-have" aria-label="Import your item from the game" title="Import your item in progress from the game">' + ico('u-import') + 'Import</button></span></div>';
+    var mvm = app.ui.move ? findMod(c, app.ui.move) : null;
+    if (app.ui.move && !mvm) app.ui.move = null;
     [0, 1].forEach(function (s) {
       if (!cat.caps[s]) return;
-      h += '<section class="sbox ' + (s ? 'suf' : 'pre') + '" aria-label="' + (s ? 'Suffixes' : 'Prefixes') + '"><p class="grp">' + (s ? 'Suffixes' : 'Prefixes') + '</p><div class="srows">';
-      rowsFor(c, s, cat).forEach(function (r) {
+      var rows = rowsFor(c, s, cat);
+      var drops = mvm && mvm.s === s ? moveDrops(c, rows, mvm) : null;
+      h += '<section class="sbox ' + (s ? 'suf' : 'pre') + (drops ? ' moving' : '') + '" aria-label="' + (s ? 'Suffixes' : 'Prefixes') + '"><p class="grp">' + (s ? 'Suffixes' : 'Prefixes') + '</p>';
+      if (drops) h += '<p class="mv-hint">Pick a row for ' + modHTML(modName(mvm)) + '. In a target’s row it counts in place of that target. <button type="button" class="mv-cancel" data-act="move-cancel">Cancel</button></p>';
+      h += '<div class="srows">';
+      rows.forEach(function (r, ri) {
         var w;
         if (r.t) {
           var f = famOf(r.t.mi);
@@ -4215,7 +4326,10 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
             (sk ? '<button type="button" class="unskip" data-act="unskip" data-f="' + f + '">Want it again</button>' : '') + '</div>';
         } else w = '<div class="want none"><span class="wt">Any</span></div>';
         var hv;
-        if (!r.m) {
+        if (drops && drops[ri]) {
+          hv = '<button type="button" class="have drop" data-act="move-to" data-id="' + esc(mvm.id) + '" data-r="' + ri + '"><span class="h-main"><span class="h-text">Put ' + modHTML(modName(mvm)) + ' here</span>' +
+            '<span class="h-st"><span>' + modHTML(dropText(mvm, drops[ri])) + '</span></span></span></button>';
+        } else if (!r.m) {
           hv = '<div class="have empty"><button type="button" class="h-main" data-act="have-add" data-s="' + s + '"' + (r.t ? ' data-f="' + famOf(r.t.mi) + '"' : '') + (rar === 'none' ? ' aria-disabled="true"' : '') + '><span class="h-text">' + (rar === 'none' ? 'Empty' : '+ Add what’s here') + '</span></button></div>';
         } else {
           var m = r.m, info = statusInfo(m, r.t);
@@ -4223,15 +4337,20 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
           if (m.crafted) flags.push('Crafted');
           if (m.desec) flags.push('Desecrated');
           if (m.fract) flags.push('Fractured');
-          var showKd = !m.pseudo && (m.status === 'junk' || m.status === 'keep' || m.status === 'low' || m.accepted);
+          var showKd = !m.pseudo && (m.status === 'junk' || m.status === 'keep' || m.status === 'low' || m.accepted || m.counts);
           var keepOn = m.mark === 'keep';
-          hv = '<div class="have ' + info.cls + '"><button type="button" class="h-main" data-act="have-edit" data-id="' + esc(m.id) + '">' +
+          var mv = rar !== 'none' && movable(c, m);
+          // Keep on a mod sitting in a target's row keeps it in place of that target
+          var kf = mv && r.t && !m.counts ? famOf(r.t.mi) : null;
+          hv = '<div class="have ' + info.cls + (mv ? ' mv' : '') + (mvm === m ? ' moving' : '') + '">' +
+            (mv ? '<button type="button" class="h-grip" data-act="move" data-id="' + esc(m.id) + '" aria-pressed="' + (mvm === m) + '" aria-label="Move ' + esc(modName(m)) + ' to another row" title="Drag it to another row, or click and pick the row">' + ico('u-grip') + '</button>' : '') +
+            '<button type="button" class="h-main" data-act="have-edit" data-id="' + esc(m.id) + '">' +
             '<span class="h-text">' + (m.pseudo ? (m.pseudo === 'junk' ? 'A ' + SIDE[s] + ' you don’t want' : 'Any ' + SIDE[s] + ' (junk to sacrifice)') : modHTML(modText(m.mi))) + '</span>' +
             '<span class="h-st"><span>' + esc(info.text) + '</span>' + flags.map(function (f) { return '<span class="fl">' + f + '</span>'; }).join('') + '</span></button>' +
-            '<div class="h-tools">' + (showKd ? '<div class="kd" role="group" aria-label="Keep or ditch"><button type="button" data-act="mark" data-id="' + esc(m.id) + '" data-v="keep" aria-pressed="' + keepOn + '">Keep</button><button type="button" data-act="mark" data-id="' + esc(m.id) + '" data-v="junk" aria-pressed="' + (!keepOn) + '">Ditch</button></div>' : '') +
+            '<div class="h-tools">' + (showKd ? '<div class="kd" role="group" aria-label="Keep or ditch"><button type="button" data-act="mark" data-id="' + esc(m.id) + '" data-v="keep" aria-pressed="' + keepOn + '"' + (kf !== null ? ' data-f="' + kf + '" title="Keep it in place of ' + esc(E.famName(kf)) + '"' : '') + '>Keep</button><button type="button" data-act="mark" data-id="' + esc(m.id) + '" data-v="junk" aria-pressed="' + (!keepOn) + '">Ditch</button></div>' : '') +
             '<button type="button" class="h-x" data-act="have-del" data-id="' + esc(m.id) + '" aria-label="Remove ' + esc(modName(m)) + ': not on my item">' + ico('u-x') + '</button></div></div>';
         }
-        h += '<div class="srow">' + w + hv + '</div>';
+        h += '<div class="srow' + (drops && drops[ri] ? ' drop-ok' : '') + '" data-s="' + s + '" data-r="' + ri + '">' + w + hv + '</div>';
       });
       h += '</div></section>';
     });
@@ -4991,7 +5110,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
   function stSig(st) {
     if (!st) return '';
     return JSON.stringify([st.rarity, st.mods.map(function (m) {
-      return [m.s, m.mi === undefined ? null : m.mi, m.pseudo || '', m.mark || 'auto', !!m.crafted, !!m.desec, !!m.fract].join('|');
+      return [m.s, m.mi === undefined ? null : m.mi, m.pseudo || '', m.mark || 'auto', !!m.crafted, !!m.desec, !!m.fract, m.for === undefined || m.for === null ? '' : m.for].join('|');
     }).sort(), Object.keys(st.skip || {}).filter(function (k) { return st.skip[k]; }).sort(), st.done || {}]);
   }
   function manualEdit(c, fn, label) {
@@ -5036,7 +5155,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
     var outs = opt ? opt.outcomes : step.outcomes;
     var o = outs[i];
     if (!o) return;
-    var title = step.title + (opt && opt.key !== 'settle' && opt.key !== 'restart' ? ' · ' + opt.label : '');
+    var title = step.title + (opt && !opt.skip && opt.key !== 'restart' ? ' · ' + opt.label : '');
     var sp = E.spendOf(step, opt, o);
     if (o.astrid) {
       pushHist(c, { t: 'Edited the item', o: 'Turned on Astrid’s Creativity', e: true, as: !!c.astrid });
@@ -5399,7 +5518,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
     if (m.pseudo) return m.pseudo === 'junk' ? 'a ' + SIDE[m.s] + ' I don’t want' : 'any ' + SIDE[m.s] + ', there as junk to sacrifice';
     var tl = tierLab(cat, m.mi), roll = tl.charAt(0) === 'T';
     var tier = roll ? (m.est ? tl + ' or better' : tl) : '';
-    var st = m.status === 'hit' ? (m.accepted ? 'kept at ' + tl + ' (lower than wanted)' : 'on target')
+    var st = m.status === 'hit' ? (m.counts ? 'not a target, kept in place of ' + E.famName(m.for) : m.accepted ? 'kept at ' + tl + ' (lower than wanted)' : 'on target')
       : m.status === 'low' ? 'lower tier than wanted' + (t ? ' (want ' + tierLab(cat, t.mi) + ')' : '')
         : m.status === 'keep' ? 'not a target, keeping it' : 'not wanted';
     var bits = [st];
@@ -5445,7 +5564,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
     var cat = catOf(c), b = cat.base, design = designOf(c);
     var skip = (c.st && c.st.skip) || {};
     var L = [];
-    L.push('Path of Exile 2 crafting, patch 0.5.5. This is a craft I’m working on, copied from the crafting planner app I use (PoE2 Crafting Playbook V12). Prices are from the ' + (app.league === 'roa' ? 'Runes of Aldur' : 'Forbidden Rites') + ' league, in divines (div) and exalts (ex).');
+    L.push('Path of Exile 2 crafting, patch 0.5.5. This is a craft I’m working on, copied from the crafting planner app I use (PoE2 Crafting Playbook V13). Prices are from the ' + (app.league === 'roa' ? 'Runes of Aldur' : 'Forbidden Rites') + ' league, in divines (div) and exalts (ex).');
     L.push('How to read it: T1 is a mod’s best tier. Crafted mods come from an essence or an alloy, one per item (two with the rune Astrid’s Creativity socketed). Desecrated mods come from a desecration at the Well of Souls, one per item. The app’s odds count every eligible tier as equally likely, so they’re rough.');
     L.push('', 'THE ITEM');
     L.push(c.base + ' (' + CLS[c.cls].n + (b.sub ? ', ' + b.sub : '') + '), item level ' + c.ilvl + '.');
@@ -5912,6 +6031,73 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
   function hideToast() { clearTimeout(toastTimer); $('toast').hidden = true; }
 
   /* ---------- events ---------- */
+  /* Drag a mod by its grip to another row of its box, with a mouse or a finger. A press that doesn't move is a click:
+     the grip then picks the mod up and the rows it can go to become buttons (keyboard and screen readers too). */
+  var drag = null, dragJust = false;
+  function dragOff(d) {
+    if (d.ghost && d.ghost.parentNode) d.ghost.parentNode.removeChild(d.ghost);
+    document.querySelectorAll('#p-item .drop-ok, #p-item .drop-over, #p-item .dragging').forEach(function (el) { el.classList.remove('drop-ok', 'drop-over', 'dragging'); });
+    document.documentElement.classList.remove('dragging-mod');
+  }
+  function dragStart(d) {
+    var c = cur(), m = findMod(c, d.id);
+    if (!m) return false;
+    var cat = catOf(c);
+    E.analyze(cat, designOf(c), c.st);
+    var drops = moveDrops(c, rowsFor(c, m.s, cat), m);
+    if (!Object.keys(drops).length) return false;
+    var cell = d.g.closest('.have');
+    if (!cell) return false;
+    document.querySelectorAll('#p-item .srow[data-s="' + m.s + '"]').forEach(function (row) { if (drops[+row.getAttribute('data-r')]) row.classList.add('drop-ok'); });
+    var r = cell.getBoundingClientRect();
+    d.dx = d.x - r.left; d.dy = d.y - r.top;
+    d.ghost = cell.cloneNode(true);
+    d.ghost.classList.add('drag-ghost');
+    d.ghost.setAttribute('aria-hidden', 'true');
+    d.ghost.style.width = r.width + 'px';
+    cell.parentNode.appendChild(d.ghost);
+    cell.classList.add('dragging');
+    document.documentElement.classList.add('dragging-mod');
+    d.on = true;
+    return true;
+  }
+  document.addEventListener('pointerdown', function (e) {
+    var g = e.target.closest && e.target.closest('#p-item .h-grip');
+    if (!g || e.button > 0) return;
+    drag = { g: g, id: g.getAttribute('data-id'), x: e.clientX, y: e.clientY, pid: e.pointerId, on: false, ghost: null, over: null };
+    try { g.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+  });
+  document.addEventListener('pointermove', function (e) {
+    var d = drag;
+    if (!d || e.pointerId !== d.pid) return;
+    if (!d.on) {
+      if (Math.abs(e.clientX - d.x) + Math.abs(e.clientY - d.y) < 6) return;
+      if (!dragStart(d)) { drag = null; return; }
+    }
+    e.preventDefault();
+    d.ghost.style.transform = 'translate(' + (e.clientX - d.dx) + 'px,' + (e.clientY - d.dy) + 'px)';
+    var el = document.elementFromPoint(e.clientX, e.clientY);
+    var row = el && el.closest ? el.closest('#p-item .srow.drop-ok') : null;
+    if (row !== d.over) {
+      if (d.over) d.over.classList.remove('drop-over');
+      d.over = row;
+      if (row) row.classList.add('drop-over');
+    }
+  });
+  function dragEnd(e, keep) {
+    var d = drag;
+    if (!d || e.pointerId !== d.pid) return;
+    drag = null;
+    if (!d.on) return;
+    dragJust = true;
+    setTimeout(function () { dragJust = false; }, 0);
+    var to = keep && d.over ? +d.over.getAttribute('data-r') : null;
+    dragOff(d);
+    if (to !== null) moveMod(cur(), d.id, to);
+  }
+  document.addEventListener('pointerup', function (e) { dragEnd(e, true); });
+  document.addEventListener('pointercancel', function (e) { dragEnd(e, false); });
+
   document.addEventListener('click', function (e) {
     if (findOpen() && !e.target.closest('#find')) closeFind(false);
     var g = e.target.closest('[data-go]');
@@ -5930,6 +6116,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
     var a = e.target.closest('[data-act]');
     if (!a) return;
     var act = a.getAttribute('data-act');
+    if (app.ui.move && act !== 'move' && act !== 'move-to' && act !== 'move-cancel') app.ui.move = null;
     var c = cur();
     var s = +a.getAttribute('data-s'), i = +a.getAttribute('data-i');
     switch (act) {
@@ -5947,7 +6134,20 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
       case 'have-add': if (a.getAttribute('aria-disabled') === 'true') { toast('Set the rarity to Magic or Rare first.'); break; } addHave(s, a.hasAttribute('data-f') ? +a.getAttribute('data-f') : null); break;
       case 'have-edit': editHave(a.getAttribute('data-id')); break;
       case 'have-del': (function (id) { var m = findMod(c, id); if (m) manualEdit(c, function () { c.st.mods = c.st.mods.filter(function (x) { return x.id !== id; }); }, 'Removed ' + modName(m)); })(a.getAttribute('data-id')); break;
-      case 'mark': if (a.getAttribute('aria-pressed') === 'true') break; (function (id, v) { var m = findMod(c, id); if (m) manualEdit(c, function () { m.mark = v; }, (v === 'keep' ? 'Kept ' : 'Ditched ') + modName(m)); })(a.getAttribute('data-id'), a.getAttribute('data-v')); break;
+      case 'mark': (function (id, v, f) {
+        var m = findMod(c, id);
+        if (!m || (a.getAttribute('aria-pressed') === 'true' && !(f !== null && m.for !== +f))) return;
+        var inPlace = v === 'keep' && f !== null;
+        manualEdit(c, function () {
+          m.mark = v;
+          if (inPlace) { m.for = +f; if (c.st.skip) delete c.st.skip[+f]; }
+          if (v === 'junk') delete m.for;
+        }, inPlace ? modName(m) + ' in place of ' + E.famName(+f) : (v === 'keep' ? 'Kept ' : 'Ditched ') + modName(m));
+        if (inPlace) toast(modName(m) + ' now counts in place of ' + E.famName(+f) + '. Drag it to another row to change that.', 6000);
+      })(a.getAttribute('data-id'), a.getAttribute('data-v'), a.getAttribute('data-f')); break;
+      case 'move': if (dragJust) break; startMove(c, a.getAttribute('data-id')); break;
+      case 'move-to': moveMod(c, a.getAttribute('data-id'), +a.getAttribute('data-r')); break;
+      case 'move-cancel': cancelMove(); break;
       case 'unskip': (function (f) { manualEdit(c, function () { if (c.st && c.st.skip) delete c.st.skip[f]; }, 'Wanted ' + E.famName(+f) + ' again'); })(a.getAttribute('data-f')); break;
       case 'setup-done': manualEdit(c, function () { c.su = (c.su | 0) | 3; }, 'Step 2 done'); break;
       case 'to-item': (function () { var card = $('p-card'); if (card) { card.scrollIntoView({ behavior: reduceMotion() ? 'auto' : 'smooth', block: 'start' }); try { card.focus({ preventScroll: true }); } catch (err) { /* ignore */ } } })(); break;
@@ -6063,6 +6263,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
     if (importOpen()) { closeImport(); e.preventDefault(); return; }
     if (specialsOpen()) { closeSpecials(); e.preventDefault(); return; }
     if (app.pk) { closePicker(); e.preventDefault(); return; }
+    if (app.ui.move) { cancelMove(); e.preventDefault(); return; }
     if (slotsOpen()) { closeSlots(); e.preventDefault(); return; }
     if (!$('drawer').hidden) { closeDrawer(); e.preventDefault(); }
   });
