@@ -118,7 +118,20 @@ svg.ico{width:1.25em;height:1.25em;flex:none;stroke-width:2.6;vertical-align:-.2
 .brand{display:flex;align-items:center;gap:.6rem;min-width:0;text-decoration:none;color:var(--fg)}
 .brand-mark{width:12px;height:12px;background:var(--brass);transform:rotate(45deg);flex:none;box-shadow:0 0 0 3px var(--surface),0 0 0 4px var(--brass-dim)}
 .brand-name{font-family:var(--font-display);font-weight:700;font-size:1.22rem;white-space:nowrap;min-width:0;overflow:hidden;text-overflow:ellipsis}
-.brand-v{font-family:var(--font-mono);font-size:.62rem;letter-spacing:.06em;color:var(--brass);border:1px solid var(--brass-dim);border-radius:3px;padding:0 .3rem;line-height:1.5;flex:none}
+.brand-wrap{display:flex;align-items:center;gap:.6rem;min-width:0}
+.brand-v{position:relative;font-family:var(--font-mono);font-size:.62rem;letter-spacing:.06em;color:var(--brass);background:none;border:1px solid var(--brass-dim);border-radius:3px;padding:0 .3rem;line-height:1.5;flex:none;cursor:pointer}
+.brand-v:hover{border-color:var(--brass);background:var(--brass-wash)}
+.bv-dot{position:absolute;top:-4px;right:-4px;width:8px;height:8px;border-radius:50%;background:var(--brass);box-shadow:0 0 0 2px var(--surface)}
+/* What's new: every version's change in a line, newest first */
+.modal-card.news-card{width:min(36rem,100%);grid-template-rows:auto minmax(0,1fr)}
+.news{list-style:none;margin:0;padding:0 1.1rem 1.1rem;display:grid;gap:.15rem;overflow:auto;min-height:0;align-content:start}
+.news li{display:grid;grid-template-columns:5.2rem minmax(0,1fr);gap:.8rem;align-items:baseline;padding:.55rem 0;border-top:1px solid var(--line)}
+.news li:first-child{border-top:0}
+.nv{font-family:var(--font-mono);font-size:.78rem;color:var(--brass);white-space:nowrap}
+@media (max-width:640px){.news li{grid-template-columns:4.3rem minmax(0,1fr);gap:.6rem}}
+.news p{font-size:.93rem;line-height:1.45;color:var(--fg)}
+.news b{font-weight:600;color:var(--fg)}
+.news-new{display:inline-block;margin-left:.45rem;font-family:var(--font-mono);font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;color:var(--brass-ink);background:var(--brass);border-radius:3px;padding:0 .3rem;vertical-align:.1em}
 .brand-sub{font-family:var(--font-mono);font-size:.66rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);white-space:nowrap}
 .tabs{display:flex;gap:.25rem;height:100%}
 .tab{display:flex;align-items:center;gap:.45rem;height:100%;padding:0 .85rem;border:0;background:none;color:var(--muted);font-family:var(--font-display);font-weight:500;font-size:1.06rem;border-bottom:2px solid transparent;margin-bottom:-1px}
@@ -1101,12 +1114,14 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
 
 <header class="bar">
   <div class="bar-in">
-    <a class="brand" href="#design" data-go="design" aria-label="Crafting Playbook, design screen">
-      <span class="brand-mark" aria-hidden="true"></span>
-      <span class="brand-name">Crafting Playbook</span>
-      <span class="brand-v" title="App version: V14">V14</span>
+    <div class="brand-wrap">
+      <a class="brand" href="#design" data-go="design" aria-label="Crafting Playbook, design screen">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <span class="brand-name">Crafting Playbook</span>
+      </a>
+      <button type="button" class="brand-v" data-act="news-open" aria-haspopup="dialog" aria-label="Version V15: what’s new" title="What each version added">V15<i class="bv-dot" aria-hidden="true" hidden></i></button>
       <span class="brand-sub">PoE2 · 0.5.5</span>
-    </a>
+    </div>
     <nav class="tabs" aria-label="Screens">
       <button type="button" class="tab" data-go="design">Design</button>
       <button type="button" class="tab" data-go="plan">Forge <span class="n" id="tab-step" hidden></span></button>
@@ -1362,6 +1377,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
 <div class="modal" id="copybox" hidden></div>
 <div class="modal" id="impbox" hidden></div>
 <div class="modal" id="bldbox" hidden></div>
+<div class="modal" id="newsbox" hidden></div>
 <div class="modal" id="spbox" hidden></div>
 <div class="drawer" id="drawer" hidden></div>
 <div class="drawer left" id="slots" hidden></div>
@@ -1869,6 +1885,26 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.BuildFile = api;
 })(typeof window !== 'undefined' ? window : this);
+
+</script>
+<script>
+/* What each version added, one short line each, for the "What's new" box (click the version in the header).
+   Newest first. A feature built over several versions is one line with a range (v: [from, to]).
+   **Bold** marks a button or tab's name as the app shows it. Add a line for every version published to main. */
+window.CHANGES = [
+  { v: [15, 15], t: 'Click the version number in the header (like you just did) to see what each version added.' },
+  { v: [14, 14], t: '**Import a build** on the Design screen: open a guide’s .build file (the kind the game’s Build Planner reads) or a .zip of its steps, pick a step and an item, and its mods become your design.' },
+  { v: [13, 13], t: 'In the Forge, drag a mod on your item to another row: in a target’s row it counts in place of that target. **Make room** can skip any of the targets, not only the hardest.' },
+  { v: [12, 12], t: '**Import** next to Want and Have in the Forge, and **Import from game** in step 2: bring in the item you’re crafting, copied from the game.' },
+  { v: [10, 11], t: '**My crafts**: rename a craft with the pencil, and tick several to delete them at once.' },
+  { v: [7, 9], t: '**Special** under the slots: ready-made designs for items that sell, with market notes and the mods that matter most, ticked against your item. Special crafts show in purple.' },
+  { v: [6, 6], t: '**Import an item from the game** on the Design screen: paste an item copied with Ctrl+Alt+C and its mods become your targets. Tiers are numbered as in game.' },
+  { v: [5, 5], t: 'Grasping Mail rolls ring mods too, and **Runefather’s Grasping Mail** gets its steps at the Verisium Anvil.' },
+  { v: [2, 4], t: '**Shopping list** in the Forge: what to buy as a checklist, with prices when you tick Show prices, and what each choice still costs to finish.' },
+  { v: [3, 3], t: 'After **Suggest**, a step to buy that base, where you set the tiers you got.' },
+  { v: [2, 3], t: 'The **Story** tab: Path of Exile 2’s story in 50 to 1,000 words, and a fact at a time.' },
+  { v: [1, 1], t: 'The first version: **Design** the item you want, **Forge** it step by step with odds and prices, and look things up in **Reference**. Also **Find a base**, Astrid’s Creativity, **Copy for a chat** and **Undo**.' }
+];
 
 </script>
 <script>
@@ -5984,7 +6020,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
     var cat = catOf(c), b = cat.base, design = designOf(c);
     var skip = (c.st && c.st.skip) || {};
     var L = [];
-    L.push('Path of Exile 2 crafting, patch 0.5.5. This is a craft I’m working on, copied from the crafting planner app I use (PoE2 Crafting Playbook V14). Prices are from the ' + (app.league === 'roa' ? 'Runes of Aldur' : 'Forbidden Rites') + ' league, in divines (div) and exalts (ex).');
+    L.push('Path of Exile 2 crafting, patch 0.5.5. This is a craft I’m working on, copied from the crafting planner app I use (PoE2 Crafting Playbook V15). Prices are from the ' + (app.league === 'roa' ? 'Runes of Aldur' : 'Forbidden Rites') + ' league, in divines (div) and exalts (ex).');
     L.push('How to read it: T1 is a mod’s best tier. Crafted mods come from an essence or an alloy, one per item (two with the rune Astrid’s Creativity socketed). Desecrated mods come from a desecration at the Well of Souls, one per item. The app’s odds count every eligible tier as equally likely, so they’re rough.');
     L.push('', 'THE ITEM');
     L.push(c.base + ' (' + CLS[c.cls].n + (b.sub ? ', ' + b.sub : '') + '), item level ' + c.ilvl + '.');
@@ -6472,6 +6508,46 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
       (prev ? ' The ' + craftName(prev) + ' craft is in My crafts.' : ''), 6500);
   }
 
+  /* ---------- what's new: what each version added, from src/changes.js (click the version in the header) ----------
+     The version a viewer last read is kept (LS_SEEN); a dot on the version says there's something newer, and the box
+     tags those lines New. */
+  var LS_SEEN = 'poe2-crafting-playbook-seen';
+  var APP_V = parseInt('V15'.slice(1), 10) || 0;
+  var CHANGES = (window.CHANGES || []).filter(function (x) { return x && Array.isArray(x.v) && typeof x.t === 'string'; })
+    .sort(function (a, b) { return (b.v[1] - a.v[1]) || (b.v[0] - a.v[0]); });
+  var newsRet = null;
+  function seenV() { try { return parseInt(localStorage.getItem(LS_SEEN), 10) || 0; } catch (e) { return APP_V; } }
+  function renderNewsDot() {
+    var unseen = seenV() < APP_V, b = document.querySelector('.brand-v');
+    if (!b) return;
+    b.querySelector('.bv-dot').hidden = !unseen;
+    b.setAttribute('aria-label', 'Version ' + APP_V + ': what’s new' + (unseen ? ', with changes since your last look' : ''));
+  }
+  function verLabel(v) { return v[0] === v[1] ? 'V' + v[0] : 'V' + v[0] + '–V' + v[1]; }
+  function newsOpen() { return !$('newsbox').hidden; }
+  function openNews() {
+    newsRet = document.activeElement;
+    var seen = seenV(), el = $('newsbox');
+    el.hidden = false;
+    el.innerHTML = '<div class="modal-card news-card" role="dialog" aria-modal="true" aria-labelledby="news-t">' +
+      '<div class="pk-head"><div><h2 id="news-t">What’s new</h2><p>What each version of the app added, newest first. You’re on V' + APP_V + '.</p></div>' +
+      '<button type="button" class="x" data-act="news-close" aria-label="Close">' + ico('u-x') + '</button></div>' +
+      '<ol class="news">' + CHANGES.map(function (x) {
+        var fresh = seen > 0 && x.v[1] > seen;
+        return '<li><span class="nv">' + verLabel(x.v) + '</span><p>' + esc(x.t).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>') + (fresh ? '<span class="news-new">New</span>' : '') + '</p></li>';
+      }).join('') + '</ol></div>';
+    try { localStorage.setItem(LS_SEEN, String(APP_V)); } catch (e) { /* blocked: the dot just stays */ }
+    renderNewsDot();
+    setTimeout(function () { var x = el.querySelector('[data-act="news-close"]'); if (x) { try { x.focus(); } catch (e) { /* ignore */ } } }, 0);
+  }
+  function closeNews() {
+    var el = $('newsbox');
+    el.hidden = true; el.innerHTML = '';
+    var back = newsRet && document.body.contains(newsRet) ? newsRet : document.querySelector('.brand-v');
+    if (back) { try { back.focus({ preventScroll: true }); } catch (e) { /* ignore */ } }
+    newsRet = null;
+  }
+
   /* ---------- special crafts: ready-made designs with market notes (src/specials.js) ---------- */
   var spRet = null;
   function openSpecials() {
@@ -6754,6 +6830,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
     if (e.target === $('copybox')) { closeCopyBox(); return; }
     if (e.target === $('impbox')) { closeImport(); return; }
     if (e.target === $('bldbox')) { closeBuilds(); return; }
+    if (e.target === $('newsbox')) { closeNews(); return; }
     if (e.target === $('spbox')) { closeSpecials(); return; }
     if (e.target === $('slots')) { closeSlots(); return; }
     var a = e.target.closest('[data-act]');
@@ -6815,6 +6892,8 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
       case 'cb-close': closeCopyBox(); break;
       case 'imp-open': openImport('design'); break;
       case 'bld-open': openBuilds(); break;
+      case 'news-open': openNews(); break;
+      case 'news-close': closeNews(); break;
       case 'bld-close': closeBuilds(); break;
       case 'bld-step': (function (i) { var b = curBuild(); if (!b) return; app.ui.bld = { id: b.id, step: i }; app.ui.bldDel = false; bldNote = null; renderBuilds('.bld-steps [data-i="' + i + '"]'); })(i); break;
       case 'bld-use': useBuildItem(i); break;
@@ -6938,6 +7017,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
     if (copyBoxOpen()) { closeCopyBox(); e.preventDefault(); return; }
     if (importOpen()) { closeImport(); e.preventDefault(); return; }
     if (buildsOpen()) { closeBuilds(); e.preventDefault(); return; }
+    if (newsOpen()) { closeNews(); e.preventDefault(); return; }
     if (specialsOpen()) { closeSpecials(); e.preventDefault(); return; }
     if (app.pk) { closePicker(); e.preventDefault(); return; }
     if (app.ui.move) { cancelMove(); e.preventDefault(); return; }
@@ -7087,6 +7167,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
   if (h0 === 'plan' || h0 === 'design' || h0 === 'ref' || h0 === 'reference' || h0 === 'story') app.view = h0 === 'reference' ? 'ref' : h0;
   window.App = { get: function () { return app; }, league: function () { return app.league; }, toast: toast, go: go, craftText: function () { return craftText(cur()); } };
   initFind();
+  renderNewsDot();
   loadStory();
   go(app.view, { keepScroll: true });
   renderAll();

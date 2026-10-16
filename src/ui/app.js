@@ -2686,6 +2686,46 @@
       (prev ? ' The ' + craftName(prev) + ' craft is in My crafts.' : ''), 6500);
   }
 
+  /* ---------- what's new: what each version added, from src/changes.js (click the version in the header) ----------
+     The version a viewer last read is kept (LS_SEEN); a dot on the version says there's something newer, and the box
+     tags those lines New. */
+  var LS_SEEN = 'poe2-crafting-playbook-seen';
+  var APP_V = parseInt('{{APP_VERSION}}'.slice(1), 10) || 0;
+  var CHANGES = (window.CHANGES || []).filter(function (x) { return x && Array.isArray(x.v) && typeof x.t === 'string'; })
+    .sort(function (a, b) { return (b.v[1] - a.v[1]) || (b.v[0] - a.v[0]); });
+  var newsRet = null;
+  function seenV() { try { return parseInt(localStorage.getItem(LS_SEEN), 10) || 0; } catch (e) { return APP_V; } }
+  function renderNewsDot() {
+    var unseen = seenV() < APP_V, b = document.querySelector('.brand-v');
+    if (!b) return;
+    b.querySelector('.bv-dot').hidden = !unseen;
+    b.setAttribute('aria-label', 'Version ' + APP_V + ': what’s new' + (unseen ? ', with changes since your last look' : ''));
+  }
+  function verLabel(v) { return v[0] === v[1] ? 'V' + v[0] : 'V' + v[0] + '–V' + v[1]; }
+  function newsOpen() { return !$('newsbox').hidden; }
+  function openNews() {
+    newsRet = document.activeElement;
+    var seen = seenV(), el = $('newsbox');
+    el.hidden = false;
+    el.innerHTML = '<div class="modal-card news-card" role="dialog" aria-modal="true" aria-labelledby="news-t">' +
+      '<div class="pk-head"><div><h2 id="news-t">What’s new</h2><p>What each version of the app added, newest first. You’re on V' + APP_V + '.</p></div>' +
+      '<button type="button" class="x" data-act="news-close" aria-label="Close">' + ico('u-x') + '</button></div>' +
+      '<ol class="news">' + CHANGES.map(function (x) {
+        var fresh = seen > 0 && x.v[1] > seen;
+        return '<li><span class="nv">' + verLabel(x.v) + '</span><p>' + esc(x.t).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>') + (fresh ? '<span class="news-new">New</span>' : '') + '</p></li>';
+      }).join('') + '</ol></div>';
+    try { localStorage.setItem(LS_SEEN, String(APP_V)); } catch (e) { /* blocked: the dot just stays */ }
+    renderNewsDot();
+    setTimeout(function () { var x = el.querySelector('[data-act="news-close"]'); if (x) { try { x.focus(); } catch (e) { /* ignore */ } } }, 0);
+  }
+  function closeNews() {
+    var el = $('newsbox');
+    el.hidden = true; el.innerHTML = '';
+    var back = newsRet && document.body.contains(newsRet) ? newsRet : document.querySelector('.brand-v');
+    if (back) { try { back.focus({ preventScroll: true }); } catch (e) { /* ignore */ } }
+    newsRet = null;
+  }
+
   /* ---------- special crafts: ready-made designs with market notes (src/specials.js) ---------- */
   var spRet = null;
   function openSpecials() {
@@ -2968,6 +3008,7 @@
     if (e.target === $('copybox')) { closeCopyBox(); return; }
     if (e.target === $('impbox')) { closeImport(); return; }
     if (e.target === $('bldbox')) { closeBuilds(); return; }
+    if (e.target === $('newsbox')) { closeNews(); return; }
     if (e.target === $('spbox')) { closeSpecials(); return; }
     if (e.target === $('slots')) { closeSlots(); return; }
     var a = e.target.closest('[data-act]');
@@ -3029,6 +3070,8 @@
       case 'cb-close': closeCopyBox(); break;
       case 'imp-open': openImport('design'); break;
       case 'bld-open': openBuilds(); break;
+      case 'news-open': openNews(); break;
+      case 'news-close': closeNews(); break;
       case 'bld-close': closeBuilds(); break;
       case 'bld-step': (function (i) { var b = curBuild(); if (!b) return; app.ui.bld = { id: b.id, step: i }; app.ui.bldDel = false; bldNote = null; renderBuilds('.bld-steps [data-i="' + i + '"]'); })(i); break;
       case 'bld-use': useBuildItem(i); break;
@@ -3152,6 +3195,7 @@
     if (copyBoxOpen()) { closeCopyBox(); e.preventDefault(); return; }
     if (importOpen()) { closeImport(); e.preventDefault(); return; }
     if (buildsOpen()) { closeBuilds(); e.preventDefault(); return; }
+    if (newsOpen()) { closeNews(); e.preventDefault(); return; }
     if (specialsOpen()) { closeSpecials(); e.preventDefault(); return; }
     if (app.pk) { closePicker(); e.preventDefault(); return; }
     if (app.ui.move) { cancelMove(); e.preventDefault(); return; }
@@ -3301,6 +3345,7 @@
   if (h0 === 'plan' || h0 === 'design' || h0 === 'ref' || h0 === 'reference' || h0 === 'story') app.view = h0 === 'reference' ? 'ref' : h0;
   window.App = { get: function () { return app; }, league: function () { return app.league; }, toast: toast, go: go, craftText: function () { return craftText(cur()); } };
   initFind();
+  renderNewsDot();
   loadStory();
   go(app.view, { keepScroll: true });
   renderAll();

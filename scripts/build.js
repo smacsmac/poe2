@@ -25,6 +25,7 @@ const page = [
   '<script>\n' + read('src/prices.js') + '\n</script>',
   '<script>\n' + read('src/specials.js') + '\n</script>',
   '<script>\n' + read('src/buildfile.js') + '\n</script>',
+  '<script>\n' + read('src/changes.js') + '\n</script>',
   '<script>\n' + read('src/engine.js') + '\n</script>',
   '<script>\n' + withVersion(read('src/ui/app.js')) + '\n</script>',
   '<script>\n' + read('src/ui/ref.js') + '\n</script>'

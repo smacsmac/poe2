@@ -692,6 +692,33 @@ async function addTarget(page, side, i, query, famText) {
     await bctx.close();
   }
 
+  // What's new: the version in the header opens what each version added, newest first; a dot says there's something unread
+  for (const vp of [{ width: 1440, height: 1000, name: 'dark' }, { width: 400, height: 860, name: 'phone', touch: true }]) {
+    const nctx = await browser.newContext({ viewport: { width: vp.width, height: vp.height }, colorScheme: 'dark', hasTouch: !!vp.touch, isMobile: !!vp.touch });
+    await nctx.addInitScript(() => { if (!sessionStorage.getItem('seeded')) { localStorage.setItem('poe2-crafting-playbook-seen', '12'); sessionStorage.setItem('seeded', '1'); } });
+    const np = await nctx.newPage();
+    np.on('pageerror', (e) => errors.push('news ' + vp.name + ': ' + e.message));
+    await np.goto(URL + '#design');
+    assert.ok(await np.locator('.brand-v .bv-dot').isVisible(), 'a dot: changes since V12');
+    assert.match(await np.getAttribute('.brand-v', 'aria-label'), /changes since your last look/);
+    await np.click('.brand-v');
+    const rows = await np.locator('.news li').allInnerTexts();
+    const ver = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8')).appVersion;
+    assert.match(rows[0], new RegExp('^V' + ver + '\\b'), 'the newest first');
+    assert.ok(rows.some((r) => /^V7–V9/.test(r)), 'a feature built over several versions is one line');
+    assert.equal(await np.locator('.news .news-new').count(), ver - 12, 'New on what came after V12');
+    const [sw, w] = await np.evaluate(() => [document.documentElement.scrollWidth, window.innerWidth]);
+    assert.ok(sw <= w, 'no sideways scroll with What’s new open');
+    await np.screenshot({ path: `${OUT}/${vp.name}-news.png` });
+    await np.keyboard.press('Escape');
+    assert.ok(await np.locator('#newsbox').isHidden());
+    assert.equal(await np.evaluate(() => document.activeElement.classList.contains('brand-v')), true, 'focus back on the version');
+    assert.ok(await np.locator('.brand-v .bv-dot').isHidden(), 'read: no dot');
+    await np.reload();
+    assert.ok(await np.locator('.brand-v .bv-dot').isHidden(), 'still read after a reload');
+    await nctx.close();
+  }
+
   await browser.close();
   if (errors.length) { console.error(errors.join('\n')); process.exit(1); }
   console.log('e2e passed. Screenshots in tests/shots/');

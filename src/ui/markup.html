@@ -1,11 +1,13 @@
 <header class="bar">
   <div class="bar-in">
-    <a class="brand" href="#design" data-go="design" aria-label="Crafting Playbook, design screen">
-      <span class="brand-mark" aria-hidden="true"></span>
-      <span class="brand-name">Crafting Playbook</span>
-      <span class="brand-v" title="App version: {{APP_VERSION}}">{{APP_VERSION}}</span>
+    <div class="brand-wrap">
+      <a class="brand" href="#design" data-go="design" aria-label="Crafting Playbook, design screen">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <span class="brand-name">Crafting Playbook</span>
+      </a>
+      <button type="button" class="brand-v" data-act="news-open" aria-haspopup="dialog" aria-label="Version {{APP_VERSION}}: what’s new" title="What each version added">{{APP_VERSION}}<i class="bv-dot" aria-hidden="true" hidden></i></button>
       <span class="brand-sub">PoE2 · 0.5.5</span>
-    </a>
+    </div>
     <nav class="tabs" aria-label="Screens">
       <button type="button" class="tab" data-go="design">Design</button>
       <button type="button" class="tab" data-go="plan">Forge <span class="n" id="tab-step" hidden></span></button>
@@ -261,6 +263,7 @@
 <div class="modal" id="copybox" hidden></div>
 <div class="modal" id="impbox" hidden></div>
 <div class="modal" id="bldbox" hidden></div>
+<div class="modal" id="newsbox" hidden></div>
 <div class="modal" id="spbox" hidden></div>
 <div class="drawer" id="drawer" hidden></div>
 <div class="drawer left" id="slots" hidden></div>

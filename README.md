@@ -9,6 +9,7 @@ Plan a Path of Exile 2 craft from an empty base to a finished rare.
 - **Copy for a chat** on both screens copies your craft as text (the base, what you want, where the item is now and the steps) to paste into Claude or ChatGPT when you want to talk it through.
 - **Reference**: the general crafting order, rules, quick fixes and every main material with where it drops and its price (Forbidden Rites or Runes of Aldur).
 - **Story**: new to Path of Exile 2's story? Read it at 50, 100, 250, 500 or 1,000 words, plus a fact at a time.
+- **What's new**: click the version number in the header (V15...) to see what each version added, one line each, newest first. A dot on it means something new since you last looked.
 
 Data comes from [Path of Building PoE2](https://github.com/PathOfBuildingCommunity/PathOfBuilding-PoE2)'s game files. Prices are a poe.ninja snapshot (October 4–5, 2026). Odds are rough: the game data has no spawn weights, so every tier counts the same.
 
