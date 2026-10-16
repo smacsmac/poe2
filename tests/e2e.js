@@ -626,7 +626,7 @@ async function addTarget(page, side, i, query, famText) {
     assert.equal(await bp.locator('#bld-file').count(), 1, 'a file picker');
     await bp.setInputFiles('#bld-file', { name: '0.5.5_Example_Build.zip', mimeType: 'application/zip', buffer: BUILD_ZIP });
     await bp.waitForSelector('.bld-steps');
-    assert.match(await bp.locator('#bld-msg').innerText(), /^Added 0\.5\.5 Example Build: 2 steps\./);
+    await bp.waitForFunction(() => /^Added 0\.5\.5 Example Build: 2 steps\./.test(document.getElementById('bld-msg').textContent));
     assert.deepEqual(await bp.locator('.bld-steps button').allInnerTexts(), ['Act 1', 'Endgame Step 1']);
     assert.equal(await bp.locator('.bld-steps [aria-pressed="true"]').innerText(), 'Endgame Step 1', 'the last step first');
     const gloves = bp.locator('.bld-it', { hasText: 'Gloves' });
@@ -640,6 +640,8 @@ async function addTarget(page, side, i, query, famText) {
     await bp.screenshot({ path: `${OUT}/${vp.name}-build.png` });
     await gloves.locator('[data-act="bld-use"]').click();
     assert.ok(await bp.locator('#bldbox').isHidden(), 'the dialog closes');
+    assert.equal(await bp.evaluate(() => document.activeElement.getAttribute('data-act')), 'bld-open', 'focus back on Import a build');
+    assert.equal(await bp.evaluate(() => { const a = window.App.get(); return a.crafts[a.curId].name; }), 'Ky: Endgame Step 1 · Gloves', 'named after the step and the slot');
     assert.match(await bp.locator('#toast').innerText(), /^From Endgame Step 1: Runeforged Blacksteel Gauntlets, 2 prefixes and 2 suffixes\. 1 mod left out\./);
     assert.equal(await bp.locator('.bp-name').innerText(), 'Blacksteel Gauntlets');
     assert.ok(await bp.locator('#d-rf').isChecked(), 'runeforged, as the build says');
@@ -649,16 +651,42 @@ async function addTarget(page, side, i, query, famText) {
     assert.equal(await bp.locator('.bld-steps [aria-pressed="true"]').innerText(), 'Endgame Step 1');
     await bp.click('.bld-steps [data-i="0"]');
     assert.match(await bp.locator('.bld-items').innerText(), /Rope Cuffs/);
+    // another step file of the same guide joins this build; another guide is a second build
+    await bp.setInputFiles('#bld-file', { name: 'Endgame Step 2 {3}.build', mimeType: 'application/octet-stream', buffer: Buffer.from(step(3, 'Endgame Step 2', 'Sirenscale Gloves\n+100 to maximum Life')) });
+    await bp.waitForFunction(() => /^Updated 0\.5\.5 Example Build: 1 new step, 3 steps in all\.$/.test(document.getElementById('bld-msg').textContent));
+    assert.deepEqual(await bp.locator('.bld-steps button').allInnerTexts(), ['Act 1', 'Endgame Step 1', 'Endgame Step 2']);
+    await bp.setInputFiles('#bld-file', { name: 'other.build', mimeType: 'application/octet-stream', buffer: Buffer.from(JSON.stringify({ author: 'Someone Else With A Long Name', name: 'A much longer guide title for the select {1} - Another guide with a long title',
+      inventory_slots: [{ inventory_id: 'Ring1', additional_text: 'Prismatic Ring\n+100 to maximum Life' }] })) });
+    await bp.waitForSelector('#bld-pick');
+    assert.ok(await bp.locator('#bldbox').evaluate((el) => el.contains(document.activeElement)), 'focus stays in the dialog after a one-step file');
+    const [bsw, bcw] = await bp.locator('.bld-body').evaluate((el) => [el.scrollWidth, el.clientWidth]);
+    assert.ok(bsw <= bcw, 'nothing sticks out of the dialog with two builds (' + bsw + ' > ' + bcw + ')');
+    await bp.waitForFunction(() => /^Added Another guide with a long title: 1 step\./.test(document.getElementById('bld-msg').textContent));
+    const msgBox = await bp.locator('#bld-msg').boundingBox();
+    assert.ok(msgBox && msgBox.y + msgBox.height <= vp.height, 'the message is in view');
+    await bp.selectOption('#bld-pick', { label: '0.5.5 Example Build' });
     await bp.click('[data-act="bld-del"]');
     await bp.click('[data-act="bld-del-yes"]');
     assert.equal(await bp.locator('.bld-steps').count(), 0, 'removed');
-    assert.match(await bp.locator('#bld-msg').innerText(), /^Removed 0\.5\.5 Example Build\./);
+    await bp.waitForFunction(() => /^Removed /.test(document.getElementById('bld-msg').textContent));
     await bp.keyboard.press('Escape');
     assert.ok(await bp.locator('#bldbox').isHidden());
     if (!vp.touch) {
       await bp.click('[data-act="bld-open"]');
       await bp.setInputFiles('#bld-file', { name: 'notes.build', mimeType: 'application/octet-stream', buffer: Buffer.from('{"hello":1}') });
       await bp.waitForFunction(() => /No build in that file/.test(document.getElementById('bld-msg').textContent));
+      assert.ok(await bp.locator('#bld-msg').isVisible(), 'a failed file says so in view');
+      // a zip bomb (a 64 MB entry that claims 500 bytes) is stopped while it inflates, in the browser too
+      const bomb = makeZip([{ name: 'a.build', data: ' '.repeat(64 << 20) }]);
+      const cdAt = bomb.indexOf(Buffer.from([0x50, 0x4b, 0x01, 0x02]));
+      bomb.writeUInt32LE(500, cdAt + 24);
+      const res = await bp.evaluate(async (b64) => {
+        const bytes = Uint8Array.from(atob(b64), (ch) => ch.charCodeAt(0)), t0 = performance.now();
+        const r = await window.BuildFile.readFiles([new File([bytes], 'bomb.zip')]);
+        return { error: r.error, ms: performance.now() - t0 };
+      }, bomb.toString('base64'));
+      assert.equal(res.error, 'toobig');
+      assert.ok(res.ms < 3000, 'stopped early (' + Math.round(res.ms) + ' ms)');
     }
     await bctx.close();
   }

@@ -661,7 +661,7 @@
     var c = cur();
     if (c.cls === cls) return;
     if (targetCount(c) || underWay(c)) startCraftFor(cls, base);
-    else { c.cls = cls; c.base = base || defaultBase(cls); c.runeforge = cls === 'gloves'; c.astrid = false; c.targets = [[], []]; fitTargets(c); touch(c); }
+    else { c.cls = cls; c.base = base || defaultBase(cls); c.runeforge = cls === 'gloves'; c.astrid = false; c.name = null; c.spc = null; c.targets = [[], []]; fitTargets(c); touch(c); }
     renderDesign(); refreshBadges();
   }
   /* A base picked from the search. Another slot works like clicking that slot. The same slot changes this design's
@@ -2393,7 +2393,7 @@
       h += '<p class="imp-side">' + (s ? 'Suffixes' : 'Prefixes') + '</p><ul class="imp-mods">' + list.map(function (m, i) {
         var f = E.MODS[m.mi].f, tl = E.labelTier(cat, { f: f, mi: m.mi });
         var extra = !have && i >= cat.caps[s] ? ' <span class="imp-x">no box left</span>' : '';
-        return '<li><span>' + modHTML(E.famName(f)) + extra + '</span><span class="imp-tier">' + esc(tl === 'alloy' ? 'Crafted' : tl === 'desecrated' ? 'Desecrated' : tl + (m.desec ? ' · desecrated' : m.crafted ? ' · crafted' : m.fract ? ' · fractured' : '')) + '</span></li>';
+        return '<li><span>' + modHTML(E.famName(f)) + extra + '</span><span class="imp-tier">' + esc(tl.charAt(0) !== 'T' ? tierWord(tl) : tl + (m.desec ? ' · desecrated' : m.crafted ? ' · crafted' : m.fract ? ' · fractured' : '')) + '</span></li>';
       }).join('') + '</ul>';
     });
     if (!r.mods.length) h += '<p class="imp-err">' + (r.unidentified ? 'The item is unidentified: identify it first to import its mods.' : 'No mods recognised yet: only the base will be imported.') + '</p>';
@@ -2411,6 +2411,7 @@
     c.runeforge = !!o.runeforge;
     c.astrid = !!o.astrid;
     c.spc = o.spc || null;
+    c.name = o.name ? String(o.name).slice(0, 60) : null;
     var cat = catOf(c), extra = 0;
     c.targets = [0, 1].map(function (s) {
       var list = (o.targets[s] || []).map(function (mi) { return { mi: mi }; });
@@ -2456,8 +2457,8 @@
     }
     replan(c);
     touch(c);
-    closeImport();
     renderAll(); revealSlot();
+    closeImport();   // after the redraw, so focus lands on the new Import pill
     var n = [0, 1].map(function (s) { return c.targets[s].filter(Boolean).length; });
     toast('Imported ' + r.base + ', item level ' + c.ilvl + ': ' + plural(n[0], 'prefix', 'prefixes') + ' and ' + plural(n[1], 'suffix', 'suffixes') + (mine ? ', on your item in the Forge too' : '') + '.' +
       (r.skipped.length + extra ? ' ' + plural(r.skipped.length + extra, 'mod') + ' left out.' : '') +
@@ -2469,19 +2470,28 @@
      become the design, like an imported item. Builds are kept in this browser (LS_B) so another step or slot is a
      click away later; only their items are kept, not the passives or gems. */
   var LS_B = 'poe2-crafting-playbook-builds', BUILDS_MAX = 6;
-  var builds = [], bldRet = null, bldBusy = false;
+  /* bldDirty: the last save failed, so the list in memory is newer than storage and reopening mustn't reread it.
+     bldNote: the last message, kept across redraws. */
+  var builds = [], bldRet = null, bldBusy = false, bldDirty = false, bldNote = null;
+  function itemOk(it) {
+    return !!it && typeof it === 'object' && typeof it.slot === 'string' && typeof it.label === 'string' && (typeof it.text === 'string' || typeof it.unique === 'string');
+  }
+  /* A stored build, cleaned: bad steps and items dropped; a build left with no step is dropped. */
   function buildOk(b) {
-    return !!b && typeof b === 'object' && typeof b.id === 'string' && typeof b.title === 'string' && Array.isArray(b.steps) &&
-      b.steps.every(function (s) { return s && typeof s.name === 'string' && Array.isArray(s.items); });
+    if (!b || typeof b !== 'object' || typeof b.id !== 'string' || typeof b.title !== 'string' || !Array.isArray(b.steps)) return false;
+    b.steps = b.steps.filter(function (s) { return s && typeof s.name === 'string' && Array.isArray(s.items); });
+    b.steps.forEach(function (s) { s.items = s.items.filter(itemOk); });
+    return b.steps.length > 0;
   }
   function loadBuilds() {
+    if (bldDirty) return;
     try {
       var raw = JSON.parse(localStorage.getItem(LS_B) || '[]');
       builds = Array.isArray(raw) ? raw.filter(buildOk).slice(0, BUILDS_MAX) : [];
-    } catch (e) { builds = []; }
+    } catch (e) { /* storage blocked or unreadable: keep what this visit has */ }
   }
   function saveBuilds() {
-    try { localStorage.setItem(LS_B, JSON.stringify(builds)); return true; } catch (e) { return false; }
+    try { localStorage.setItem(LS_B, JSON.stringify(builds)); bldDirty = false; return true; } catch (e) { bldDirty = true; return false; }
   }
   function curBuild() {
     var id = app.ui.bld && app.ui.bld.id;
@@ -2498,10 +2508,20 @@
     var b = curBuild();
     app.ui.bld = b ? { id: b.id, step: buildStep(b) } : null;
     app.ui.bldDel = false;
+    bldNote = null;
     $('bldbox').hidden = false;
-    renderBuilds();
+    // a stored build this version can't draw is dropped rather than leaving an empty box
+    for (var tries = 0; tries < BUILDS_MAX + 1; tries++) {
+      try { renderBuilds(); break; } catch (e) {
+        var bad = curBuild();
+        builds = builds.filter(function (x) { return x !== bad; });
+        saveBuilds();
+        b = curBuild();
+        app.ui.bld = b ? { id: b.id, step: buildStep(b) } : null;
+      }
+    }
     setTimeout(function () {
-      var f = document.querySelector('#bldbox .bld-steps [aria-pressed="true"]') || $('bld-file');
+      var f = document.querySelector('#bldbox .bld-steps [aria-pressed="true"]') || document.querySelector('#bldbox [data-act="bld-use"]') || $('bld-file');
       if (f) { try { f.focus(); } catch (e) { /* ignore */ } }
     }, 0);
   }
@@ -2515,14 +2535,21 @@
   /* What one item of the step will import, or why it can't. */
   function buildItemInfo(it) {
     if (it.unique) return { why: 'Unique: ' + it.unique + '. Uniques can’t be crafted.' };
-    var r = E.buildItem(it.text);
+    var r;
+    try { r = E.buildItem(it.text); } catch (e) { return { why: 'This item couldn’t be read.' }; }
     if (!r.base) {
       var what = r.baseText || 'no base';
       return { r: r, why: /^(Flask|Charm)/.test(it.slot) ? 'Flasks and charms aren’t in the planner.' : 'Not a base the planner knows: ' + what + '.' };
     }
     return { r: r };
   }
+  function tierWord(tl) { return tl.charAt(0) === 'T' ? tl : tl === 'desecrated' ? 'Desecrated' : 'Crafted'; }
   function buildItemHTML(it, i) {
+    try { return buildItemRow(it, i); } catch (e) {
+      return '<li class="bld-it off"><div class="bi-head"><span class="bi-dot" aria-hidden="true"></span><div class="bi-t"><span class="bi-slot">' + esc(it.label) + '</span></div></div><p class="bi-why">This item couldn’t be read.</p></li>';
+    }
+  }
+  function buildItemRow(it, i) {
     var x = buildItemInfo(it), r = x.r;
     var name = r && r.base ? (r.runeforged ? 'Runeforged ' : '') + r.base : it.unique || (r && r.baseText) || '';
     var h = '<li class="bld-it' + (x.why ? ' off' : '') + '"><div class="bi-head">' +
@@ -2533,10 +2560,10 @@
     var cat = E.catalog(r.base, 82);
     if (r.mods.length) {
       h += '<ul class="bi-mods">' + r.mods.map(function (m, k) {
-        var f = E.MODS[m.mi].f, tl = E.labelTier(cat, { f: f, mi: m.mi });
+        var f = E.MODS[m.mi].f, tier = tierWord(E.labelTier(cat, { f: f, mi: m.mi }));
         var room = r.mods.filter(function (y, j) { return j < k && y.s === m.s; }).length >= cat.caps[m.s];
-        var tier = tl === 'alloy' ? 'Crafted' : tl === 'desecrated' ? 'Desecrated' : tl;
-        var off = m.off === 'over' ? 'asks ' + m.text.match(/-?\d+(?:\.\d+)?/)[0] + ', above the best roll' : m.off === 'under' ? 'asks ' + m.text.match(/-?\d+(?:\.\d+)?/)[0] + ', below this tier' : '';
+        var v = (m.text.match(/-?\d+(?:\.\d+)?/) || [''])[0];
+        var off = m.off === 'over' ? 'asks ' + v + ', above the best roll' : m.off === 'under' ? 'asks ' + v + ', below this tier' : '';
         return '<li' + (room ? ' class="no-room"' : '') + '><span class="bi-side">' + (m.s ? 'S' : 'P') + '</span><span class="bi-m">' + modHTML(E.famName(f)) +
           (room ? ' <span class="imp-x">no ' + SIDE[m.s] + ' slot left</span>' : '') + (off ? '<small>' + esc(off) + '</small>' : '') + '</span><span class="imp-tier">' + esc(tier) + '</span></li>';
       }).join('') + '</ul>';
@@ -2558,45 +2585,65 @@
         : '<p class="bld-title">' + esc(b.title) + '</p>') +
         '<p class="bld-by">' + (b.author ? 'By ' + esc(b.author) : '') + (b.link ? (b.author ? ' · ' : '') + '<a href="' + esc(b.link) + '" target="_blank" rel="noopener noreferrer">the guide</a>' : '') + '</p>' +
         (app.ui.bldDel ? '<span class="bld-del">Remove this build? <button type="button" class="btn small" data-act="bld-del-yes">Remove</button><button type="button" class="btn small quiet" data-act="bld-del-no">Keep</button></span>'
-          : '<button type="button" class="tbtn sm" data-act="bld-del">Remove</button>') + '</div>';
+          : '<button type="button" class="btn small quiet bld-rm" data-act="bld-del">Remove</button>') + '</div>';
       if (b.steps.length > 1) {
         h += '<p class="bld-q" id="bld-sq">Step</p><div class="bld-steps" role="group" aria-labelledby="bld-sq">' + b.steps.map(function (s, i) {
           return '<button type="button" data-act="bld-step" data-i="' + i + '" aria-pressed="' + (i === si) + '">' + esc(s.name) + '</button>';
         }).join('') + '</div>';
       } else h += '<p class="bld-q">' + esc(st.name) + '</p>';
       h += '<ul class="bld-items" aria-label="Items in ' + esc(st.name) + '">' + st.items.map(buildItemHTML).join('') + '</ul>';
+      h += '<p class="bld-keep">Builds stay in this browser (up to ' + BUILDS_MAX + '), so you can come back for another step or item.</p>';
     }
-    h += '<div class="bld-drop" id="bld-drop"><label class="btn small primary bld-file">' + ico('u-file') + (b ? 'Open another build' : 'Open a .build or .zip file') +
+    // the file picker and the message stay in view below the list
+    h += '</div><div class="pk-foot bld-foot"><div class="bld-drop" id="bld-drop"><label class="btn small primary bld-file">' + ico('u-file') + (b ? 'Open another build' : 'Open a .build or .zip file') +
       '<input type="file" id="bld-file" multiple></label><span>or drop it here</span></div>' +
-      '<p id="bld-msg" class="bld-msg" role="status" aria-live="polite">' + (bldBusy ? 'Reading…' : '') + '</p>' +
-      (b ? '<p class="bld-keep">Builds stay in this browser (up to ' + BUILDS_MAX + '), so you can come back for another step or item.</p>' : '') + '</div></div>';
+      '<p id="bld-msg" class="bld-msg' + (bldNote && bldNote.bad ? ' bad' : '') + '" role="status" aria-live="polite">' + esc(bldBusy ? 'Reading…' : bldNote ? bldNote.t : '') + '</p></div></div>';
     el.innerHTML = h;
-    if (focusSel) { var f = el.querySelector(focusSel); if (f) { try { f.focus({ preventScroll: true }); } catch (e) { /* ignore */ } } }
+    if (focusSel) {
+      var f = el.querySelector(focusSel) || el.querySelector('.bld-steps [aria-pressed="true"]') || el.querySelector('[data-act="bld-use"]') || el.querySelector('#bld-file');
+      if (f) { try { f.focus({ preventScroll: true }); } catch (e) { /* ignore */ } }
+    }
   }
-  function buildMsg(t, bad) { var m = $('bld-msg'); if (m) { m.textContent = t; m.classList.toggle('bad', !!bad); } }
+  /* The message under the list. The text lands a moment after the region is drawn, so screen readers announce it. */
+  function buildMsg(t, bad) {
+    bldNote = { t: t, bad: !!bad };
+    var m = $('bld-msg');
+    if (!m) return;
+    m.classList.toggle('bad', !!bad);
+    m.textContent = '';
+    setTimeout(function () { if (m.isConnected) m.textContent = t; }, 60);
+  }
   function addBuildFiles(files) {
     if (!files || !files.length || bldBusy) return;
     if (!window.BuildFile) { buildMsg('Build files can’t be read here.', true); return; }
     bldBusy = true; buildMsg('Reading…');
     window.BuildFile.readFiles(files).then(function (res) {
       bldBusy = false;
-      if (!res.build) {
+      if (!res.builds.length) {
         buildMsg(res.error === 'nozip' ? 'This browser can’t open .zip files. Unzip it, then pick the .build files inside (several at once is fine).'
           : res.error === 'toobig' ? 'That file is too big to be a build.'
             : res.error === 'badzip' ? 'That .zip couldn’t be read.'
               : 'No build in that file. A .build file is the one the game’s Build Planner reads.', true);
         return;
       }
-      var nb = res.build;
-      nb.id = 'b' + Date.now().toString(36);
-      nb.at = Date.now();
-      // the same build again replaces the old copy
-      builds = [nb].concat(builds.filter(function (x) { return !(x.title === nb.title && (x.author || '') === (nb.author || '')); })).slice(0, BUILDS_MAX);
-      var kept = saveBuilds();
-      app.ui.bld = { id: nb.id, step: nb.steps.length - 1 };
+      var before = builds, notes = [], last = null;
+      res.builds.forEach(function (nb) {
+        nb.at = Date.now();
+        var m = window.BuildFile.mergeInto(builds, nb, BUILDS_MAX);
+        builds = m.list; last = m.build;
+        notes.push(m.merged ? 'Updated ' + m.build.title + ': ' + (m.added ? plural(m.added, 'new step') + ', ' : '') + plural(m.build.steps.length, 'step') + ' in all.'
+          : 'Added ' + m.build.title + ': ' + plural(m.build.steps.length, 'step') + '.');
+      });
+      app.ui.bld = { id: last.id, step: last.steps.length - 1 };
       app.ui.bldDel = false;
-      renderBuilds('.bld-steps [aria-pressed="true"]');
-      buildMsg('Added ' + nb.title + ': ' + plural(nb.steps.length, 'step') + '.' + (res.skipped.length ? ' Not a build, left out: ' + res.skipped.join(', ') + '.' : '') +
+      // draw it before keeping it: a build that can't be drawn isn't stored
+      try { renderBuilds('.bld-steps [aria-pressed="true"]'); } catch (e) {
+        builds = before; app.ui.bld = null; renderBuilds('#bld-file');
+        buildMsg('That build couldn’t be read.', true);
+        return;
+      }
+      var kept = saveBuilds();
+      buildMsg(notes.join(' ') + (res.skipped.length ? ' Not a build, left out: ' + res.skipped.join(', ') + '.' : '') +
         (kept ? '' : ' This browser won’t keep it after you close the page.'));
     }).catch(function () { bldBusy = false; buildMsg('That file couldn’t be read.', true); });
   }
@@ -2608,15 +2655,17 @@
     if (!x || x.why) return;
     var r = x.r;
     b.last = si; saveBuilds();
+    // named after the build's step and the slot, so the crafts of one step tell apart in My crafts
+    var tail = ' · ' + it.label;
     var d = startDesign({ cls: r.cls, base: r.base, ilvl: 82, runeforge: r.runeforged,
+      name: ((b.author ? b.author + ': ' : '') + st.name).slice(0, 60 - tail.length).trim() + tail,
       targets: [0, 1].map(function (s) { return r.mods.filter(function (m) { return m.s === s; }).map(function (m) { return m.mi; }); }) });
     var c = d.c, prev = d.prev;
-    c.name = ((b.author ? b.author + ': ' : '') + st.name).slice(0, 60);
     replan(c);
     touch(c);
-    closeBuilds();
     if (app.view !== 'design') go('design');
     renderAll(); revealSlot();
+    closeBuilds();   // after the redraw, so focus lands on the new Import a build pill
     var n = [0, 1].map(function (s) { return c.targets[s].filter(Boolean).length; });
     toast('From ' + st.name + ': ' + (r.runeforged ? 'Runeforged ' : '') + r.base + ', ' + plural(n[0], 'prefix', 'prefixes') + ' and ' + plural(n[1], 'suffix', 'suffixes') + '.' +
       (r.skipped.length + d.extra ? ' ' + plural(r.skipped.length + d.extra, 'mod') + ' left out.' : '') +
@@ -2966,7 +3015,7 @@
       case 'imp-open': openImport('design'); break;
       case 'bld-open': openBuilds(); break;
       case 'bld-close': closeBuilds(); break;
-      case 'bld-step': (function (i) { var b = curBuild(); if (!b) return; app.ui.bld = { id: b.id, step: i }; app.ui.bldDel = false; renderBuilds('.bld-steps [data-i="' + i + '"]'); })(i); break;
+      case 'bld-step': (function (i) { var b = curBuild(); if (!b) return; app.ui.bld = { id: b.id, step: i }; app.ui.bldDel = false; bldNote = null; renderBuilds('.bld-steps [data-i="' + i + '"]'); })(i); break;
       case 'bld-use': useBuildItem(i); break;
       case 'bld-del': app.ui.bldDel = true; renderBuilds('[data-act="bld-del-no"]'); break;
       case 'bld-del-no': app.ui.bldDel = false; renderBuilds('[data-act="bld-del"]'); break;
@@ -3015,7 +3064,7 @@
   document.addEventListener('change', function (e) {
     var t = e.target;
     if (t && t.id === 'bld-file') { addBuildFiles(t.files); t.value = ''; return; }
-    if (t && t.id === 'bld-pick') { var b = builds.find(function (x) { return x.id === t.value; }); if (b) { app.ui.bld = { id: b.id, step: buildStep(b) }; app.ui.bldDel = false; renderBuilds('#bld-pick'); } }
+    if (t && t.id === 'bld-pick') { var b = builds.find(function (x) { return x.id === t.value; }); if (b) { app.ui.bld = { id: b.id, step: buildStep(b) }; app.ui.bldDel = false; bldNote = null; renderBuilds('#bld-pick'); } }
   });
   ['dragenter', 'dragover'].forEach(function (ev) {
     document.addEventListener(ev, function (e) {
@@ -3024,7 +3073,7 @@
       var d = $('bld-drop'); if (d) d.classList.add('over');
     });
   });
-  document.addEventListener('dragleave', function (e) { var d = $('bld-drop'); if (d && e.target === $('bldbox')) d.classList.remove('over'); });
+  document.addEventListener('dragleave', function (e) { var d = $('bld-drop'), box = $('bldbox'); if (d && (!e.relatedTarget || !box.contains(e.relatedTarget))) d.classList.remove('over'); });
   document.addEventListener('drop', function (e) {
     if (!buildsOpen() || !e.target.closest || !e.target.closest('#bldbox')) return;
     e.preventDefault();

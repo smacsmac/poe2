@@ -1005,3 +1005,96 @@ test('build files: a zip that inflates past the limit is refused, not read', asy
   assert.equal(z.build, null);
   assert.equal(z.error, 'toobig');
 });
+
+test('build files: a hybrid written as two lines, values with two numbers, and mods both sides roll', () => {
+  const mods = (txt) => {
+    const r = E.buildItem(txt), cat = E.catalog(r.base, 82);
+    return { r, list: r.mods.map((m) => [m.s ? 'S' : 'P', E.famName(E.MODS[m.mi].f), E.labelTier(cat, { f: E.MODS[m.mi].f, mi: m.mi }), m.off || '']) };
+  };
+  // the real Endgame Step 3 staff: cast speed (line 3) and extra cold (line 7) are one alloy
+  const staff = mods('Gelid Staff\n1. 149% increased Spell Damage\n2. +7 to Level of all Cold Spell Skills\n3. 39% increased Cast Speed\n4. 60% increased Critical Hit Chance for Spells\n' +
+    '5. Gain 49% of Damage as Extra Cold Damage\n6. Gain 49% of Damage as Extra Lightning Damage\n7. Gain 11% of Elemental Damage as Extra Cold Damage');
+  const hy = staff.r.mods.find((m) => /Cast Speed/.test(m.text));
+  assert.equal(DATA.ids[hy.mi], 'AlloyCastSpeedDamageAsExtraColdHybrid1');
+  assert.ok(hy.crafted);
+  assert.deepEqual(staff.r.skipped, []);
+  assert.deepEqual([0, 1].map((s) => staff.r.mods.filter((m) => m.s === s).length), [3, 3]);
+  assert.equal(mods('Gelid Staff\n40% increased Cast Speed').list[0][2], 'T3', 'cast speed alone still rolls');
+  // values that fit no tier of a hybrid stay two mods
+  assert.deepEqual(mods('Sirenscale Gloves\n1. 56% increased Energy Shield\n2. +100 to maximum Life').list.map((x) => x[1]), ['Energy Shield', 'Maximum Life']);
+  // "Adds X to Y": every value counts
+  const ring = (l) => mods('Prismatic Ring\n' + l).list[0].slice(2).join(' ').trim();
+  assert.equal(ring('Adds 1 to 30 Lightning damage to Attacks'), 'T5');
+  assert.equal(ring('Adds 1 to 2 Cold damage to Attacks'), 'T9');
+  assert.equal(ring('Adds 5 to 50 Lightning damage to Attacks'), 'T2', 'between two tiers: the best one it reaches');
+  assert.equal(ring('Adds 1 to 100 Lightning damage to Attacks'), 'T1 over');
+  // Rarity is a prefix and a suffix on rings: the value, then the room, picks the side
+  assert.deepEqual(mods('Prismatic Ring\n7% increased Rarity of Items found').list[0].slice(0, 3), ['S', 'Rarity of Items found', 'T3']);
+  const full = mods('Prismatic Ring\n+100 to maximum Life\n+150 to maximum Mana\n+20 to Evasion Rating\n15% increased Rarity of Items found\n+30% to Fire Resistance').list;
+  assert.deepEqual(full.find((x) => x[1] === 'Rarity of Items found').slice(0, 3), ['S', 'Rarity of Items found', 'T1'], 'the prefixes are full');
+  assert.deepEqual(mods('Azure Amulet\n15% increased Rarity of Items found\n12% increased Rarity of Items found').list.map((x) => x[0]), ['P', 'S'], 'twice: once on each side');
+  // a crafted-only family takes the option that holds the value
+  assert.equal(mods('Absent Amulet\n16% increased Global Armour, Evasion and Energy Shield').list[0][2], 'desecrated');
+});
+
+test('build files: lines and base names written by hand', () => {
+  const r = E.buildItem('Iron Crown\n3)+7% to Cold Resistance\n- +40 to maximum Life\n• +6% to Fire Resistance\n12.5 Life Regeneration per second');
+  assert.deepEqual(r.skipped, []);
+  assert.equal(r.mods.length, 4, 'numbering, bullets and a decimal value');
+  assert.equal(E.buildItem('Azure Amulet\nMinions deal 15% increased Damage if you’ve Hit Recently').mods.length, 1, 'a curly apostrophe');
+  assert.equal(E.buildItem('prismatic ring\n+40 to maximum Life').base, 'Prismatic Ring', 'any case');
+  const sr = E.buildItem('Superior Runeforged Sirenscale Gloves\n+100 to maximum Life');
+  assert.deepEqual([sr.base, sr.runeforged], ['Sirenscale Gloves', true]);
+  assert.equal(E.buildItem('Blue Prismatic Ring of Life\n+40 to maximum Life').base, null, 'only the exact base name');
+  for (const bad of ['constructor\n+10 to Strength', 'toString', '__proto__\nx', 'Runeforged constructor']) assert.equal(E.buildItem(bad).base, null, bad);
+  assert.equal(E.importItem('Rarity: Magic\ntoString').base, null);
+});
+
+test('build files: odd zips and files are read safely', async () => {
+  const step = (n, label, author, link) => JSON.stringify({ author, link, name: label + ' {' + n + '} - Guide name here', inventory_slots: [{ inventory_id: 'Gloves1', additional_text: 'Rope Cuffs\n+40 to maximum Life' }] });
+  // a fake end record inside the comment
+  const zip = makeZip([{ name: 'a.build', data: step(1, 'Act 1', 'Ky', 'https://x.example/a') }]);
+  const fake = Buffer.concat([Buffer.from([0x50, 0x4b, 0x05, 0x06]), Buffer.alloc(30)]);
+  const withComment = Buffer.from(Buffer.concat([zip, fake]));
+  withComment.writeUInt16LE(fake.length, zip.length - 2);
+  assert.equal((await BF.readFiles([asFile('c.zip', withComment)])).files, 1);
+  // over the size limit: refused unread
+  const big = 'x'.repeat(BF.LIMITS.entry - 100);
+  const many = makeZip(Array.from({ length: 9 }, (_, i) => ({ name: i + '.build', data: big })), true);
+  const refused = await BF.readFiles([asFile('m.zip', many)]);
+  assert.deepEqual([refused.build, refused.skipped], [null, ['m']]);
+  // two directory entries pointing at one file's bytes are read once
+  const one = makeZip([{ name: 'a.build', data: step(1, 'Act 1', 'Ky', 'https://x.example/a') }]);
+  const cd = one.indexOf(Buffer.from([0x50, 0x4b, 0x01, 0x02])), eocd = one.length - 22;
+  const rec = one.subarray(cd, eocd);
+  const twice = Buffer.concat([one.subarray(0, eocd), rec, one.subarray(eocd)]);
+  twice.writeUInt16LE(2, twice.length - 22 + 8); twice.writeUInt16LE(2, twice.length - 22 + 10); twice.writeUInt32LE(rec.length * 2, twice.length - 22 + 12);
+  assert.equal((await BF.readFiles([asFile('t.zip', twice)])).files, 1);
+  // a long whitespace run in a name doesn't freeze anything
+  const t0 = Date.now();
+  BF.parseBuild(JSON.stringify({ name: 'a' + ' '.repeat(100000) + 'b {1}', inventory_slots: [] }), 'x.build', 0);
+  assert.ok(Date.now() - t0 < 200, 'quick');
+  assert.equal(BF.parseBuild(JSON.stringify({ inventory_slots: [{ inventory_id: 'Z'.repeat(5000), additional_text: 'x' }] }), 'x', 0).items[0].label.length, 30);
+  // two zips at once are two builds; loose files of one guide are one
+  const two = await BF.readFiles([
+    asFile('One.zip', makeZip([{ name: '1.build', data: step(1, 'Act 1', 'Ky', 'https://x.example/a') }, { name: '2.build', data: step(2, 'Act 2', 'Ky', 'https://x.example/a') }])),
+    asFile('Two (1).zip', makeZip([{ name: '1.build', data: step(1, 'Start', 'Other', 'https://x.example/b') }]))
+  ]);
+  assert.deepEqual(two.builds.map((b) => [b.title, b.steps.length]), [['One', 2], ['Two', 1]], 'a second download’s " (1)" is dropped');
+  const loose = await BF.readFiles([asFile('a.build', Buffer.from(step(2, 'Act 2', 'Ky', 'https://x.example/a'))), asFile('b.build', Buffer.from(step(1, 'Act 1', 'Ky', 'https://x.example/a')))]);
+  assert.deepEqual(loose.builds.map((b) => b.steps.map((s) => s.name)), [['Act 1', 'Act 2']]);
+});
+
+test('build files: steps of one guide added one file at a time merge into one build', async () => {
+  const step = (n, label) => JSON.stringify({ author: 'Ky', link: 'https://x.example/a', name: label + ' {' + n + '} - Guide name', inventory_slots: [{ inventory_id: 'Gloves1', additional_text: 'Rope Cuffs\n+' + (10 * n) + ' to maximum Life' }] });
+  let list = [];
+  for (const [n, label] of [[2, 'Act 2'], [1, 'Act 1'], [2, 'Act 2']]) {
+    const r = await BF.readFiles([asFile(label + '.build', Buffer.from(step(n, label)))]);
+    list = BF.mergeInto(list, r.build, 6).list;
+  }
+  assert.equal(list.length, 1);
+  assert.deepEqual(list[0].steps.map((s) => s.name), ['Act 1', 'Act 2'], 'in {n} order, Act 2 once');
+  const other = await BF.readFiles([asFile('o.build', Buffer.from(JSON.stringify({ author: 'Someone', name: 'X {1} - Other guide', inventory_slots: [] })))]);
+  list = BF.mergeInto(list, other.build, 6).list;
+  assert.equal(list.length, 2, 'another guide is its own build');
+});

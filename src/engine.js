@@ -15,7 +15,7 @@
     var FAMS = DATA.fams.map(function (f, i) { return { i: i, s: f.s, g: f.g, t: f.t, c: f.c }; });
     var CLASS = {};
     DATA.classes.forEach(function (c) { CLASS[c.id] = c; });
-    var BASE = {};
+    var BASE = Object.create(null);   // no prototype: a base named "constructor" or "toString" finds nothing
     DATA.bases.forEach(function (b) { BASE[b.n] = b; });
     var LEAGUE = 'fr';
     function setLeague(lg) { LEAGUE = lg === 'roa' ? 'roa' : 'fr'; }
@@ -1244,59 +1244,111 @@
       return out;
     }
 
-    /* An item from a build file (the game's Build Planner, .build): its base on the first line ("Runeforged ..." too),
-       then one mod per line, often numbered ("3. +41% to Fire Resistance"). The values are the build's goal, not a
-       roll, and sometimes a sum (a rune, two sources), so each mod takes the tier whose range holds the value; above
-       the best roll it takes the best (off: 'over'), below every roll the lowest ('under'). Lines that aren't a mod the
-       base can roll (notes, unique or rune lines, a second line of one family) are skipped. Same shape as importItem. */
+    /* An item from a build file (the game's Build Planner, .build): its base on the first line ("Runeforged ..." too,
+       any case), then one mod per line, often numbered ("3. +41% to Fire Resistance") or bulleted. The values are the
+       build's goal, not a roll, and sometimes a sum (a rune, two sources). Each mod takes the tier whose ranges hold
+       every value; else, judged on the values' sum, the best tier it reaches, or the best one ('over') above every roll,
+       or the lowest ('under') below them. A hybrid mod comes as one line per stat, not always next to each other, so
+       its lines are joined first when a stat only the hybrid gives is there or the values fit one of its tiers. A mod
+       both sides can roll goes where its value fits, then where there is room. Lines that aren't a mod the base can roll
+       (notes, rune lines, a family twice) are skipped. Same shape as importItem. */
+    var BASE_LC = null;
     function buildItem(text) {
       var lines = String(text || '').replace(/\r/g, '').split('\n').map(function (l) { return l.trim(); });
       var first = lines.findIndex(function (l) { return !!l; });
-      var out = { base: null, cls: null, runeforged: false, ilvl: null, rarity: 'rare', name: null, mods: [], skipped: [], unidentified: false, baseText: first > -1 ? lines[first] : '' };
+      var out = { base: null, cls: null, runeforged: false, ilvl: null, rarity: 'rare', name: null, mods: [], skipped: [], unidentified: false, baseText: first > -1 ? lines[first].slice(0, 120) : '' };
       if (first < 0) return out;
-      var head = lines[first].replace(/[\u2019]/g, "'");
-      var hit = BASE[head.replace(/^(Superior|Runeforged|Runemastered)\s+/, '')] ? itemBase(head) : null;
-      if (!hit) return out;
-      out.base = hit.base; out.runeforged = hit.runeforged; out.cls = BASE[out.base].c;
-      var cat = catalog(out.base, 82);
-      var byT = [new Map(), new Map()];
-      [0, 1].forEach(function (s) { cat.sides[s].forEach(function (F) { var k = F.t.toLowerCase(); if (!byT[s].has(k)) byT[s].set(k, F); }); });
-      var used = new Set();
-      function range(mi) {
-        var r = /\((-?\d+(?:\.\d+)?)-(-?\d+(?:\.\d+)?)\)/.exec(MODS[mi].x);
-        if (r) return [parseFloat(r[1]), parseFloat(r[2])];
-        var n = /-?\d+(?:\.\d+)?/.exec(MODS[mi].x);
-        return n ? [parseFloat(n[0]), parseFloat(n[0])] : null;
+      var head = lines[first].replace(/[‘’]/g, "'").replace(/\s+/g, ' ');
+      var pre = /^(?:(?:Superior|Runeforged|Runemastered)\s+)+/i.exec(head);
+      if (!BASE_LC) { BASE_LC = new Map(); Object.keys(BASE).forEach(function (b) { BASE_LC.set(b.toLowerCase(), b); }); }
+      var name = BASE_LC.get(head.slice(pre ? pre[0].length : 0).toLowerCase());
+      if (!name) return out;
+      out.base = name; out.runeforged = !!pre && /rune(forged|mastered)/i.test(pre[0]); out.cls = BASE[name].c;
+      var cat = catalog(name, 82);
+      var byT = [new Map(), new Map()], single = new Set(), hybrids = [];
+      [0, 1].forEach(function (s) {
+        cat.sides[s].forEach(function (F) {
+          var k = F.t.toLowerCase();
+          if (!byT[s].has(k)) byT[s].set(k, F);
+          if (k.indexOf(' / ') > -1) hybrids.push(F); else single.add(k);
+        });
+      });
+      function nums(t) { return (t.match(/-?\d+(?:\.\d+)?/g) || []).map(parseFloat); }
+      // each value slot of a tier's text: "(120-149)" or a fixed number
+      function slots(mi) {
+        var r = [], re = /\((-?\d+(?:\.\d+)?)-(-?\d+(?:\.\d+)?)\)|(-?\d+(?:\.\d+)?)/g, m;
+        while ((m = re.exec(MODS[mi].x))) r.push(m[3] !== undefined ? [parseFloat(m[3]), parseFloat(m[3])] : [parseFloat(m[1]), parseFloat(m[2])]);
+        return r;
       }
-      lines.slice(first + 1).forEach(function (l) {
-        var t = l.replace(/^\d{1,2}\s*[.)]\s+/, '').replace(/[−–]/g, '-').trim();
-        if (!t) return;
-        var k = tmplText(t);
-        var F = byT[0].get(k) || byT[1].get(k);
-        if (!F || used.has(F.f)) { out.skipped.push(t); return; }
-        used.add(F.f);
+      function holds(mi, vs) {
+        var sl = slots(mi);
+        return vs.length > 0 && sl.length === vs.length && sl.every(function (r, i) { return vs[i] >= r[0] && vs[i] <= r[1]; });
+      }
+      function sumOf(a) { return a.reduce(function (x, y) { return x + y; }, 0); }
+      function lo(mi) { return sumOf(slots(mi).map(function (r) { return r[0]; })); }
+      function hi(mi) { return sumOf(slots(mi).map(function (r) { return r[1]; })); }
+      function famHolds(F, vs) { return tierOptions(cat, F.f).some(function (x) { return holds(x.mi, vs); }); }
+      // the tier a line asks for, and whether its value is above or below what the tiers give
+      function tierFor(F, vs) {
         var opts = tierOptions(cat, F.f), rolls = opts.filter(function (x) { return x.kind === 'roll'; });
-        var v = parseFloat((t.match(/-?\d+(?:\.\d+)?/) || [])[0]);
-        var o = null, off = null;
-        if (rolls.length && !isNaN(v)) {
-          o = rolls.find(function (x) { var r = range(x.mi); return r && v >= r[0] && v <= r[1]; });
-          if (!o) {
-            var top = range(rolls[0].mi);
-            if (top && v > top[1]) { o = rolls[0]; off = 'over'; }
-            else {
-              // between two tiers: the best one the value reaches; under every roll: the lowest
-              o = rolls.find(function (x) { var r = range(x.mi); return r && v >= r[0]; });
-              if (!o) { o = rolls[rolls.length - 1]; off = 'under'; }
-            }
-          }
+        var pool = rolls.length ? rolls : opts;
+        if (!vs.length) return { o: pool[0], off: null };
+        var hold = pool.find(function (x) { return holds(x.mi, vs); });
+        if (hold) return { o: hold, off: null };
+        var known = pool.filter(function (x) { return slots(x.mi).length === vs.length; });
+        if (!known.length) return { o: pool[0], off: null };
+        var v = sumOf(vs);
+        var top = known.reduce(function (a, b) { return hi(b.mi) > hi(a.mi) ? b : a; });
+        if (v > hi(top.mi)) return { o: top, off: 'over' };
+        if (rolls.length) {
+          var reach = known.filter(function (x) { return lo(x.mi) <= v; });
+          if (reach.length) return { o: reach.reduce(function (a, b) { return lo(b.mi) > lo(a.mi) ? b : a; }), off: null };
+          return { o: known.reduce(function (a, b) { return lo(b.mi) < lo(a.mi) ? b : a; }), off: 'under' };
         }
-        if (!o) {
-          o = opts[0];
-          var r0 = !isNaN(v) && range(o.mi);
-          if (r0 && v > r0[1]) off = 'over';
-          else if (r0 && v < r0[0]) off = 'under';
+        // crafted only: the option the value falls short of by the least, else the biggest one
+        var above = known.filter(function (x) { return lo(x.mi) > v; });
+        if (above.length) return { o: above.reduce(function (a, b) { return lo(b.mi) < lo(a.mi) ? b : a; }), off: 'under' };
+        return { o: top, off: 'over' };
+      }
+      var rows = lines.slice(first + 1).map(function (l) {
+        var t = l.replace(/[‘’]/g, "'").replace(/^(?:\d{1,2}\s*(?:\.(?!\d)|\))\s*|[-•*·]\s+)/, '').replace(/[−–]/g, '-').replace(/\s+/g, ' ').trim();
+        return t ? { t: t, k: tmplText(t) } : null;
+      }).filter(Boolean);
+      var used = new Set(), per = [0, 0];
+      // hybrids first: their stat lines, wherever they are, become one mod (text in the template's order)
+      hybrids.forEach(function (F) {
+        if (used.has(F.f)) return;
+        var parts = F.t.toLowerCase().split(' / '), pick = [];
+        for (var p = 0; p < parts.length; p++) {
+          var j = rows.findIndex(function (r, i) { return !r.claimed && pick.indexOf(i) < 0 && r.k === parts[p]; });
+          if (j < 0) return;
+          pick.push(j);
         }
-        out.mods.push({ s: F.s, mi: o.mi, kind: o.kind, crafted: o.kind === 'alloy' || o.kind === 'essence', desec: o.kind === 'lich', fract: false, text: t, off: off });
+        var joined = pick.map(function (j) { return rows[j].t; }).join(' / ');
+        var only = parts.some(function (p) { return !single.has(p); });
+        if (!only && !famHolds(F, nums(joined))) return;
+        pick.forEach(function (j) { rows[j].claimed = true; });
+        rows[pick[0]].claimed = false;
+        rows[pick[0]].t = joined; rows[pick[0]].k = tmplText(joined); rows[pick[0]].c = [F];
+        pick.slice(1).forEach(function (j) { rows[j].gone = true; });
+      });
+      rows.forEach(function (r) { if (!r.c) r.c = [byT[0].get(r.k), byT[1].get(r.k)].filter(Boolean); });
+      // one-sided mods take their family; then a mod both sides roll goes where its value fits, then where there's room
+      [1, 2].forEach(function (pass) {
+        rows.forEach(function (r) {
+          if (r.gone || r.F || (pass === 1) !== (r.c.length === 1)) return;
+          var vs = nums(r.t);
+          var c = r.c.filter(function (F) { return !used.has(F.f); }).sort(function (a, b) {
+            return (famHolds(b, vs) - famHolds(a, vs)) || ((per[a.s] < cat.caps[a.s] ? 0 : 1) - (per[b.s] < cat.caps[b.s] ? 0 : 1)) || (a.s - b.s);
+          });
+          if (c[0]) { r.F = c[0]; used.add(c[0].f); per[c[0].s] += 1; }
+        });
+      });
+      rows.forEach(function (r) {
+        if (r.gone) return;
+        if (!r.F) { out.skipped.push(r.t.slice(0, 200)); return; }
+        var pick = tierFor(r.F, nums(r.t)), o = pick.o;
+        out.mods.push({ s: r.F.s, mi: o.mi, kind: o.kind, crafted: o.kind === 'alloy' || o.kind === 'essence', desec: o.kind === 'lich', fract: false, text: r.t.slice(0, 200), off: pick.off });
       });
       return out;
     }
