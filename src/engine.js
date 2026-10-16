@@ -1244,6 +1244,63 @@
       return out;
     }
 
+    /* An item from a build file (the game's Build Planner, .build): its base on the first line ("Runeforged ..." too),
+       then one mod per line, often numbered ("3. +41% to Fire Resistance"). The values are the build's goal, not a
+       roll, and sometimes a sum (a rune, two sources), so each mod takes the tier whose range holds the value; above
+       the best roll it takes the best (off: 'over'), below every roll the lowest ('under'). Lines that aren't a mod the
+       base can roll (notes, unique or rune lines, a second line of one family) are skipped. Same shape as importItem. */
+    function buildItem(text) {
+      var lines = String(text || '').replace(/\r/g, '').split('\n').map(function (l) { return l.trim(); });
+      var first = lines.findIndex(function (l) { return !!l; });
+      var out = { base: null, cls: null, runeforged: false, ilvl: null, rarity: 'rare', name: null, mods: [], skipped: [], unidentified: false, baseText: first > -1 ? lines[first] : '' };
+      if (first < 0) return out;
+      var head = lines[first].replace(/[\u2019]/g, "'");
+      var hit = BASE[head.replace(/^(Superior|Runeforged|Runemastered)\s+/, '')] ? itemBase(head) : null;
+      if (!hit) return out;
+      out.base = hit.base; out.runeforged = hit.runeforged; out.cls = BASE[out.base].c;
+      var cat = catalog(out.base, 82);
+      var byT = [new Map(), new Map()];
+      [0, 1].forEach(function (s) { cat.sides[s].forEach(function (F) { var k = F.t.toLowerCase(); if (!byT[s].has(k)) byT[s].set(k, F); }); });
+      var used = new Set();
+      function range(mi) {
+        var r = /\((-?\d+(?:\.\d+)?)-(-?\d+(?:\.\d+)?)\)/.exec(MODS[mi].x);
+        if (r) return [parseFloat(r[1]), parseFloat(r[2])];
+        var n = /-?\d+(?:\.\d+)?/.exec(MODS[mi].x);
+        return n ? [parseFloat(n[0]), parseFloat(n[0])] : null;
+      }
+      lines.slice(first + 1).forEach(function (l) {
+        var t = l.replace(/^\d{1,2}\s*[.)]\s+/, '').replace(/[−–]/g, '-').trim();
+        if (!t) return;
+        var k = tmplText(t);
+        var F = byT[0].get(k) || byT[1].get(k);
+        if (!F || used.has(F.f)) { out.skipped.push(t); return; }
+        used.add(F.f);
+        var opts = tierOptions(cat, F.f), rolls = opts.filter(function (x) { return x.kind === 'roll'; });
+        var v = parseFloat((t.match(/-?\d+(?:\.\d+)?/) || [])[0]);
+        var o = null, off = null;
+        if (rolls.length && !isNaN(v)) {
+          o = rolls.find(function (x) { var r = range(x.mi); return r && v >= r[0] && v <= r[1]; });
+          if (!o) {
+            var top = range(rolls[0].mi);
+            if (top && v > top[1]) { o = rolls[0]; off = 'over'; }
+            else {
+              // between two tiers: the best one the value reaches; under every roll: the lowest
+              o = rolls.find(function (x) { var r = range(x.mi); return r && v >= r[0]; });
+              if (!o) { o = rolls[rolls.length - 1]; off = 'under'; }
+            }
+          }
+        }
+        if (!o) {
+          o = opts[0];
+          var r0 = !isNaN(v) && range(o.mi);
+          if (r0 && v > r0[1]) off = 'over';
+          else if (r0 && v < r0[0]) off = 'under';
+        }
+        out.mods.push({ s: F.s, mi: o.mi, kind: o.kind, crafted: o.kind === 'alloy' || o.kind === 'essence', desec: o.kind === 'lich', fract: false, text: t, off: off });
+      });
+      return out;
+    }
+
     /* ---------- cost estimates ----------
        "If every roll lands" is the plan's required mats, priced once (planCost). "On average" is what the steps cost
        from an item to the end if you follow the planner's own advice after every miss, solved exactly as a Markov
@@ -1755,7 +1812,7 @@
       MODS: MODS, FAMS: FAMS, CLASS: CLASS, BASE: BASE,
       catalog: catalog, tierOptions: tierOptions, methods: methods, famName: famName, modText: modText,
       analyze: analyze, plan: plan, apply: apply, nextStep: nextStep, summary: summary, slamOddsFor: slamOddsFor,
-      oddsLabel: oddsLabel, price: price, matsCost: matsCost, labelTier: labelTier, newId: newId, SIDE: SIDE, SIDE_CAP: SIDE_CAP, findBases: findBases, socketable: socketable, suggest: suggest, special: special, buyName: buyName, importItem: importItem, specialTargets: specialTargets,
+      oddsLabel: oddsLabel, price: price, matsCost: matsCost, labelTier: labelTier, newId: newId, SIDE: SIDE, SIDE_CAP: SIDE_CAP, findBases: findBases, socketable: socketable, suggest: suggest, special: special, buyName: buyName, importItem: importItem, buildItem: buildItem, specialTargets: specialTargets,
       planCost: planCost, costPlan: costPlan, choicesOf: choicesOf, choiceCosts: choiceCosts, shoppingList: shoppingList,
       spendOf: spendOf, deriveSpend: deriveSpend, spentOn: spentOn, costReset: costReset,
       setLeague: setLeague, hardness: function (design, st, t) { var c = catalog(design.base, design.ilvl); return hardness(c, analyze(c, design, st), t); }

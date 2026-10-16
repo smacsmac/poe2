@@ -922,3 +922,86 @@ test('a kept mod can stand in for a target: Cold Resistance in place of Fire Res
   assert.equal(cold.status, 'keep');
   assert.equal(cold.counts, false);
 });
+
+/* ---------- build files (the game's Build Planner) ---------- */
+const BF = require('../src/buildfile.js');
+const { makeZip } = require('./zip.js');
+const asFile = (name, buf) => ({ name, size: buf.length, arrayBuffer: () => Promise.resolve(new Uint8Array(buf).buffer) });
+const BUILD_STEP = (n, label, gloves) => JSON.stringify({
+  author: 'Ky', link: 'https://mobalytics.gg/poe-2/builds/example', ascendancy: 'Sorceress2', name: label + ' {' + n + '} - [0.5.5] Example Build',
+  inventory_slots: [
+    { inventory_id: 'Gloves1', slot_x: 0, slot_y: 0, level_interval: [80, 100], additional_text: gloves },
+    { inventory_id: 'Helm1', slot_x: 0, slot_y: 0, unique_name: 'Alpha\'s Howl' },
+    { inventory_id: 'Flask1', slot_x: 0, slot_y: 0, additional_text: 'Ultimate Mana Flask\n1. 31% increased Charges gained' },
+    { inventory_id: 'Flask1', slot_x: 1, slot_y: 0, unique_name: 'Olroth\'s Resolve' }
+  ],
+  passives: [{ id: 'spells18' }], skills: []
+});
+
+test('build files: an item’s base and mods, each at the tier its value falls in', () => {
+  const r = E.buildItem('Runeforged Blacksteel Gauntlets\n1. +190 to maximum Life\n2. +105 to maximum Mana\n3. +41% to Fire Resistance\n' +
+    '4. +36% to Cold Resistance\n5. 25% increased Critical Damage Bonus\n6. 24% increased Runic Ward\n\nRubDubDucky is a pretty cool guy');
+  assert.equal(r.base, 'Blacksteel Gauntlets');
+  assert.equal(r.cls, 'gloves');
+  assert.equal(r.runeforged, true);
+  const cat = E.catalog(r.base, 82);
+  const got = Object.fromEntries(r.mods.map((m) => [E.famName(E.MODS[m.mi].f), [E.labelTier(cat, { f: E.MODS[m.mi].f, mi: m.mi }), m.off || '']]));
+  assert.deepEqual(got['Maximum Life'], ['T1', 'over'], '+190 is above the best roll: the best tier, flagged');
+  assert.deepEqual(got['Maximum Mana'], ['T1', '']);
+  assert.deepEqual(got['Fire Resistance'], ['T1', '']);
+  assert.deepEqual(got['Cold Resistance'], ['T2', '']);
+  assert.deepEqual(got['Critical Damage Bonus'], ['T2', '']);
+  assert.equal(got['Runic Ward'][0], 'alloy', 'a mod only an alloy adds is crafted');
+  assert.ok(r.mods.find((m) => /Runic Ward/.test(m.text)).crafted);
+  assert.deepEqual(r.skipped, ['RubDubDucky is a pretty cool guy'], 'a note isn’t a mod');
+  assert.equal(E.buildItem('Ultimate Mana Flask\n1. 31% increased Charges gained').base, null, 'flasks aren’t in the planner');
+  assert.equal(E.buildItem('Chiming Staff').mods.length, 0, 'a base with no mods listed');
+  assert.equal(E.buildItem('Runefather’s Grasping Mail\n1. +200 to maximum Life').base, 'Runefather\'s Grasping Mail', 'a curly apostrophe still finds the base');
+});
+
+test('build files: a .build file and a zip of steps, in the order their {n} gives', async () => {
+  const g = 'Sirenscale Gloves\n1. +100 to maximum Life\n2. +16% to Fire Resistance';
+  const one = await BF.readFiles([asFile('Endgame.build', Buffer.from(BUILD_STEP(6, 'Endgame Step 1', g)))]);
+  assert.equal(one.files, 1);
+  assert.equal(one.build.title, '[0.5.5] Example Build');
+  assert.equal(one.build.author, 'Ky');
+  assert.equal(one.build.link, 'https://mobalytics.gg/poe-2/builds/example');
+  const st = one.build.steps[0];
+  assert.equal(st.name, 'Endgame Step 1');
+  assert.deepEqual(st.items.map((i) => i.label), ['Gloves', 'Helmet', 'Flask 1', 'Flask 2']);
+  assert.equal(st.items[1].unique, 'Alpha\'s Howl');
+  assert.equal(st.items[0].text, g);
+  for (const store of [false, true]) {
+    const zip = makeZip([
+      { name: 'Guide/Endgame Step 1 {6}.build', data: BUILD_STEP(6, 'Endgame Step 1', g) },
+      { name: 'Guide/Act 1 {1}.build', data: BUILD_STEP(1, 'Act 1', 'Rope Cuffs\n1. +40 to maximum Life') },
+      { name: '__MACOSX/Guide/._Act 1 {1}.build', data: 'junk' },
+      { name: 'Guide/readme.txt', data: 'not a build' }
+    ], store);
+    const z = await BF.readFiles([asFile('0.5.5_Example_Build_-_Leaguestart.zip', zip)]);
+    assert.equal(z.error, null);
+    assert.equal(z.build.title, '0.5.5 Example Build - Leaguestart', 'a zip is named after its file');
+    assert.deepEqual(z.build.steps.map((s) => s.name), ['Act 1', 'Endgame Step 1'], 'in their {n} order');
+  }
+  const bad = await BF.readFiles([asFile('notes.build', Buffer.from('{"hello": 1}'))]);
+  assert.equal(bad.build, null);
+  assert.deepEqual(bad.skipped, ['notes']);
+  const broken = await BF.readFiles([asFile('x.zip', Buffer.concat([Buffer.from([0x50, 0x4b, 0x03, 0x04]), Buffer.alloc(40)]))]);
+  assert.equal(broken.build, null);
+  assert.equal(broken.error, 'badzip');
+});
+
+test('build files: a zip that inflates past the limit is refused, not read', async () => {
+  const big = 'x'.repeat(BF.LIMITS.entry + 10);
+  const zip = makeZip([{ name: 'a.build', data: big }]);
+  // the declared size gives it away
+  let z = await BF.readFiles([asFile('a.zip', zip)]);
+  assert.equal(z.build, null);
+  // a header that lies about the size is stopped while it inflates
+  const lie = Buffer.from(zip);
+  const cdAt = lie.indexOf(Buffer.from([0x50, 0x4b, 0x01, 0x02]));
+  lie.writeUInt32LE(100, cdAt + 24);
+  z = await BF.readFiles([asFile('a.zip', lie)]);
+  assert.equal(z.build, null);
+  assert.equal(z.error, 'toobig');
+});

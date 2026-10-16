@@ -371,6 +371,49 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
 .imp-err{color:var(--junk)}
 .imp-note{color:var(--muted);font-size:.86rem}
 .imp-skip{font-family:var(--font-mono);font-size:.8rem;color:var(--fg)}
+.imp-row{gap:.5rem;flex-wrap:wrap}
+/* Import a build: the build, its steps, then each item of the step */
+.bld-card{grid-template-rows:auto minmax(0,1fr)}
+.bld-body{display:grid;gap:.75rem;min-height:0;overflow:auto;padding:0 1.1rem 1.1rem;align-content:start}
+.bld-top{display:flex;flex-wrap:wrap;align-items:center;gap:.4rem .9rem}
+.bld-title{font-family:var(--font-display);font-size:1.12rem;color:var(--fg)}
+.bld-sel select{font:inherit;font-size:.95rem;color:var(--fg);background:var(--surface-2);border:1px solid var(--line-2);border-radius:5px;padding:.3rem .5rem;max-width:100%}
+.bld-by{color:var(--muted);font-size:.88rem}
+.bld-by a{color:var(--brass)}
+.bld-top .tbtn,.bld-del{margin-left:auto}
+.bld-del{display:inline-flex;flex-wrap:wrap;align-items:center;gap:.4rem;font-size:.88rem;color:var(--fg)}
+.bld-q{font-family:var(--font-mono);font-size:.68rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.bld-steps{display:flex;flex-wrap:wrap;gap:.35rem}
+.bld-steps button{font:inherit;font-size:.86rem;padding:.3rem .65rem;border:1px solid var(--line-2);border-radius:999px;background:var(--surface-2);color:var(--fg);cursor:pointer}
+.bld-steps button:hover{border-color:var(--brass-dim)}
+.bld-steps button[aria-pressed="true"]{border-color:var(--brass);background:var(--brass-wash);color:var(--brass)}
+.bld-items{list-style:none;margin:0;padding:0;display:grid;gap:.5rem;grid-template-columns:repeat(auto-fill,minmax(min(100%,19rem),1fr))}
+.bld-it{display:grid;gap:.45rem;align-content:start;padding:.65rem .7rem;border:1px solid var(--line);border-radius:6px;background:var(--surface-2);min-width:0}
+.bld-it.off{opacity:.72}
+.bi-head{display:flex;align-items:center;gap:.6rem;min-width:0}
+.bi-head>svg{width:28px;height:28px;flex:none;color:var(--brass);stroke-width:2.2}
+.bi-dot{width:28px;height:28px;flex:none;border:1px dashed var(--line-2);border-radius:50%}
+.bi-t{display:grid;min-width:0;margin-right:auto}
+.bi-slot{font-family:var(--font-mono);font-size:.66rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.bi-base{font-weight:500;color:var(--fg);overflow-wrap:anywhere}
+.bi-head .btn{flex:none}
+.bi-mods{list-style:none;margin:0;padding:0;display:grid;gap:.15rem;font-size:.86rem}
+.bi-mods li{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:.45rem;align-items:baseline}
+.bi-mods li.no-room{opacity:.6}
+.bi-side{font-family:var(--font-mono);font-size:.62rem;color:var(--muted);border:1px solid var(--line-2);border-radius:3px;padding:0 .25rem}
+.bi-m{color:var(--fg);min-width:0}
+.bi-m small{display:block;font-size:.74rem;color:var(--muted)}
+.bi-why,.bi-skip{font-size:.84rem;color:var(--muted)}
+.bi-skip span{font-family:var(--font-mono);font-size:.76rem;color:var(--fg)}
+.bld-drop{display:flex;flex-wrap:wrap;align-items:center;gap:.5rem .8rem;padding:.8rem;border:1px dashed var(--line-2);border-radius:6px;color:var(--muted);font-size:.88rem}
+.bld-drop.over{border-color:var(--brass);background:var(--brass-wash)}
+.bld-file{position:relative;cursor:pointer}
+.bld-file input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer}
+.bld-file:focus-within{outline:2px solid var(--brass);outline-offset:2px}
+.bld-msg:empty{display:none}
+.bld-msg{font-size:.9rem;color:var(--fg)}
+.bld-msg.bad{color:var(--junk)}
+.bld-keep{font-size:.82rem;color:var(--muted)}
 .cb-body textarea{width:100%;min-height:16rem;resize:vertical;font-family:var(--font-mono);font-size:.8rem;line-height:1.5;color:var(--fg);background:var(--surface-2);border:1px solid var(--line-2);border-radius:5px;padding:.7rem .8rem}
 .fine{font-size:.82rem;color:var(--muted);line-height:1.45}
 
@@ -1035,6 +1078,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
 <symbol id="u-scroll" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4h11a2 2 0 0 1 0 4h-2v10a2 2 0 0 1-2 2H6a2 2 0 0 1 0-4h2V6a2 2 0 0 0-2-2"/><path d="M11 9h3M11 12h3"/></symbol>
 <symbol id="u-book" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4.5c3-1 6-.5 8 1.5v14c-2-2-5-2.5-8-1.5zM20 4.5c-3-1-6-.5-8 1.5v14c2-2 5-2.5 8-1.5z"/></symbol>
 <symbol id="u-stack" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l9 4.5-9 4.5-9-4.5z"/><path d="M3 12l9 4.5 9-4.5M3 16.5l9 4.5 9-4.5"/></symbol>
+<symbol id="u-file" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3.5H7.2A1.7 1.7 0 0 0 5.5 5.2v13.6a1.7 1.7 0 0 0 1.7 1.7h9.6a1.7 1.7 0 0 0 1.7-1.7V8z"/><path d="M14 3.5V8h4.5M9 12.5h6M9 16h4"/></symbol>
 <symbol id="u-grip" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></symbol>
 <symbol id="u-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></symbol>
 <symbol id="u-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></symbol>
@@ -1057,7 +1101,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
     <a class="brand" href="#design" data-go="design" aria-label="Crafting Playbook, design screen">
       <span class="brand-mark" aria-hidden="true"></span>
       <span class="brand-name">Crafting Playbook</span>
-      <span class="brand-v" title="App version: V13">V13</span>
+      <span class="brand-v" title="App version: V14">V14</span>
       <span class="brand-sub">PoE2 · 0.5.5</span>
     </a>
     <nav class="tabs" aria-label="Screens">
@@ -1314,6 +1358,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
 <div class="modal" id="picker" hidden></div>
 <div class="modal" id="copybox" hidden></div>
 <div class="modal" id="impbox" hidden></div>
+<div class="modal" id="bldbox" hidden></div>
 <div class="modal" id="spbox" hidden></div>
 <div class="drawer" id="drawer" hidden></div>
 <div class="drawer left" id="slots" hidden></div>
@@ -1592,6 +1637,157 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
   root.SPECIALS = { checked: CHECKED, list: SPECIALS };
   if (typeof module !== 'undefined') module.exports = root.SPECIALS;
 })(typeof window !== 'undefined' ? window : globalThis);
+
+</script>
+<script>
+/* Build files: what the game's Build Planner reads (patch 0.5+). A .build file is JSON: the build's author and link,
+   then inventory_slots, each with an inventory_id (Weapon1, Helm1, Ring2, Flask1...), a slot_x for the flasks and
+   charms, and either additional_text (the base on the first line, then the mods the creator wants) or unique_name.
+   Guides ship one file per step (Act 1, Endgame Step 1...), often zipped together; "{n}" in a step's name is its order.
+   No DOM here: readFiles takes File-like objects ({name, arrayBuffer()}), so node tests can feed it buffers. */
+(function (root) {
+  'use strict';
+  var LIMITS = { entries: 200, entry: 1 << 20, total: 8 << 20, steps: 60, items: 40, text: 4000 };
+
+  function u16(b, o) { return b[o] | (b[o + 1] << 8); }
+  function u32(b, o) { return (b[o] | (b[o + 1] << 8) | (b[o + 2] << 16) | (b[o + 3] << 24)) >>> 0; }
+  function isZip(b) { return b.length > 4 && b[0] === 0x50 && b[1] === 0x4b && b[2] === 0x03 && b[3] === 0x04; }
+  function utf8(b) { return new TextDecoder('utf-8').decode(b); }
+  function concat(chunks, total) {
+    var out = new Uint8Array(total), at = 0;
+    chunks.forEach(function (c) { out.set(c, at); at += c.length; });
+    return out;
+  }
+  /* Raw deflate through the browser's own DecompressionStream, stopped past max bytes (a zip bomb gets nowhere). */
+  function inflateRaw(data, max) {
+    if (typeof DecompressionStream === 'undefined') return Promise.reject(new Error('nozip'));
+    var ds;
+    try { ds = new DecompressionStream('deflate-raw'); } catch (e) { return Promise.reject(new Error('nozip')); }
+    var w = ds.writable.getWriter();
+    w.write(data).catch(function () { /* the read side reports it */ });
+    w.close().catch(function () { /* same */ });
+    var reader = ds.readable.getReader(), chunks = [], total = 0;
+    function pump() {
+      return reader.read().then(function (r) {
+        if (r.done) return concat(chunks, total);
+        total += r.value.length;
+        if (total > max) { reader.cancel().catch(function () { /* ignore */ }); throw new Error('toobig'); }
+        chunks.push(r.value);
+        return pump();
+      });
+    }
+    return pump();
+  }
+  /* The files in a zip (stored or deflated; no encryption, no zip64), read from its central directory. */
+  function readZip(bytes, want) {
+    var b = bytes, eocd = -1;
+    for (var i = b.length - 22; i >= Math.max(0, b.length - 65557); i--) { if (u32(b, i) === 0x06054b50) { eocd = i; break; } }
+    if (eocd < 0) return Promise.reject(new Error('badzip'));
+    var count = u16(b, eocd + 10), p = u32(b, eocd + 16), entries = [];
+    for (var n = 0; n < count && n < LIMITS.entries && p + 46 <= b.length; n++) {
+      if (u32(b, p) !== 0x02014b50) break;
+      var flags = u16(b, p + 8), method = u16(b, p + 10), csize = u32(b, p + 20), usize = u32(b, p + 24);
+      var nlen = u16(b, p + 28), xlen = u16(b, p + 30), clen = u16(b, p + 32), lho = u32(b, p + 42);
+      var name = utf8(b.subarray(p + 46, p + 46 + nlen));
+      p += 46 + nlen + xlen + clen;
+      if (/\/$/.test(name) || (flags & 1) || csize === 0xffffffff || lho + 30 > b.length || u32(b, lho) !== 0x04034b50) continue;
+      if (want && !want(name)) continue;
+      var start = lho + 30 + u16(b, lho + 26) + u16(b, lho + 28);
+      if (start + csize > b.length) continue;
+      entries.push({ name: name, method: method, usize: usize, data: b.subarray(start, start + csize) });
+    }
+    var total = 0;
+    return entries.reduce(function (chain, e) {
+      return chain.then(function (out) {
+        if (e.method === 0) return e.data.length <= LIMITS.entry ? out.concat([{ name: e.name, data: e.data }]) : out;
+        if (e.method !== 8 || e.usize > LIMITS.entry) return out;
+        return inflateRaw(e.data, LIMITS.entry).then(function (d) {
+          total += d.length;
+          if (total > LIMITS.total) throw new Error('toobig');
+          return out.concat([{ name: e.name, data: d }]);
+        });
+      });
+    }, Promise.resolve([]));
+  }
+
+  var SLOTS = { Weapon: 'Weapon', Offhand: 'Off hand', Helm: 'Helmet', BodyArmour: 'Body armour', Gloves: 'Gloves', Boots: 'Boots',
+    Amulet: 'Amulet', Ring: 'Ring', Belt: 'Belt', Flask: 'Flask', Charm: 'Charm' };
+  /* "Weapon2" is the second weapon set; "Ring2" the second ring. */
+  function slotLabel(id, x, many) {
+    var m = /^([A-Za-z]+?)(\d*)$/.exec(String(id || '')), base = m && SLOTS[m[1]], k = m ? +(m[2] || 1) : 1;
+    if (!base) return String(id || 'Item');
+    if (m[1] === 'Weapon' || m[1] === 'Offhand') return base + (k > 1 ? ' (swap)' : '');
+    if (m[1] === 'Ring') return base + ' ' + k;
+    return base + (many ? ' ' + ((x | 0) + 1) : '');
+  }
+  function clip(s, n) { s = String(s == null ? '' : s); return s.length > n ? s.slice(0, n) : s; }
+  function stepOf(name, i) {
+    var nm = String(name || '').trim(), m = /\{(\d+)\}/.exec(nm);
+    var label = nm.replace(/\s*\{\d+\}.*$/, '').trim() || nm || 'Step ' + (i + 1);
+    return { n: m ? +m[1] : null, name: clip(label, 80) };
+  }
+  /* One .build file's JSON -> a step: { name, n, title, author, link, items: [{ slot, label, text | unique }] } */
+  function parseBuild(text, fileName, i) {
+    var o;
+    try { o = JSON.parse(String(text).replace(/^﻿/, '')); } catch (e) { return null; }
+    if (!o || typeof o !== 'object' || !Array.isArray(o.inventory_slots)) return null;
+    var st = stepOf(o.name || String(fileName || '').replace(/\.[^.]+$/, ''), i || 0);
+    var count = {};
+    o.inventory_slots.forEach(function (s) { if (s && s.inventory_id) count[s.inventory_id] = (count[s.inventory_id] || 0) + 1; });
+    var items = o.inventory_slots.filter(function (s) { return s && typeof s.inventory_id === 'string' && (typeof s.additional_text === 'string' || typeof s.unique_name === 'string'); })
+      .slice(0, LIMITS.items).map(function (s) {
+        var it = { slot: clip(s.inventory_id, 30), label: slotLabel(s.inventory_id, s.slot_x, count[s.inventory_id] > 1) };
+        if (typeof s.unique_name === 'string' && !s.additional_text) it.unique = clip(s.unique_name, 80);
+        else it.text = clip(s.additional_text, LIMITS.text);
+        return it;
+      });
+    var nm = String(o.name || ''), dash = nm.indexOf(' - ');
+    var tail = dash > -1 ? nm.slice(dash + 3).trim() : '';
+    var link = typeof o.link === 'string' && /^https?:\/\//i.test(o.link) ? clip(o.link, 300) : null;
+    return { name: st.name, n: st.n, title: tail.length >= 8 && !/\.$/.test(tail) ? clip(tail, 80) : '', author: clip(typeof o.author === 'string' ? o.author : '', 60), link: link, items: items };
+  }
+  function cleanName(n) { return String(n || '').replace(/^.*[\\/]/, '').replace(/\.[^.]+$/, '').replace(/_+/g, ' ').replace(/\s+/g, ' ').trim(); }
+  /* Steps in order: "{n}" when every step has one, else the file names' natural order. */
+  function pack(steps, zipName) {
+    var all = steps.filter(Boolean).slice(0, LIMITS.steps);
+    if (!all.length) return null;
+    var numbered = all.every(function (s) { return s.n !== null; });
+    all.sort(function (a, b) { return numbered ? a.n - b.n : a.file.localeCompare(b.file, undefined, { numeric: true }); });
+    var first = all[0];
+    var title = zipName ? cleanName(zipName) : first.title || (first.author ? first.author + '’s build' : cleanName(first.file));
+    return {
+      title: clip(title, 80), author: first.author, link: first.link,
+      steps: all.map(function (s) { return { name: s.name, items: s.items }; })
+    };
+  }
+  /* Files from a picker or a drop: .build files and zips of them. Resolves to { build, files, skipped, error }. */
+  function readFiles(files) {
+    var list = Array.prototype.slice.call(files || []), steps = [], skipped = [], zipName = null, error = null, idx = 0;
+    function take(name, bytes) {
+      var s = parseBuild(utf8(bytes), name, idx++);
+      if (s) { s.file = cleanName(name); steps.push(s); } else skipped.push(cleanName(name));
+    }
+    return list.reduce(function (chain, f) {
+      return chain.then(function () {
+        if (f.size > LIMITS.total) { skipped.push(cleanName(f.name)); return; }
+        return f.arrayBuffer().then(function (buf) {
+          var b = new Uint8Array(buf);
+          if (!isZip(b)) { take(f.name, b); return; }
+          if (list.length === 1) zipName = f.name;
+          return readZip(b, function (n) { return /\.(build|json)$/i.test(n) && !/(^|\/)(__MACOSX|\.)/.test(n); })
+            .then(function (entries) { entries.forEach(function (e) { take(e.name, e.data); }); if (!entries.length) skipped.push(cleanName(f.name)); })
+            .catch(function (e) { error = e.message === 'nozip' ? 'nozip' : e.message === 'toobig' ? 'toobig' : 'badzip'; });
+        });
+      });
+    }, Promise.resolve()).then(function () {
+      return { build: pack(steps, zipName), files: steps.length, skipped: skipped, error: error };
+    });
+  }
+
+  var api = { readZip: readZip, parseBuild: parseBuild, readFiles: readFiles, slotLabel: slotLabel, LIMITS: LIMITS };
+  if (typeof module !== 'undefined' && module.exports) module.exports = api;
+  else root.BuildFile = api;
+})(typeof window !== 'undefined' ? window : this);
 
 </script>
 <script>
@@ -2841,6 +3037,63 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
       return out;
     }
 
+    /* An item from a build file (the game's Build Planner, .build): its base on the first line ("Runeforged ..." too),
+       then one mod per line, often numbered ("3. +41% to Fire Resistance"). The values are the build's goal, not a
+       roll, and sometimes a sum (a rune, two sources), so each mod takes the tier whose range holds the value; above
+       the best roll it takes the best (off: 'over'), below every roll the lowest ('under'). Lines that aren't a mod the
+       base can roll (notes, unique or rune lines, a second line of one family) are skipped. Same shape as importItem. */
+    function buildItem(text) {
+      var lines = String(text || '').replace(/\r/g, '').split('\n').map(function (l) { return l.trim(); });
+      var first = lines.findIndex(function (l) { return !!l; });
+      var out = { base: null, cls: null, runeforged: false, ilvl: null, rarity: 'rare', name: null, mods: [], skipped: [], unidentified: false, baseText: first > -1 ? lines[first] : '' };
+      if (first < 0) return out;
+      var head = lines[first].replace(/[\u2019]/g, "'");
+      var hit = BASE[head.replace(/^(Superior|Runeforged|Runemastered)\s+/, '')] ? itemBase(head) : null;
+      if (!hit) return out;
+      out.base = hit.base; out.runeforged = hit.runeforged; out.cls = BASE[out.base].c;
+      var cat = catalog(out.base, 82);
+      var byT = [new Map(), new Map()];
+      [0, 1].forEach(function (s) { cat.sides[s].forEach(function (F) { var k = F.t.toLowerCase(); if (!byT[s].has(k)) byT[s].set(k, F); }); });
+      var used = new Set();
+      function range(mi) {
+        var r = /\((-?\d+(?:\.\d+)?)-(-?\d+(?:\.\d+)?)\)/.exec(MODS[mi].x);
+        if (r) return [parseFloat(r[1]), parseFloat(r[2])];
+        var n = /-?\d+(?:\.\d+)?/.exec(MODS[mi].x);
+        return n ? [parseFloat(n[0]), parseFloat(n[0])] : null;
+      }
+      lines.slice(first + 1).forEach(function (l) {
+        var t = l.replace(/^\d{1,2}\s*[.)]\s+/, '').replace(/[−–]/g, '-').trim();
+        if (!t) return;
+        var k = tmplText(t);
+        var F = byT[0].get(k) || byT[1].get(k);
+        if (!F || used.has(F.f)) { out.skipped.push(t); return; }
+        used.add(F.f);
+        var opts = tierOptions(cat, F.f), rolls = opts.filter(function (x) { return x.kind === 'roll'; });
+        var v = parseFloat((t.match(/-?\d+(?:\.\d+)?/) || [])[0]);
+        var o = null, off = null;
+        if (rolls.length && !isNaN(v)) {
+          o = rolls.find(function (x) { var r = range(x.mi); return r && v >= r[0] && v <= r[1]; });
+          if (!o) {
+            var top = range(rolls[0].mi);
+            if (top && v > top[1]) { o = rolls[0]; off = 'over'; }
+            else {
+              // between two tiers: the best one the value reaches; under every roll: the lowest
+              o = rolls.find(function (x) { var r = range(x.mi); return r && v >= r[0]; });
+              if (!o) { o = rolls[rolls.length - 1]; off = 'under'; }
+            }
+          }
+        }
+        if (!o) {
+          o = opts[0];
+          var r0 = !isNaN(v) && range(o.mi);
+          if (r0 && v > r0[1]) off = 'over';
+          else if (r0 && v < r0[0]) off = 'under';
+        }
+        out.mods.push({ s: F.s, mi: o.mi, kind: o.kind, crafted: o.kind === 'alloy' || o.kind === 'essence', desec: o.kind === 'lich', fract: false, text: t, off: off });
+      });
+      return out;
+    }
+
     /* ---------- cost estimates ----------
        "If every roll lands" is the plan's required mats, priced once (planCost). "On average" is what the steps cost
        from an item to the end if you follow the planner's own advice after every miss, solved exactly as a Markov
@@ -3352,7 +3605,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
       MODS: MODS, FAMS: FAMS, CLASS: CLASS, BASE: BASE,
       catalog: catalog, tierOptions: tierOptions, methods: methods, famName: famName, modText: modText,
       analyze: analyze, plan: plan, apply: apply, nextStep: nextStep, summary: summary, slamOddsFor: slamOddsFor,
-      oddsLabel: oddsLabel, price: price, matsCost: matsCost, labelTier: labelTier, newId: newId, SIDE: SIDE, SIDE_CAP: SIDE_CAP, findBases: findBases, socketable: socketable, suggest: suggest, special: special, buyName: buyName, importItem: importItem, specialTargets: specialTargets,
+      oddsLabel: oddsLabel, price: price, matsCost: matsCost, labelTier: labelTier, newId: newId, SIDE: SIDE, SIDE_CAP: SIDE_CAP, findBases: findBases, socketable: socketable, suggest: suggest, special: special, buyName: buyName, importItem: importItem, buildItem: buildItem, specialTargets: specialTargets,
       planCost: planCost, costPlan: costPlan, choicesOf: choicesOf, choiceCosts: choiceCosts, shoppingList: shoppingList,
       spendOf: spendOf, deriveSpend: deriveSpend, spentOn: spentOn, costReset: costReset,
       setLeague: setLeague, hardness: function (design, st, t) { var c = catalog(design.base, design.ilvl); return hardness(c, analyze(c, design, st), t); }
@@ -3931,7 +4184,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
     var imp = implicitLines(b);
     if (imp.length) h += '<p class="implicit"><small>Implicit · comes with the base</small>' + imp.map(modHTML).join('<br>') + '</p>';
     h += '<div class="tip-rule" aria-hidden="true"><i></i></div>';
-    h += '<div class="imp-row"><button type="button" class="imp-btn" data-act="imp-open">' + ico('u-import') + 'Import an item from the game</button></div>';
+    h += '<div class="imp-row"><button type="button" class="imp-btn" data-act="bld-open">' + ico('u-file') + 'Import a build</button><button type="button" class="imp-btn" data-act="imp-open">' + ico('u-import') + 'Import an item from the game</button></div>';
     [0, 1].forEach(function (s) {
       var n = cat.caps[s];
       h += '<p class="grp">' + (s ? 'Suffixes' : 'Prefixes') + '<span>' + plural(n, 'slot') + (n !== 3 ? ' on this base' : '') + '</span></p>';
@@ -5564,7 +5817,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
     var cat = catOf(c), b = cat.base, design = designOf(c);
     var skip = (c.st && c.st.skip) || {};
     var L = [];
-    L.push('Path of Exile 2 crafting, patch 0.5.5. This is a craft I’m working on, copied from the crafting planner app I use (PoE2 Crafting Playbook V13). Prices are from the ' + (app.league === 'roa' ? 'Runes of Aldur' : 'Forbidden Rites') + ' league, in divines (div) and exalts (ex).');
+    L.push('Path of Exile 2 crafting, patch 0.5.5. This is a craft I’m working on, copied from the crafting planner app I use (PoE2 Crafting Playbook V14). Prices are from the ' + (app.league === 'roa' ? 'Runes of Aldur' : 'Forbidden Rites') + ' league, in divines (div) and exalts (ex).');
     L.push('How to read it: T1 is a mod’s best tier. Crafted mods come from an essence or an alloy, one per item (two with the rune Astrid’s Creativity socketed). Desecrated mods come from a desecration at the Well of Souls, one per item. The app’s odds count every eligible tier as equally likely, so they’re rough.');
     L.push('', 'THE ITEM');
     L.push(c.base + ' (' + CLS[c.cls].n + (b.sub ? ', ' + b.sub : '') + '), item level ' + c.ilvl + '.');
@@ -5829,6 +6082,165 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
     toast('Imported ' + r.base + ', item level ' + c.ilvl + ': ' + plural(n[0], 'prefix', 'prefixes') + ' and ' + plural(n[1], 'suffix', 'suffixes') + (mine ? ', on your item in the Forge too' : '') + '.' +
       (r.skipped.length + extra ? ' ' + plural(r.skipped.length + extra, 'mod') + ' left out.' : '') +
       (keep ? ' The ' + craftName(prev) + ' craft is in My crafts.' : ''), 6500);
+  }
+
+  /* ---------- build files: a build guide's steps, each with its gear (src/buildfile.js) ----------
+     Open a .build file (the game's Build Planner) or a .zip of them, pick a step, then an item: its base and mods
+     become the design, like an imported item. Builds are kept in this browser (LS_B) so another step or slot is a
+     click away later; only their items are kept, not the passives or gems. */
+  var LS_B = 'poe2-crafting-playbook-builds', BUILDS_MAX = 6;
+  var builds = [], bldRet = null, bldBusy = false;
+  function buildOk(b) {
+    return !!b && typeof b === 'object' && typeof b.id === 'string' && typeof b.title === 'string' && Array.isArray(b.steps) &&
+      b.steps.every(function (s) { return s && typeof s.name === 'string' && Array.isArray(s.items); });
+  }
+  function loadBuilds() {
+    try {
+      var raw = JSON.parse(localStorage.getItem(LS_B) || '[]');
+      builds = Array.isArray(raw) ? raw.filter(buildOk).slice(0, BUILDS_MAX) : [];
+    } catch (e) { builds = []; }
+  }
+  function saveBuilds() {
+    try { localStorage.setItem(LS_B, JSON.stringify(builds)); return true; } catch (e) { return false; }
+  }
+  function curBuild() {
+    var id = app.ui.bld && app.ui.bld.id;
+    return builds.find(function (b) { return b.id === id; }) || builds[0] || null;
+  }
+  function buildStep(b) {
+    var i = app.ui.bld && app.ui.bld.id === b.id && typeof app.ui.bld.step === 'number' ? app.ui.bld.step : typeof b.last === 'number' ? b.last : b.steps.length - 1;
+    return Math.max(0, Math.min(b.steps.length - 1, i));
+  }
+  function buildsOpen() { return !$('bldbox').hidden; }
+  function openBuilds() {
+    bldRet = document.activeElement;
+    loadBuilds();
+    var b = curBuild();
+    app.ui.bld = b ? { id: b.id, step: buildStep(b) } : null;
+    app.ui.bldDel = false;
+    $('bldbox').hidden = false;
+    renderBuilds();
+    setTimeout(function () {
+      var f = document.querySelector('#bldbox .bld-steps [aria-pressed="true"]') || $('bld-file');
+      if (f) { try { f.focus(); } catch (e) { /* ignore */ } }
+    }, 0);
+  }
+  function closeBuilds() {
+    var el = $('bldbox');
+    el.hidden = true; el.innerHTML = '';
+    if (bldRet && document.body.contains(bldRet)) { try { bldRet.focus({ preventScroll: true }); } catch (e) { /* ignore */ } }
+    else { var p = document.querySelector('#v-' + app.view + ' [data-act="bld-open"]'); if (p) { try { p.focus({ preventScroll: true }); } catch (e) { /* ignore */ } } }
+    bldRet = null;
+  }
+  /* What one item of the step will import, or why it can't. */
+  function buildItemInfo(it) {
+    if (it.unique) return { why: 'Unique: ' + it.unique + '. Uniques can’t be crafted.' };
+    var r = E.buildItem(it.text);
+    if (!r.base) {
+      var what = r.baseText || 'no base';
+      return { r: r, why: /^(Flask|Charm)/.test(it.slot) ? 'Flasks and charms aren’t in the planner.' : 'Not a base the planner knows: ' + what + '.' };
+    }
+    return { r: r };
+  }
+  function buildItemHTML(it, i) {
+    var x = buildItemInfo(it), r = x.r;
+    var name = r && r.base ? (r.runeforged ? 'Runeforged ' : '') + r.base : it.unique || (r && r.baseText) || '';
+    var h = '<li class="bld-it' + (x.why ? ' off' : '') + '"><div class="bi-head">' +
+      (r && r.cls ? '<svg aria-hidden="true"><use href="#i-' + r.cls + '"/></svg>' : '<span class="bi-dot" aria-hidden="true"></span>') +
+      '<div class="bi-t"><span class="bi-slot">' + esc(it.label) + '</span><span class="bi-base">' + esc(name) + '</span></div>' +
+      (x.why ? '' : '<button type="button" class="btn small" data-act="bld-use" data-i="' + i + '" aria-label="Craft the ' + esc(it.label.toLowerCase()) + ': ' + esc(name) + '">Craft this</button>') + '</div>';
+    if (x.why) return h + '<p class="bi-why">' + esc(x.why) + '</p></li>';
+    var cat = E.catalog(r.base, 82);
+    if (r.mods.length) {
+      h += '<ul class="bi-mods">' + r.mods.map(function (m, k) {
+        var f = E.MODS[m.mi].f, tl = E.labelTier(cat, { f: f, mi: m.mi });
+        var room = r.mods.filter(function (y, j) { return j < k && y.s === m.s; }).length >= cat.caps[m.s];
+        var tier = tl === 'alloy' ? 'Crafted' : tl === 'desecrated' ? 'Desecrated' : tl;
+        var off = m.off === 'over' ? 'asks ' + m.text.match(/-?\d+(?:\.\d+)?/)[0] + ', above the best roll' : m.off === 'under' ? 'asks ' + m.text.match(/-?\d+(?:\.\d+)?/)[0] + ', below this tier' : '';
+        return '<li' + (room ? ' class="no-room"' : '') + '><span class="bi-side">' + (m.s ? 'S' : 'P') + '</span><span class="bi-m">' + modHTML(E.famName(f)) +
+          (room ? ' <span class="imp-x">no ' + SIDE[m.s] + ' slot left</span>' : '') + (off ? '<small>' + esc(off) + '</small>' : '') + '</span><span class="imp-tier">' + esc(tier) + '</span></li>';
+      }).join('') + '</ul>';
+    } else h += '<p class="bi-why">No mods listed: only the base comes across.</p>';
+    if (r.skipped.length) h += '<p class="bi-skip">Left out: ' + r.skipped.map(function (t) { return '<span>' + esc(t) + '</span>'; }).join(' · ') + '</p>';
+    return h + '</li>';
+  }
+  function renderBuilds(focusSel) {
+    var el = $('bldbox');
+    if (el.hidden) return;
+    var b = curBuild();
+    var h = '<div class="modal-card bld-card" role="dialog" aria-modal="true" aria-labelledby="bld-t">' +
+      '<div class="pk-head"><div><h2 id="bld-t">Import a build</h2><p>Open a <b>.build</b> file, the kind the game’s Build Planner reads (build guides such as Mobalytics offer one to download), or a <b>.zip</b> of them. Pick a step, then the item to craft: its base and mods become your design.</p></div>' +
+      '<button type="button" class="x" data-act="bld-close" aria-label="Close">' + ico('u-x') + '</button></div><div class="bld-body">';
+    if (b) {
+      var si = buildStep(b), st = b.steps[si];
+      h += '<div class="bld-top">' + (builds.length > 1
+        ? '<label class="bld-sel"><span class="vh">Build</span><select id="bld-pick">' + builds.map(function (x) { return '<option value="' + esc(x.id) + '"' + (x === b ? ' selected' : '') + '>' + esc(x.title) + '</option>'; }).join('') + '</select></label>'
+        : '<p class="bld-title">' + esc(b.title) + '</p>') +
+        '<p class="bld-by">' + (b.author ? 'By ' + esc(b.author) : '') + (b.link ? (b.author ? ' · ' : '') + '<a href="' + esc(b.link) + '" target="_blank" rel="noopener noreferrer">the guide</a>' : '') + '</p>' +
+        (app.ui.bldDel ? '<span class="bld-del">Remove this build? <button type="button" class="btn small" data-act="bld-del-yes">Remove</button><button type="button" class="btn small quiet" data-act="bld-del-no">Keep</button></span>'
+          : '<button type="button" class="tbtn sm" data-act="bld-del">Remove</button>') + '</div>';
+      if (b.steps.length > 1) {
+        h += '<p class="bld-q" id="bld-sq">Step</p><div class="bld-steps" role="group" aria-labelledby="bld-sq">' + b.steps.map(function (s, i) {
+          return '<button type="button" data-act="bld-step" data-i="' + i + '" aria-pressed="' + (i === si) + '">' + esc(s.name) + '</button>';
+        }).join('') + '</div>';
+      } else h += '<p class="bld-q">' + esc(st.name) + '</p>';
+      h += '<ul class="bld-items" aria-label="Items in ' + esc(st.name) + '">' + st.items.map(buildItemHTML).join('') + '</ul>';
+    }
+    h += '<div class="bld-drop" id="bld-drop"><label class="btn small primary bld-file">' + ico('u-file') + (b ? 'Open another build' : 'Open a .build or .zip file') +
+      '<input type="file" id="bld-file" multiple></label><span>or drop it here</span></div>' +
+      '<p id="bld-msg" class="bld-msg" role="status" aria-live="polite">' + (bldBusy ? 'Reading…' : '') + '</p>' +
+      (b ? '<p class="bld-keep">Builds stay in this browser (up to ' + BUILDS_MAX + '), so you can come back for another step or item.</p>' : '') + '</div></div>';
+    el.innerHTML = h;
+    if (focusSel) { var f = el.querySelector(focusSel); if (f) { try { f.focus({ preventScroll: true }); } catch (e) { /* ignore */ } } }
+  }
+  function buildMsg(t, bad) { var m = $('bld-msg'); if (m) { m.textContent = t; m.classList.toggle('bad', !!bad); } }
+  function addBuildFiles(files) {
+    if (!files || !files.length || bldBusy) return;
+    if (!window.BuildFile) { buildMsg('Build files can’t be read here.', true); return; }
+    bldBusy = true; buildMsg('Reading…');
+    window.BuildFile.readFiles(files).then(function (res) {
+      bldBusy = false;
+      if (!res.build) {
+        buildMsg(res.error === 'nozip' ? 'This browser can’t open .zip files. Unzip it, then pick the .build files inside (several at once is fine).'
+          : res.error === 'toobig' ? 'That file is too big to be a build.'
+            : res.error === 'badzip' ? 'That .zip couldn’t be read.'
+              : 'No build in that file. A .build file is the one the game’s Build Planner reads.', true);
+        return;
+      }
+      var nb = res.build;
+      nb.id = 'b' + Date.now().toString(36);
+      nb.at = Date.now();
+      // the same build again replaces the old copy
+      builds = [nb].concat(builds.filter(function (x) { return !(x.title === nb.title && (x.author || '') === (nb.author || '')); })).slice(0, BUILDS_MAX);
+      var kept = saveBuilds();
+      app.ui.bld = { id: nb.id, step: nb.steps.length - 1 };
+      app.ui.bldDel = false;
+      renderBuilds('.bld-steps [aria-pressed="true"]');
+      buildMsg('Added ' + nb.title + ': ' + plural(nb.steps.length, 'step') + '.' + (res.skipped.length ? ' Not a build, left out: ' + res.skipped.join(', ') + '.' : '') +
+        (kept ? '' : ' This browser won’t keep it after you close the page.'));
+    }).catch(function () { bldBusy = false; buildMsg('That file couldn’t be read.', true); });
+  }
+  function useBuildItem(i) {
+    var b = curBuild();
+    if (!b) return;
+    var si = buildStep(b), st = b.steps[si], it = st.items[i];
+    var x = it && buildItemInfo(it);
+    if (!x || x.why) return;
+    var r = x.r;
+    b.last = si; saveBuilds();
+    var d = startDesign({ cls: r.cls, base: r.base, ilvl: 82, runeforge: r.runeforged,
+      targets: [0, 1].map(function (s) { return r.mods.filter(function (m) { return m.s === s; }).map(function (m) { return m.mi; }); }) });
+    var c = d.c, prev = d.prev;
+    c.name = ((b.author ? b.author + ': ' : '') + st.name).slice(0, 60);
+    replan(c);
+    touch(c);
+    closeBuilds();
+    if (app.view !== 'design') go('design');
+    renderAll(); revealSlot();
+    var n = [0, 1].map(function (s) { return c.targets[s].filter(Boolean).length; });
+    toast('From ' + st.name + ': ' + (r.runeforged ? 'Runeforged ' : '') + r.base + ', ' + plural(n[0], 'prefix', 'prefixes') + ' and ' + plural(n[1], 'suffix', 'suffixes') + '.' +
+      (r.skipped.length + d.extra ? ' ' + plural(r.skipped.length + d.extra, 'mod') + ' left out.' : '') +
+      (prev ? ' The ' + craftName(prev) + ' craft is in My crafts.' : ''), 6500);
   }
 
   /* ---------- special crafts: ready-made designs with market notes (src/specials.js) ---------- */
@@ -6111,6 +6523,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
     if (e.target === $('drawer')) { closeDrawer(); return; }
     if (e.target === $('copybox')) { closeCopyBox(); return; }
     if (e.target === $('impbox')) { closeImport(); return; }
+    if (e.target === $('bldbox')) { closeBuilds(); return; }
     if (e.target === $('spbox')) { closeSpecials(); return; }
     if (e.target === $('slots')) { closeSlots(); return; }
     var a = e.target.closest('[data-act]');
@@ -6171,6 +6584,19 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
       case 'shop-copy': copyText(shopText(c), 'Copied the shopping list.', { title: 'Copy the shopping list', label: 'The shopping list as text', then: 'paste it where you need it' }); break;
       case 'cb-close': closeCopyBox(); break;
       case 'imp-open': openImport('design'); break;
+      case 'bld-open': openBuilds(); break;
+      case 'bld-close': closeBuilds(); break;
+      case 'bld-step': (function (i) { var b = curBuild(); if (!b) return; app.ui.bld = { id: b.id, step: i }; app.ui.bldDel = false; renderBuilds('.bld-steps [data-i="' + i + '"]'); })(i); break;
+      case 'bld-use': useBuildItem(i); break;
+      case 'bld-del': app.ui.bldDel = true; renderBuilds('[data-act="bld-del-no"]'); break;
+      case 'bld-del-no': app.ui.bldDel = false; renderBuilds('[data-act="bld-del"]'); break;
+      case 'bld-del-yes': (function () {
+        var b = curBuild(); if (!b) return;
+        builds = builds.filter(function (x) { return x !== b; }); saveBuilds();
+        app.ui.bld = builds[0] ? { id: builds[0].id, step: buildStep(builds[0]) } : null; app.ui.bldDel = false;
+        renderBuilds(builds.length ? '.bld-steps [aria-pressed="true"]' : '#bld-file');
+        buildMsg('Removed ' + b.title + '.');
+      })(); break;
       case 'imp-have': openImport('have'); break;
       case 'sp-open': openSpecials(); break;
       case 'sp-close': closeSpecials(); break;
@@ -6205,6 +6631,26 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
   // "What drives the average" keeps its open state across re-renders
   document.addEventListener('toggle', function (e) { if (e.target && e.target.classList && e.target.classList.contains('cost-more')) app.ui.costMore = e.target.open; }, true);
   document.addEventListener('input', function (e) { if (e.target && e.target.id === 'imp-text') renderImportPreview(); });
+  // build files: the picker, the build list, and files dropped on the dialog
+  document.addEventListener('change', function (e) {
+    var t = e.target;
+    if (t && t.id === 'bld-file') { addBuildFiles(t.files); t.value = ''; return; }
+    if (t && t.id === 'bld-pick') { var b = builds.find(function (x) { return x.id === t.value; }); if (b) { app.ui.bld = { id: b.id, step: buildStep(b) }; app.ui.bldDel = false; renderBuilds('#bld-pick'); } }
+  });
+  ['dragenter', 'dragover'].forEach(function (ev) {
+    document.addEventListener(ev, function (e) {
+      if (!buildsOpen() || !e.target.closest || !e.target.closest('#bldbox')) return;
+      e.preventDefault();
+      var d = $('bld-drop'); if (d) d.classList.add('over');
+    });
+  });
+  document.addEventListener('dragleave', function (e) { var d = $('bld-drop'); if (d && e.target === $('bldbox')) d.classList.remove('over'); });
+  document.addEventListener('drop', function (e) {
+    if (!buildsOpen() || !e.target.closest || !e.target.closest('#bldbox')) return;
+    e.preventDefault();
+    var d = $('bld-drop'); if (d) d.classList.remove('over');
+    addBuildFiles(e.dataTransfer && e.dataTransfer.files);
+  });
   document.addEventListener('change', function (e) {
     var t = e.target;
     if (!t || !t.hasAttribute || !t.hasAttribute('data-sel')) return;
@@ -6261,6 +6707,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
     if (e.key !== 'Escape') return;
     if (copyBoxOpen()) { closeCopyBox(); e.preventDefault(); return; }
     if (importOpen()) { closeImport(); e.preventDefault(); return; }
+    if (buildsOpen()) { closeBuilds(); e.preventDefault(); return; }
     if (specialsOpen()) { closeSpecials(); e.preventDefault(); return; }
     if (app.pk) { closePicker(); e.preventDefault(); return; }
     if (app.ui.move) { cancelMove(); e.preventDefault(); return; }

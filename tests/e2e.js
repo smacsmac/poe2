@@ -607,6 +607,62 @@ async function addTarget(page, side, i, query, famText) {
   assert.match(await firstRow.innerText(), /In place of Level of all Melee Skills/);
   await mctx.close();
 
+  // Import a build: a zip of .build files (the game's Build Planner), pick a step, then an item
+  const { makeZip } = require('./zip.js');
+  const step = (n, label, gloves) => JSON.stringify({ author: 'Ky', link: 'https://mobalytics.gg/poe-2/builds/example', name: label + ' {' + n + '} - [0.5.5] Example Build',
+    inventory_slots: [
+      { inventory_id: 'Gloves1', slot_x: 0, slot_y: 0, additional_text: gloves },
+      { inventory_id: 'Helm1', slot_x: 0, slot_y: 0, unique_name: "Alpha's Howl" },
+      { inventory_id: 'Flask1', slot_x: 0, slot_y: 0, additional_text: 'Ultimate Mana Flask' }] });
+  const BUILD_ZIP = makeZip([
+    { name: 'Act 1 {1}.build', data: step(1, 'Act 1', 'Rope Cuffs\n1. +40 to maximum Life') },
+    { name: 'Endgame Step 1 {2}.build', data: step(2, 'Endgame Step 1', 'Runeforged Blacksteel Gauntlets\n1. +190 to maximum Life\n2. +105 to maximum Mana\n3. +41% to Fire Resistance\n4. 25% increased Critical Damage Bonus\n\nA note from the author') }]);
+  for (const vp of [{ width: 1440, height: 1000, name: 'dark' }, { width: 400, height: 860, name: 'phone', touch: true }]) {
+    const bctx = await browser.newContext({ viewport: { width: vp.width, height: vp.height }, colorScheme: 'dark', hasTouch: !!vp.touch, isMobile: !!vp.touch });
+    const bp = await bctx.newPage();
+    bp.on('pageerror', (e) => errors.push('build ' + vp.name + ': ' + e.message));
+    await bp.goto(URL + '#design');
+    await bp.click('[data-act="bld-open"]');
+    assert.equal(await bp.locator('#bld-file').count(), 1, 'a file picker');
+    await bp.setInputFiles('#bld-file', { name: '0.5.5_Example_Build.zip', mimeType: 'application/zip', buffer: BUILD_ZIP });
+    await bp.waitForSelector('.bld-steps');
+    assert.match(await bp.locator('#bld-msg').innerText(), /^Added 0\.5\.5 Example Build: 2 steps\./);
+    assert.deepEqual(await bp.locator('.bld-steps button').allInnerTexts(), ['Act 1', 'Endgame Step 1']);
+    assert.equal(await bp.locator('.bld-steps [aria-pressed="true"]').innerText(), 'Endgame Step 1', 'the last step first');
+    const gloves = bp.locator('.bld-it', { hasText: 'Gloves' });
+    assert.match(await gloves.innerText(), /Runeforged Blacksteel Gauntlets/);
+    assert.match(await gloves.innerText(), /asks 190, above the best roll/);
+    assert.match(await gloves.innerText(), /Left out: A note from the author/);
+    assert.match(await bp.locator('.bld-it', { hasText: 'Helmet' }).innerText(), /Uniques can’t be crafted/);
+    assert.match(await bp.locator('.bld-it', { hasText: 'Flask' }).innerText(), /Flasks and charms aren’t in the planner/);
+    const [sw, w] = await bp.evaluate(() => [document.documentElement.scrollWidth, window.innerWidth]);
+    assert.ok(sw <= w, 'no sideways scroll with the build open');
+    await bp.screenshot({ path: `${OUT}/${vp.name}-build.png` });
+    await gloves.locator('[data-act="bld-use"]').click();
+    assert.ok(await bp.locator('#bldbox').isHidden(), 'the dialog closes');
+    assert.match(await bp.locator('#toast').innerText(), /^From Endgame Step 1: Runeforged Blacksteel Gauntlets, 2 prefixes and 2 suffixes\. 1 mod left out\./);
+    assert.equal(await bp.locator('.bp-name').innerText(), 'Blacksteel Gauntlets');
+    assert.ok(await bp.locator('#d-rf').isChecked(), 'runeforged, as the build says');
+    // kept in this browser, on the step last used
+    await bp.reload();
+    await bp.click('[data-act="bld-open"]');
+    assert.equal(await bp.locator('.bld-steps [aria-pressed="true"]').innerText(), 'Endgame Step 1');
+    await bp.click('.bld-steps [data-i="0"]');
+    assert.match(await bp.locator('.bld-items').innerText(), /Rope Cuffs/);
+    await bp.click('[data-act="bld-del"]');
+    await bp.click('[data-act="bld-del-yes"]');
+    assert.equal(await bp.locator('.bld-steps').count(), 0, 'removed');
+    assert.match(await bp.locator('#bld-msg').innerText(), /^Removed 0\.5\.5 Example Build\./);
+    await bp.keyboard.press('Escape');
+    assert.ok(await bp.locator('#bldbox').isHidden());
+    if (!vp.touch) {
+      await bp.click('[data-act="bld-open"]');
+      await bp.setInputFiles('#bld-file', { name: 'notes.build', mimeType: 'application/octet-stream', buffer: Buffer.from('{"hello":1}') });
+      await bp.waitForFunction(() => /No build in that file/.test(document.getElementById('bld-msg').textContent));
+    }
+    await bctx.close();
+  }
+
   await browser.close();
   if (errors.length) { console.error(errors.join('\n')); process.exit(1); }
   console.log('e2e passed. Screenshots in tests/shots/');

@@ -564,7 +564,7 @@
     var imp = implicitLines(b);
     if (imp.length) h += '<p class="implicit"><small>Implicit · comes with the base</small>' + imp.map(modHTML).join('<br>') + '</p>';
     h += '<div class="tip-rule" aria-hidden="true"><i></i></div>';
-    h += '<div class="imp-row"><button type="button" class="imp-btn" data-act="imp-open">' + ico('u-import') + 'Import an item from the game</button></div>';
+    h += '<div class="imp-row"><button type="button" class="imp-btn" data-act="bld-open">' + ico('u-file') + 'Import a build</button><button type="button" class="imp-btn" data-act="imp-open">' + ico('u-import') + 'Import an item from the game</button></div>';
     [0, 1].forEach(function (s) {
       var n = cat.caps[s];
       h += '<p class="grp">' + (s ? 'Suffixes' : 'Prefixes') + '<span>' + plural(n, 'slot') + (n !== 3 ? ' on this base' : '') + '</span></p>';
@@ -2464,6 +2464,165 @@
       (keep ? ' The ' + craftName(prev) + ' craft is in My crafts.' : ''), 6500);
   }
 
+  /* ---------- build files: a build guide's steps, each with its gear (src/buildfile.js) ----------
+     Open a .build file (the game's Build Planner) or a .zip of them, pick a step, then an item: its base and mods
+     become the design, like an imported item. Builds are kept in this browser (LS_B) so another step or slot is a
+     click away later; only their items are kept, not the passives or gems. */
+  var LS_B = 'poe2-crafting-playbook-builds', BUILDS_MAX = 6;
+  var builds = [], bldRet = null, bldBusy = false;
+  function buildOk(b) {
+    return !!b && typeof b === 'object' && typeof b.id === 'string' && typeof b.title === 'string' && Array.isArray(b.steps) &&
+      b.steps.every(function (s) { return s && typeof s.name === 'string' && Array.isArray(s.items); });
+  }
+  function loadBuilds() {
+    try {
+      var raw = JSON.parse(localStorage.getItem(LS_B) || '[]');
+      builds = Array.isArray(raw) ? raw.filter(buildOk).slice(0, BUILDS_MAX) : [];
+    } catch (e) { builds = []; }
+  }
+  function saveBuilds() {
+    try { localStorage.setItem(LS_B, JSON.stringify(builds)); return true; } catch (e) { return false; }
+  }
+  function curBuild() {
+    var id = app.ui.bld && app.ui.bld.id;
+    return builds.find(function (b) { return b.id === id; }) || builds[0] || null;
+  }
+  function buildStep(b) {
+    var i = app.ui.bld && app.ui.bld.id === b.id && typeof app.ui.bld.step === 'number' ? app.ui.bld.step : typeof b.last === 'number' ? b.last : b.steps.length - 1;
+    return Math.max(0, Math.min(b.steps.length - 1, i));
+  }
+  function buildsOpen() { return !$('bldbox').hidden; }
+  function openBuilds() {
+    bldRet = document.activeElement;
+    loadBuilds();
+    var b = curBuild();
+    app.ui.bld = b ? { id: b.id, step: buildStep(b) } : null;
+    app.ui.bldDel = false;
+    $('bldbox').hidden = false;
+    renderBuilds();
+    setTimeout(function () {
+      var f = document.querySelector('#bldbox .bld-steps [aria-pressed="true"]') || $('bld-file');
+      if (f) { try { f.focus(); } catch (e) { /* ignore */ } }
+    }, 0);
+  }
+  function closeBuilds() {
+    var el = $('bldbox');
+    el.hidden = true; el.innerHTML = '';
+    if (bldRet && document.body.contains(bldRet)) { try { bldRet.focus({ preventScroll: true }); } catch (e) { /* ignore */ } }
+    else { var p = document.querySelector('#v-' + app.view + ' [data-act="bld-open"]'); if (p) { try { p.focus({ preventScroll: true }); } catch (e) { /* ignore */ } } }
+    bldRet = null;
+  }
+  /* What one item of the step will import, or why it can't. */
+  function buildItemInfo(it) {
+    if (it.unique) return { why: 'Unique: ' + it.unique + '. Uniques can’t be crafted.' };
+    var r = E.buildItem(it.text);
+    if (!r.base) {
+      var what = r.baseText || 'no base';
+      return { r: r, why: /^(Flask|Charm)/.test(it.slot) ? 'Flasks and charms aren’t in the planner.' : 'Not a base the planner knows: ' + what + '.' };
+    }
+    return { r: r };
+  }
+  function buildItemHTML(it, i) {
+    var x = buildItemInfo(it), r = x.r;
+    var name = r && r.base ? (r.runeforged ? 'Runeforged ' : '') + r.base : it.unique || (r && r.baseText) || '';
+    var h = '<li class="bld-it' + (x.why ? ' off' : '') + '"><div class="bi-head">' +
+      (r && r.cls ? '<svg aria-hidden="true"><use href="#i-' + r.cls + '"/></svg>' : '<span class="bi-dot" aria-hidden="true"></span>') +
+      '<div class="bi-t"><span class="bi-slot">' + esc(it.label) + '</span><span class="bi-base">' + esc(name) + '</span></div>' +
+      (x.why ? '' : '<button type="button" class="btn small" data-act="bld-use" data-i="' + i + '" aria-label="Craft the ' + esc(it.label.toLowerCase()) + ': ' + esc(name) + '">Craft this</button>') + '</div>';
+    if (x.why) return h + '<p class="bi-why">' + esc(x.why) + '</p></li>';
+    var cat = E.catalog(r.base, 82);
+    if (r.mods.length) {
+      h += '<ul class="bi-mods">' + r.mods.map(function (m, k) {
+        var f = E.MODS[m.mi].f, tl = E.labelTier(cat, { f: f, mi: m.mi });
+        var room = r.mods.filter(function (y, j) { return j < k && y.s === m.s; }).length >= cat.caps[m.s];
+        var tier = tl === 'alloy' ? 'Crafted' : tl === 'desecrated' ? 'Desecrated' : tl;
+        var off = m.off === 'over' ? 'asks ' + m.text.match(/-?\d+(?:\.\d+)?/)[0] + ', above the best roll' : m.off === 'under' ? 'asks ' + m.text.match(/-?\d+(?:\.\d+)?/)[0] + ', below this tier' : '';
+        return '<li' + (room ? ' class="no-room"' : '') + '><span class="bi-side">' + (m.s ? 'S' : 'P') + '</span><span class="bi-m">' + modHTML(E.famName(f)) +
+          (room ? ' <span class="imp-x">no ' + SIDE[m.s] + ' slot left</span>' : '') + (off ? '<small>' + esc(off) + '</small>' : '') + '</span><span class="imp-tier">' + esc(tier) + '</span></li>';
+      }).join('') + '</ul>';
+    } else h += '<p class="bi-why">No mods listed: only the base comes across.</p>';
+    if (r.skipped.length) h += '<p class="bi-skip">Left out: ' + r.skipped.map(function (t) { return '<span>' + esc(t) + '</span>'; }).join(' · ') + '</p>';
+    return h + '</li>';
+  }
+  function renderBuilds(focusSel) {
+    var el = $('bldbox');
+    if (el.hidden) return;
+    var b = curBuild();
+    var h = '<div class="modal-card bld-card" role="dialog" aria-modal="true" aria-labelledby="bld-t">' +
+      '<div class="pk-head"><div><h2 id="bld-t">Import a build</h2><p>Open a <b>.build</b> file, the kind the game’s Build Planner reads (build guides such as Mobalytics offer one to download), or a <b>.zip</b> of them. Pick a step, then the item to craft: its base and mods become your design.</p></div>' +
+      '<button type="button" class="x" data-act="bld-close" aria-label="Close">' + ico('u-x') + '</button></div><div class="bld-body">';
+    if (b) {
+      var si = buildStep(b), st = b.steps[si];
+      h += '<div class="bld-top">' + (builds.length > 1
+        ? '<label class="bld-sel"><span class="vh">Build</span><select id="bld-pick">' + builds.map(function (x) { return '<option value="' + esc(x.id) + '"' + (x === b ? ' selected' : '') + '>' + esc(x.title) + '</option>'; }).join('') + '</select></label>'
+        : '<p class="bld-title">' + esc(b.title) + '</p>') +
+        '<p class="bld-by">' + (b.author ? 'By ' + esc(b.author) : '') + (b.link ? (b.author ? ' · ' : '') + '<a href="' + esc(b.link) + '" target="_blank" rel="noopener noreferrer">the guide</a>' : '') + '</p>' +
+        (app.ui.bldDel ? '<span class="bld-del">Remove this build? <button type="button" class="btn small" data-act="bld-del-yes">Remove</button><button type="button" class="btn small quiet" data-act="bld-del-no">Keep</button></span>'
+          : '<button type="button" class="tbtn sm" data-act="bld-del">Remove</button>') + '</div>';
+      if (b.steps.length > 1) {
+        h += '<p class="bld-q" id="bld-sq">Step</p><div class="bld-steps" role="group" aria-labelledby="bld-sq">' + b.steps.map(function (s, i) {
+          return '<button type="button" data-act="bld-step" data-i="' + i + '" aria-pressed="' + (i === si) + '">' + esc(s.name) + '</button>';
+        }).join('') + '</div>';
+      } else h += '<p class="bld-q">' + esc(st.name) + '</p>';
+      h += '<ul class="bld-items" aria-label="Items in ' + esc(st.name) + '">' + st.items.map(buildItemHTML).join('') + '</ul>';
+    }
+    h += '<div class="bld-drop" id="bld-drop"><label class="btn small primary bld-file">' + ico('u-file') + (b ? 'Open another build' : 'Open a .build or .zip file') +
+      '<input type="file" id="bld-file" multiple></label><span>or drop it here</span></div>' +
+      '<p id="bld-msg" class="bld-msg" role="status" aria-live="polite">' + (bldBusy ? 'Reading…' : '') + '</p>' +
+      (b ? '<p class="bld-keep">Builds stay in this browser (up to ' + BUILDS_MAX + '), so you can come back for another step or item.</p>' : '') + '</div></div>';
+    el.innerHTML = h;
+    if (focusSel) { var f = el.querySelector(focusSel); if (f) { try { f.focus({ preventScroll: true }); } catch (e) { /* ignore */ } } }
+  }
+  function buildMsg(t, bad) { var m = $('bld-msg'); if (m) { m.textContent = t; m.classList.toggle('bad', !!bad); } }
+  function addBuildFiles(files) {
+    if (!files || !files.length || bldBusy) return;
+    if (!window.BuildFile) { buildMsg('Build files can’t be read here.', true); return; }
+    bldBusy = true; buildMsg('Reading…');
+    window.BuildFile.readFiles(files).then(function (res) {
+      bldBusy = false;
+      if (!res.build) {
+        buildMsg(res.error === 'nozip' ? 'This browser can’t open .zip files. Unzip it, then pick the .build files inside (several at once is fine).'
+          : res.error === 'toobig' ? 'That file is too big to be a build.'
+            : res.error === 'badzip' ? 'That .zip couldn’t be read.'
+              : 'No build in that file. A .build file is the one the game’s Build Planner reads.', true);
+        return;
+      }
+      var nb = res.build;
+      nb.id = 'b' + Date.now().toString(36);
+      nb.at = Date.now();
+      // the same build again replaces the old copy
+      builds = [nb].concat(builds.filter(function (x) { return !(x.title === nb.title && (x.author || '') === (nb.author || '')); })).slice(0, BUILDS_MAX);
+      var kept = saveBuilds();
+      app.ui.bld = { id: nb.id, step: nb.steps.length - 1 };
+      app.ui.bldDel = false;
+      renderBuilds('.bld-steps [aria-pressed="true"]');
+      buildMsg('Added ' + nb.title + ': ' + plural(nb.steps.length, 'step') + '.' + (res.skipped.length ? ' Not a build, left out: ' + res.skipped.join(', ') + '.' : '') +
+        (kept ? '' : ' This browser won’t keep it after you close the page.'));
+    }).catch(function () { bldBusy = false; buildMsg('That file couldn’t be read.', true); });
+  }
+  function useBuildItem(i) {
+    var b = curBuild();
+    if (!b) return;
+    var si = buildStep(b), st = b.steps[si], it = st.items[i];
+    var x = it && buildItemInfo(it);
+    if (!x || x.why) return;
+    var r = x.r;
+    b.last = si; saveBuilds();
+    var d = startDesign({ cls: r.cls, base: r.base, ilvl: 82, runeforge: r.runeforged,
+      targets: [0, 1].map(function (s) { return r.mods.filter(function (m) { return m.s === s; }).map(function (m) { return m.mi; }); }) });
+    var c = d.c, prev = d.prev;
+    c.name = ((b.author ? b.author + ': ' : '') + st.name).slice(0, 60);
+    replan(c);
+    touch(c);
+    closeBuilds();
+    if (app.view !== 'design') go('design');
+    renderAll(); revealSlot();
+    var n = [0, 1].map(function (s) { return c.targets[s].filter(Boolean).length; });
+    toast('From ' + st.name + ': ' + (r.runeforged ? 'Runeforged ' : '') + r.base + ', ' + plural(n[0], 'prefix', 'prefixes') + ' and ' + plural(n[1], 'suffix', 'suffixes') + '.' +
+      (r.skipped.length + d.extra ? ' ' + plural(r.skipped.length + d.extra, 'mod') + ' left out.' : '') +
+      (prev ? ' The ' + craftName(prev) + ' craft is in My crafts.' : ''), 6500);
+  }
+
   /* ---------- special crafts: ready-made designs with market notes (src/specials.js) ---------- */
   var spRet = null;
   function openSpecials() {
@@ -2744,6 +2903,7 @@
     if (e.target === $('drawer')) { closeDrawer(); return; }
     if (e.target === $('copybox')) { closeCopyBox(); return; }
     if (e.target === $('impbox')) { closeImport(); return; }
+    if (e.target === $('bldbox')) { closeBuilds(); return; }
     if (e.target === $('spbox')) { closeSpecials(); return; }
     if (e.target === $('slots')) { closeSlots(); return; }
     var a = e.target.closest('[data-act]');
@@ -2804,6 +2964,19 @@
       case 'shop-copy': copyText(shopText(c), 'Copied the shopping list.', { title: 'Copy the shopping list', label: 'The shopping list as text', then: 'paste it where you need it' }); break;
       case 'cb-close': closeCopyBox(); break;
       case 'imp-open': openImport('design'); break;
+      case 'bld-open': openBuilds(); break;
+      case 'bld-close': closeBuilds(); break;
+      case 'bld-step': (function (i) { var b = curBuild(); if (!b) return; app.ui.bld = { id: b.id, step: i }; app.ui.bldDel = false; renderBuilds('.bld-steps [data-i="' + i + '"]'); })(i); break;
+      case 'bld-use': useBuildItem(i); break;
+      case 'bld-del': app.ui.bldDel = true; renderBuilds('[data-act="bld-del-no"]'); break;
+      case 'bld-del-no': app.ui.bldDel = false; renderBuilds('[data-act="bld-del"]'); break;
+      case 'bld-del-yes': (function () {
+        var b = curBuild(); if (!b) return;
+        builds = builds.filter(function (x) { return x !== b; }); saveBuilds();
+        app.ui.bld = builds[0] ? { id: builds[0].id, step: buildStep(builds[0]) } : null; app.ui.bldDel = false;
+        renderBuilds(builds.length ? '.bld-steps [aria-pressed="true"]' : '#bld-file');
+        buildMsg('Removed ' + b.title + '.');
+      })(); break;
       case 'imp-have': openImport('have'); break;
       case 'sp-open': openSpecials(); break;
       case 'sp-close': closeSpecials(); break;
@@ -2838,6 +3011,26 @@
   // "What drives the average" keeps its open state across re-renders
   document.addEventListener('toggle', function (e) { if (e.target && e.target.classList && e.target.classList.contains('cost-more')) app.ui.costMore = e.target.open; }, true);
   document.addEventListener('input', function (e) { if (e.target && e.target.id === 'imp-text') renderImportPreview(); });
+  // build files: the picker, the build list, and files dropped on the dialog
+  document.addEventListener('change', function (e) {
+    var t = e.target;
+    if (t && t.id === 'bld-file') { addBuildFiles(t.files); t.value = ''; return; }
+    if (t && t.id === 'bld-pick') { var b = builds.find(function (x) { return x.id === t.value; }); if (b) { app.ui.bld = { id: b.id, step: buildStep(b) }; app.ui.bldDel = false; renderBuilds('#bld-pick'); } }
+  });
+  ['dragenter', 'dragover'].forEach(function (ev) {
+    document.addEventListener(ev, function (e) {
+      if (!buildsOpen() || !e.target.closest || !e.target.closest('#bldbox')) return;
+      e.preventDefault();
+      var d = $('bld-drop'); if (d) d.classList.add('over');
+    });
+  });
+  document.addEventListener('dragleave', function (e) { var d = $('bld-drop'); if (d && e.target === $('bldbox')) d.classList.remove('over'); });
+  document.addEventListener('drop', function (e) {
+    if (!buildsOpen() || !e.target.closest || !e.target.closest('#bldbox')) return;
+    e.preventDefault();
+    var d = $('bld-drop'); if (d) d.classList.remove('over');
+    addBuildFiles(e.dataTransfer && e.dataTransfer.files);
+  });
   document.addEventListener('change', function (e) {
     var t = e.target;
     if (!t || !t.hasAttribute || !t.hasAttribute('data-sel')) return;
@@ -2894,6 +3087,7 @@
     if (e.key !== 'Escape') return;
     if (copyBoxOpen()) { closeCopyBox(); e.preventDefault(); return; }
     if (importOpen()) { closeImport(); e.preventDefault(); return; }
+    if (buildsOpen()) { closeBuilds(); e.preventDefault(); return; }
     if (specialsOpen()) { closeSpecials(); e.preventDefault(); return; }
     if (app.pk) { closePicker(); e.preventDefault(); return; }
     if (app.ui.move) { cancelMove(); e.preventDefault(); return; }
