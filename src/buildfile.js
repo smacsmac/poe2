@@ -86,8 +86,9 @@
     }, Promise.resolve([]));
   }
 
-  var SLOTS = { Weapon: 'Weapon', Offhand: 'Off hand', Helm: 'Helmet', BodyArmour: 'Body armour', Gloves: 'Gloves', Boots: 'Boots',
-    Amulet: 'Amulet', Ring: 'Ring', Belt: 'Belt', Flask: 'Flask', Charm: 'Charm' };
+  // no prototype, so an inventory_id like "constructor" is just an unknown slot
+  var SLOTS = Object.assign(Object.create(null), { Weapon: 'Weapon', Offhand: 'Off hand', Helm: 'Helmet', BodyArmour: 'Body armour', Gloves: 'Gloves', Boots: 'Boots',
+    Amulet: 'Amulet', Ring: 'Ring', Belt: 'Belt', Flask: 'Flask', Charm: 'Charm' });
   /* "Weapon2" is the second weapon set; "Ring2" the second ring. */
   function slotLabel(id, x, many) {
     var m = /^([A-Za-z]+?)(\d*)$/.exec(String(id || '')), base = m && SLOTS[m[1]], k = m ? +(m[2] || 1) : 1;
@@ -108,7 +109,7 @@
     try { o = JSON.parse(String(text).replace(/^﻿/, '')); } catch (e) { return null; }
     if (!o || typeof o !== 'object' || !Array.isArray(o.inventory_slots)) return null;
     var st = stepOf(o.name || String(fileName || '').replace(/\.[^.]+$/, ''), i || 0);
-    var count = {};
+    var count = Object.create(null);
     o.inventory_slots.forEach(function (s) { if (s && s.inventory_id) count[s.inventory_id] = (count[s.inventory_id] || 0) + 1; });
     var items = o.inventory_slots.filter(function (s) { return s && typeof s.inventory_id === 'string' && (typeof s.additional_text === 'string' || typeof s.unique_name === 'string'); })
       .slice(0, LIMITS.items).map(function (s) {
@@ -124,9 +125,16 @@
   }
   /* A file's name without its folder or extension, underscores as spaces, and no " (1)" a second download adds. */
   function cleanName(n) { return clip(String(n || ''), 300).replace(/^.*[\\/]/, '').replace(/\.[^.]+$/, '').replace(/_+/g, ' ').replace(/\s+/g, ' ').replace(/\s*\(\d+\)$/, '').trim(); }
-  /* The guide a build belongs to: its link (and author) when it has one, else its title and author. Steps of one guide
-     merge into one build, whichever files they came in. */
-  function guideKey(b) { return (b.author || '') + '\n' + (b.link || 't:' + b.title); }
+  /* The guide a build belongs to, so steps of one guide merge into one build whichever files they came in: its link
+     (and author), else its title when it is a real one (a zip's name, or a step name's tail that isn't cut short).
+     null when neither: such a build never merges with another. */
+  function guideKey(b) {
+    if (b.link) return 'l:' + (b.author || '') + '\n' + b.link;
+    if (b.title && !b.fallback) return 't:' + (b.author || '') + '\n' + b.title;
+    return null;
+  }
+  /* The same step: the same {n} and name when both have a number, else the same name. */
+  function sameStep(a, b) { return typeof a.n === 'number' && typeof b.n === 'number' ? a.n === b.n && a.name === b.name : a.name === b.name; }
   /* Steps in order: "{n}" when every step has one, else the file names' natural order. */
   function pack(steps, zipName) {
     var all = steps.filter(Boolean).slice(0, LIMITS.steps);
@@ -136,14 +144,14 @@
     var first = all[0];
     var title = zipName ? cleanName(zipName) : first.title || (first.author ? first.author + '’s build' : cleanName(first.file));
     var b = {
-      title: clip(title, 80), zip: !!zipName, author: first.author, link: first.link,
+      title: clip(title, 80), zip: !!zipName, fallback: !zipName && !first.title, author: first.author, link: first.link,
       steps: all.map(function (s) { return { name: s.name, n: s.n, items: s.items }; })
     };
-    b.key = guideKey(b);
     return b;
   }
-  /* Files from a picker or a drop: .build files and zips of them. Each zip is one build; loose .build files are
-     grouped by guide. Resolves to { builds, build (the first), files, skipped, error }. */
+  /* Files from a picker or a drop: .build files and zips of them. Each zip is one build; loose .build files picked
+     together are one build per author and link (a guide's step names are cut short differently, so not by title).
+     Builds of one guide in the same pick are merged. Resolves to { builds, build (the first), files, skipped, error }. */
   function readFiles(files) {
     var list = Array.prototype.slice.call(files || []), groups = [], loose = {}, skipped = [], error = null, idx = 0, count = 0;
     function take(name, bytes, into) {
@@ -151,7 +159,7 @@
       if (!s) { skipped.push(cleanName(name)); return; }
       s.file = cleanName(name); count += 1;
       if (into) { into.steps.push(s); return; }
-      var k = guideKey(s);
+      var k = (s.author || '') + '\n' + (s.link || '');
       if (!loose[k]) { loose[k] = { steps: [], zip: null }; groups.push(loose[k]); }
       loose[k].steps.push(s);
     }
@@ -171,39 +179,45 @@
         });
       });
     }, Promise.resolve()).then(function () {
-      var builds = groups.map(function (g) {
-        // one step per {n} or name: the same step twice in one pick keeps the first
-        var seen = {};
-        return pack(g.steps.filter(function (s) { var k = s.n !== null ? '#' + s.n : 'n:' + s.name; if (seen[k]) return false; seen[k] = 1; return true; }), g.zip);
-      }).filter(Boolean);
+      var builds = [];
+      groups.forEach(function (g) {
+        // the same step twice in one pick (same {n} and name) keeps the first
+        var kept = [];
+        g.steps.forEach(function (s) { if (kept.some(function (x) { return sameStep(x, s); })) skipped.push(s.file + ' (the same step twice)'); else kept.push(s); });
+        var b = pack(kept, g.zip);
+        if (b) builds = mergeInto(builds, b, Infinity).list;
+      });
+      builds.reverse();
       return { builds: builds, build: builds[0] || null, files: count, skipped: skipped, error: error };
     });
   }
-  /* A build added to the ones kept: a build of the same guide takes the new steps (a step with the same {n}, or the
-     same name, is replaced), keeps its id, and goes first. A zip's name makes the better title (a step file's own
-     name is cut short), else the longer one wins.
-     Returns { list, build, added, merged }. */
+  /* A build added to the ones kept, which goes first. A build of the same guide takes the new steps instead (the same
+     step is replaced, each old step at most once), keeps its id, and keeps a zip's title over a step file's cut-off
+     one, else the longer. Returns { list, build, added: [names], updated: [names], merged, at: index of the first
+     step brought in }. */
   function mergeInto(list, nb, max) {
-    var old = list.find(function (x) { return (x.key || guideKey(x)) === nb.key; });
+    var key = guideKey(nb);
+    var old = key ? list.find(function (x) { return guideKey(x) === key; }) : null;
     if (!old) {
       nb.id = nb.id || 'b' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-      return { list: [nb].concat(list).slice(0, max), build: nb, added: nb.steps.length, merged: false };
+      return { list: [nb].concat(list).slice(0, max), build: nb, added: nb.steps.map(function (s) { return s.name; }), updated: [], merged: false, at: 0 };
     }
-    var steps = old.steps.slice(), added = 0;
+    var steps = old.steps.slice(), taken = {}, added = [], updated = [];
     nb.steps.forEach(function (s) {
-      var i = steps.findIndex(function (x) { return (s.n !== null && s.n !== undefined && x.n === s.n) || x.name === s.name; });
-      if (i > -1) steps[i] = s; else { steps.push(s); added += 1; }
+      var i = steps.findIndex(function (x, j) { return !taken[j] && sameStep(x, s); });
+      if (i > -1) { steps[i] = s; taken[i] = 1; updated.push(s.name); } else { steps.push(s); taken[steps.length - 1] = 1; added.push(s.name); }
     });
-    if (steps.every(function (s) { return typeof s.n === 'number'; })) steps.sort(function (a, b) { return a.n - b.n; });
-    var lastName = typeof old.last === 'number' && old.steps[old.last] ? old.steps[old.last].name : null;
+    if (steps.every(function (s) { return typeof s.n === 'number'; })) steps = steps.map(function (s, i) { return { s: s, i: i }; }).sort(function (a, b) { return (a.s.n - b.s.n) || (a.i - b.i); }).map(function (x) { return x.s; });
+    var lastStep = typeof old.last === 'number' ? old.steps[old.last] : null;
     var m = {
-      id: old.id, key: nb.key, zip: !!(old.zip || nb.zip),
+      id: old.id, zip: !!(old.zip || nb.zip), fallback: !!(old.fallback && nb.fallback),
       title: old.zip ? old.title : nb.zip ? nb.title : old.title.length >= nb.title.length ? old.title : nb.title,
       author: nb.author || old.author, link: nb.link || old.link, at: nb.at || old.at,
       steps: steps.slice(0, LIMITS.steps)
     };
-    if (lastName) { var li = m.steps.findIndex(function (x) { return x.name === lastName; }); if (li > -1) m.last = li; }
-    return { list: [m].concat(list.filter(function (x) { return x !== old; })).slice(0, max), build: m, added: added, merged: true };
+    if (lastStep) { var li = m.steps.indexOf(lastStep); if (li > -1) m.last = li; }
+    var at = m.steps.indexOf(nb.steps[0]);
+    return { list: [m].concat(list.filter(function (x) { return x !== old; })).slice(0, max), build: m, added: added, updated: updated, merged: true, at: at > -1 ? at : 0 };
   }
 
   var api = { readZip: readZip, parseBuild: parseBuild, readFiles: readFiles, mergeInto: mergeInto, guideKey: guideKey, slotLabel: slotLabel, LIMITS: LIMITS };

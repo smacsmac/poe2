@@ -1273,13 +1273,15 @@
           if (k.indexOf(' / ') > -1) hybrids.push(F); else single.add(k);
         });
       });
-      function nums(t) { return (t.match(/-?\d+(?:\.\d+)?/g) || []).map(parseFloat); }
+      // a line's values; a range written as the goal ("+(60-69) to maximum Life") counts as its low end
+      function nums(t) { return (t.replace(/\((-?\d+(?:\.\d+)?)-(-?\d+(?:\.\d+)?)\)/g, '$1').match(/-?\d+(?:\.\d+)?/g) || []).map(parseFloat); }
       // each value slot of a tier's text: "(120-149)" or a fixed number
-      function slots(mi) {
+      function slotsOf(x) {
         var r = [], re = /\((-?\d+(?:\.\d+)?)-(-?\d+(?:\.\d+)?)\)|(-?\d+(?:\.\d+)?)/g, m;
-        while ((m = re.exec(MODS[mi].x))) r.push(m[3] !== undefined ? [parseFloat(m[3]), parseFloat(m[3])] : [parseFloat(m[1]), parseFloat(m[2])]);
+        while ((m = re.exec(x))) r.push(m[3] !== undefined ? [parseFloat(m[3]), parseFloat(m[3])] : [parseFloat(m[1]), parseFloat(m[2])]);
         return r;
       }
+      function slots(mi) { return slotsOf(MODS[mi].x); }
       function holds(mi, vs) {
         var sl = slots(mi);
         return vs.length > 0 && sl.length === vs.length && sl.every(function (r, i) { return vs[i] >= r[0] && vs[i] <= r[1]; });
@@ -1296,7 +1298,19 @@
         var hold = pool.find(function (x) { return holds(x.mi, vs); });
         if (hold) return { o: hold, off: null };
         var known = pool.filter(function (x) { return slots(x.mi).length === vs.length; });
-        if (!known.length) return { o: pool[0], off: null };
+        if (!known.length) {
+          // values that don't line up with the tier's text: judge the first value on the first slot
+          known = pool.filter(function (x) { return slots(x.mi).length; });
+          if (!known.length) return { o: pool[0], off: null };
+          var v1 = vs[0], first = function (mi) { return slots(mi)[0]; };
+          var in1 = known.find(function (x) { return v1 >= first(x.mi)[0] && v1 <= first(x.mi)[1]; });
+          if (in1) return { o: in1, off: null };
+          var best1 = known.reduce(function (a, b) { return first(b.mi)[1] > first(a.mi)[1] ? b : a; });
+          if (v1 > first(best1.mi)[1]) return { o: best1, off: 'over' };
+          var reach1 = known.filter(function (x) { return first(x.mi)[0] <= v1; });
+          if (reach1.length) return { o: reach1.reduce(function (a, b) { return first(b.mi)[0] > first(a.mi)[0] ? b : a; }), off: null };
+          return { o: known.reduce(function (a, b) { return first(b.mi)[0] < first(a.mi)[0] ? b : a; }), off: 'under' };
+        }
         var v = sumOf(vs);
         var top = known.reduce(function (a, b) { return hi(b.mi) > hi(a.mi) ? b : a; });
         if (v > hi(top.mi)) return { o: top, off: 'over' };
@@ -1305,28 +1319,47 @@
           if (reach.length) return { o: reach.reduce(function (a, b) { return lo(b.mi) > lo(a.mi) ? b : a; }), off: null };
           return { o: known.reduce(function (a, b) { return lo(b.mi) < lo(a.mi) ? b : a; }), off: 'under' };
         }
-        // crafted only: the option the value falls short of by the least, else the biggest one
+        // crafted only: the option whose summed range holds the values (flagged by the slot a value misses), else the
+        // one the values fall short of by the least, else the biggest one
+        var span = known.find(function (x) { return v >= lo(x.mi) && v <= hi(x.mi); });
+        if (span) {
+          var sl = slots(span.mi);
+          var low = vs.some(function (x, i) { return x < sl[i][0]; }), high = vs.some(function (x, i) { return x > sl[i][1]; });
+          return { o: span, off: low ? 'under' : high ? 'over' : null };
+        }
         var above = known.filter(function (x) { return lo(x.mi) > v; });
         if (above.length) return { o: above.reduce(function (a, b) { return lo(b.mi) < lo(a.mi) ? b : a; }), off: 'under' };
         return { o: top, off: 'over' };
       }
       var rows = lines.slice(first + 1).map(function (l) {
-        var t = l.replace(/[‘’]/g, "'").replace(/^(?:\d{1,2}\s*(?:\.(?!\d)|\))\s*|[-•*·]\s+)/, '').replace(/[−–]/g, '-').replace(/\s+/g, ' ').trim();
+        var t = l.replace(/[‘’]/g, "'").replace(/[−–]/g, '-').replace(/^(?:\d{1,2}\s*(?:\.(?!\d)|\))\s*)?(?:[-—•*·]\s+)?/, '').replace(/\s+/g, ' ').trim();
         return t ? { t: t, k: tmplText(t) } : null;
       }).filter(Boolean);
       var used = new Set(), per = [0, 0];
-      // hybrids first: their stat lines, wherever they are, become one mod (text in the template's order)
+      /* Hybrids first: their stat lines, wherever they are, become one mod (text in the template's order). They're
+         joined when a stat only the hybrid gives is there, or when the values fit one of its tiers and a line fits no
+         tier of its own single-stat family; lines that each roll on their own stay two mods. For each stat, the line
+         whose value fits the hybrid's slot is taken first. */
+      function singleFits(r) {
+        var vs = nums(r.t);
+        return [byT[0].get(r.k), byT[1].get(r.k)].some(function (G) { return G && G.t.indexOf(' / ') < 0 && famHolds(G, vs); });
+      }
       hybrids.forEach(function (F) {
         if (used.has(F.f)) return;
         var parts = F.t.toLowerCase().split(' / '), pick = [];
+        var partSlots = tierOptions(cat, F.f).map(function (o) { return MODS[o.mi].x.split(' / ').map(slotsOf); });
         for (var p = 0; p < parts.length; p++) {
-          var j = rows.findIndex(function (r, i) { return !r.claimed && pick.indexOf(i) < 0 && r.k === parts[p]; });
-          if (j < 0) return;
-          pick.push(j);
+          var cand = rows.map(function (r, i) { return i; }).filter(function (i) { return !rows[i].claimed && !rows[i].gone && pick.indexOf(i) < 0 && rows[i].k === parts[p]; });
+          if (!cand.length) return;
+          var fit = cand.find(function (i) {
+            var vs = nums(rows[i].t);
+            return partSlots.some(function (ps) { var sl = ps[p] || []; return sl.length === vs.length && sl.every(function (r, z) { return vs[z] >= r[0] && vs[z] <= r[1]; }); });
+          });
+          pick.push(fit !== undefined ? fit : cand[0]);
         }
         var joined = pick.map(function (j) { return rows[j].t; }).join(' / ');
         var only = parts.some(function (p) { return !single.has(p); });
-        if (!only && !famHolds(F, nums(joined))) return;
+        if (!only && !(famHolds(F, nums(joined)) && pick.some(function (j) { return !singleFits(rows[j]); }))) return;
         pick.forEach(function (j) { rows[j].claimed = true; });
         rows[pick[0]].claimed = false;
         rows[pick[0]].t = joined; rows[pick[0]].k = tmplText(joined); rows[pick[0]].c = [F];

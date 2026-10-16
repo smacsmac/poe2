@@ -375,7 +375,8 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
 /* Import a build: the build, its steps, then each item of the step */
 .modal-card.bld-card{grid-template-rows:auto minmax(0,1fr) auto}
 .bld-body{display:grid;grid-template-columns:minmax(0,1fr);gap:.75rem;min-height:0;overflow:auto;padding:0 1.1rem 1rem;align-content:start}
-.bld-foot{display:grid;gap:.5rem}
+.bld-foot{border-top:1px solid var(--line);padding:.6rem 1.1rem}
+.bld-foot.quiet{border-top:0;padding:0}
 .bld-top{display:flex;flex-wrap:wrap;align-items:center;gap:.4rem .9rem}
 .bld-title{font-family:var(--font-display);font-size:1.12rem;color:var(--fg)}
 .bld-sel{min-width:0;max-width:100%}
@@ -401,7 +402,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
 .bi-head .btn{flex:none}
 .bi-mods{list-style:none;margin:0;padding:0;display:grid;gap:.15rem;font-size:.86rem}
 .bi-mods li{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:.45rem;align-items:baseline}
-.bi-mods li.no-room .bi-m{text-decoration:line-through;text-decoration-color:var(--line-2)}
+.bi-mods li.no-room .bi-n{text-decoration:line-through;text-decoration-color:var(--line-2)}
 .bi-side{font-family:var(--font-mono);font-size:.62rem;color:var(--muted);border:1px solid var(--line-2);border-radius:3px;padding:0 .25rem}
 .bi-m{color:var(--fg);min-width:0}
 .bi-m small{display:block;font-size:.74rem;color:var(--muted)}
@@ -412,8 +413,8 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
 .bld-file{position:relative;cursor:pointer}
 .bld-file input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer}
 .bld-file:focus-within{outline:2px solid var(--brass);outline-offset:2px}
-.bld-msg:empty{display:none}
-.bld-msg{font-size:.9rem;color:var(--fg)}
+@media (pointer:coarse){.bld-or{display:none}.bld-drop{border:0;padding:0}}
+.bld-msg{font-size:.9rem;color:var(--fg);max-height:4.4em;overflow:auto}
 .bld-msg.bad{color:var(--junk)}
 .bld-keep{font-size:.82rem;color:var(--muted)}
 .cb-body textarea{width:100%;min-height:16rem;resize:vertical;font-family:var(--font-mono);font-size:.8rem;line-height:1.5;color:var(--fg);background:var(--surface-2);border:1px solid var(--line-2);border-radius:5px;padding:.7rem .8rem}
@@ -1730,8 +1731,9 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
     }, Promise.resolve([]));
   }
 
-  var SLOTS = { Weapon: 'Weapon', Offhand: 'Off hand', Helm: 'Helmet', BodyArmour: 'Body armour', Gloves: 'Gloves', Boots: 'Boots',
-    Amulet: 'Amulet', Ring: 'Ring', Belt: 'Belt', Flask: 'Flask', Charm: 'Charm' };
+  // no prototype, so an inventory_id like "constructor" is just an unknown slot
+  var SLOTS = Object.assign(Object.create(null), { Weapon: 'Weapon', Offhand: 'Off hand', Helm: 'Helmet', BodyArmour: 'Body armour', Gloves: 'Gloves', Boots: 'Boots',
+    Amulet: 'Amulet', Ring: 'Ring', Belt: 'Belt', Flask: 'Flask', Charm: 'Charm' });
   /* "Weapon2" is the second weapon set; "Ring2" the second ring. */
   function slotLabel(id, x, many) {
     var m = /^([A-Za-z]+?)(\d*)$/.exec(String(id || '')), base = m && SLOTS[m[1]], k = m ? +(m[2] || 1) : 1;
@@ -1752,7 +1754,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
     try { o = JSON.parse(String(text).replace(/^﻿/, '')); } catch (e) { return null; }
     if (!o || typeof o !== 'object' || !Array.isArray(o.inventory_slots)) return null;
     var st = stepOf(o.name || String(fileName || '').replace(/\.[^.]+$/, ''), i || 0);
-    var count = {};
+    var count = Object.create(null);
     o.inventory_slots.forEach(function (s) { if (s && s.inventory_id) count[s.inventory_id] = (count[s.inventory_id] || 0) + 1; });
     var items = o.inventory_slots.filter(function (s) { return s && typeof s.inventory_id === 'string' && (typeof s.additional_text === 'string' || typeof s.unique_name === 'string'); })
       .slice(0, LIMITS.items).map(function (s) {
@@ -1768,9 +1770,16 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
   }
   /* A file's name without its folder or extension, underscores as spaces, and no " (1)" a second download adds. */
   function cleanName(n) { return clip(String(n || ''), 300).replace(/^.*[\\/]/, '').replace(/\.[^.]+$/, '').replace(/_+/g, ' ').replace(/\s+/g, ' ').replace(/\s*\(\d+\)$/, '').trim(); }
-  /* The guide a build belongs to: its link (and author) when it has one, else its title and author. Steps of one guide
-     merge into one build, whichever files they came in. */
-  function guideKey(b) { return (b.author || '') + '\n' + (b.link || 't:' + b.title); }
+  /* The guide a build belongs to, so steps of one guide merge into one build whichever files they came in: its link
+     (and author), else its title when it is a real one (a zip's name, or a step name's tail that isn't cut short).
+     null when neither: such a build never merges with another. */
+  function guideKey(b) {
+    if (b.link) return 'l:' + (b.author || '') + '\n' + b.link;
+    if (b.title && !b.fallback) return 't:' + (b.author || '') + '\n' + b.title;
+    return null;
+  }
+  /* The same step: the same {n} and name when both have a number, else the same name. */
+  function sameStep(a, b) { return typeof a.n === 'number' && typeof b.n === 'number' ? a.n === b.n && a.name === b.name : a.name === b.name; }
   /* Steps in order: "{n}" when every step has one, else the file names' natural order. */
   function pack(steps, zipName) {
     var all = steps.filter(Boolean).slice(0, LIMITS.steps);
@@ -1780,14 +1789,14 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
     var first = all[0];
     var title = zipName ? cleanName(zipName) : first.title || (first.author ? first.author + '’s build' : cleanName(first.file));
     var b = {
-      title: clip(title, 80), zip: !!zipName, author: first.author, link: first.link,
+      title: clip(title, 80), zip: !!zipName, fallback: !zipName && !first.title, author: first.author, link: first.link,
       steps: all.map(function (s) { return { name: s.name, n: s.n, items: s.items }; })
     };
-    b.key = guideKey(b);
     return b;
   }
-  /* Files from a picker or a drop: .build files and zips of them. Each zip is one build; loose .build files are
-     grouped by guide. Resolves to { builds, build (the first), files, skipped, error }. */
+  /* Files from a picker or a drop: .build files and zips of them. Each zip is one build; loose .build files picked
+     together are one build per author and link (a guide's step names are cut short differently, so not by title).
+     Builds of one guide in the same pick are merged. Resolves to { builds, build (the first), files, skipped, error }. */
   function readFiles(files) {
     var list = Array.prototype.slice.call(files || []), groups = [], loose = {}, skipped = [], error = null, idx = 0, count = 0;
     function take(name, bytes, into) {
@@ -1795,7 +1804,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
       if (!s) { skipped.push(cleanName(name)); return; }
       s.file = cleanName(name); count += 1;
       if (into) { into.steps.push(s); return; }
-      var k = guideKey(s);
+      var k = (s.author || '') + '\n' + (s.link || '');
       if (!loose[k]) { loose[k] = { steps: [], zip: null }; groups.push(loose[k]); }
       loose[k].steps.push(s);
     }
@@ -1815,39 +1824,45 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
         });
       });
     }, Promise.resolve()).then(function () {
-      var builds = groups.map(function (g) {
-        // one step per {n} or name: the same step twice in one pick keeps the first
-        var seen = {};
-        return pack(g.steps.filter(function (s) { var k = s.n !== null ? '#' + s.n : 'n:' + s.name; if (seen[k]) return false; seen[k] = 1; return true; }), g.zip);
-      }).filter(Boolean);
+      var builds = [];
+      groups.forEach(function (g) {
+        // the same step twice in one pick (same {n} and name) keeps the first
+        var kept = [];
+        g.steps.forEach(function (s) { if (kept.some(function (x) { return sameStep(x, s); })) skipped.push(s.file + ' (the same step twice)'); else kept.push(s); });
+        var b = pack(kept, g.zip);
+        if (b) builds = mergeInto(builds, b, Infinity).list;
+      });
+      builds.reverse();
       return { builds: builds, build: builds[0] || null, files: count, skipped: skipped, error: error };
     });
   }
-  /* A build added to the ones kept: a build of the same guide takes the new steps (a step with the same {n}, or the
-     same name, is replaced), keeps its id, and goes first. A zip's name makes the better title (a step file's own
-     name is cut short), else the longer one wins.
-     Returns { list, build, added, merged }. */
+  /* A build added to the ones kept, which goes first. A build of the same guide takes the new steps instead (the same
+     step is replaced, each old step at most once), keeps its id, and keeps a zip's title over a step file's cut-off
+     one, else the longer. Returns { list, build, added: [names], updated: [names], merged, at: index of the first
+     step brought in }. */
   function mergeInto(list, nb, max) {
-    var old = list.find(function (x) { return (x.key || guideKey(x)) === nb.key; });
+    var key = guideKey(nb);
+    var old = key ? list.find(function (x) { return guideKey(x) === key; }) : null;
     if (!old) {
       nb.id = nb.id || 'b' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-      return { list: [nb].concat(list).slice(0, max), build: nb, added: nb.steps.length, merged: false };
+      return { list: [nb].concat(list).slice(0, max), build: nb, added: nb.steps.map(function (s) { return s.name; }), updated: [], merged: false, at: 0 };
     }
-    var steps = old.steps.slice(), added = 0;
+    var steps = old.steps.slice(), taken = {}, added = [], updated = [];
     nb.steps.forEach(function (s) {
-      var i = steps.findIndex(function (x) { return (s.n !== null && s.n !== undefined && x.n === s.n) || x.name === s.name; });
-      if (i > -1) steps[i] = s; else { steps.push(s); added += 1; }
+      var i = steps.findIndex(function (x, j) { return !taken[j] && sameStep(x, s); });
+      if (i > -1) { steps[i] = s; taken[i] = 1; updated.push(s.name); } else { steps.push(s); taken[steps.length - 1] = 1; added.push(s.name); }
     });
-    if (steps.every(function (s) { return typeof s.n === 'number'; })) steps.sort(function (a, b) { return a.n - b.n; });
-    var lastName = typeof old.last === 'number' && old.steps[old.last] ? old.steps[old.last].name : null;
+    if (steps.every(function (s) { return typeof s.n === 'number'; })) steps = steps.map(function (s, i) { return { s: s, i: i }; }).sort(function (a, b) { return (a.s.n - b.s.n) || (a.i - b.i); }).map(function (x) { return x.s; });
+    var lastStep = typeof old.last === 'number' ? old.steps[old.last] : null;
     var m = {
-      id: old.id, key: nb.key, zip: !!(old.zip || nb.zip),
+      id: old.id, zip: !!(old.zip || nb.zip), fallback: !!(old.fallback && nb.fallback),
       title: old.zip ? old.title : nb.zip ? nb.title : old.title.length >= nb.title.length ? old.title : nb.title,
       author: nb.author || old.author, link: nb.link || old.link, at: nb.at || old.at,
       steps: steps.slice(0, LIMITS.steps)
     };
-    if (lastName) { var li = m.steps.findIndex(function (x) { return x.name === lastName; }); if (li > -1) m.last = li; }
-    return { list: [m].concat(list.filter(function (x) { return x !== old; })).slice(0, max), build: m, added: added, merged: true };
+    if (lastStep) { var li = m.steps.indexOf(lastStep); if (li > -1) m.last = li; }
+    var at = m.steps.indexOf(nb.steps[0]);
+    return { list: [m].concat(list.filter(function (x) { return x !== old; })).slice(0, max), build: m, added: added, updated: updated, merged: true, at: at > -1 ? at : 0 };
   }
 
   var api = { readZip: readZip, parseBuild: parseBuild, readFiles: readFiles, mergeInto: mergeInto, guideKey: guideKey, slotLabel: slotLabel, LIMITS: LIMITS };
@@ -3132,13 +3147,15 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
           if (k.indexOf(' / ') > -1) hybrids.push(F); else single.add(k);
         });
       });
-      function nums(t) { return (t.match(/-?\d+(?:\.\d+)?/g) || []).map(parseFloat); }
+      // a line's values; a range written as the goal ("+(60-69) to maximum Life") counts as its low end
+      function nums(t) { return (t.replace(/\((-?\d+(?:\.\d+)?)-(-?\d+(?:\.\d+)?)\)/g, '$1').match(/-?\d+(?:\.\d+)?/g) || []).map(parseFloat); }
       // each value slot of a tier's text: "(120-149)" or a fixed number
-      function slots(mi) {
+      function slotsOf(x) {
         var r = [], re = /\((-?\d+(?:\.\d+)?)-(-?\d+(?:\.\d+)?)\)|(-?\d+(?:\.\d+)?)/g, m;
-        while ((m = re.exec(MODS[mi].x))) r.push(m[3] !== undefined ? [parseFloat(m[3]), parseFloat(m[3])] : [parseFloat(m[1]), parseFloat(m[2])]);
+        while ((m = re.exec(x))) r.push(m[3] !== undefined ? [parseFloat(m[3]), parseFloat(m[3])] : [parseFloat(m[1]), parseFloat(m[2])]);
         return r;
       }
+      function slots(mi) { return slotsOf(MODS[mi].x); }
       function holds(mi, vs) {
         var sl = slots(mi);
         return vs.length > 0 && sl.length === vs.length && sl.every(function (r, i) { return vs[i] >= r[0] && vs[i] <= r[1]; });
@@ -3155,7 +3172,19 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
         var hold = pool.find(function (x) { return holds(x.mi, vs); });
         if (hold) return { o: hold, off: null };
         var known = pool.filter(function (x) { return slots(x.mi).length === vs.length; });
-        if (!known.length) return { o: pool[0], off: null };
+        if (!known.length) {
+          // values that don't line up with the tier's text: judge the first value on the first slot
+          known = pool.filter(function (x) { return slots(x.mi).length; });
+          if (!known.length) return { o: pool[0], off: null };
+          var v1 = vs[0], first = function (mi) { return slots(mi)[0]; };
+          var in1 = known.find(function (x) { return v1 >= first(x.mi)[0] && v1 <= first(x.mi)[1]; });
+          if (in1) return { o: in1, off: null };
+          var best1 = known.reduce(function (a, b) { return first(b.mi)[1] > first(a.mi)[1] ? b : a; });
+          if (v1 > first(best1.mi)[1]) return { o: best1, off: 'over' };
+          var reach1 = known.filter(function (x) { return first(x.mi)[0] <= v1; });
+          if (reach1.length) return { o: reach1.reduce(function (a, b) { return first(b.mi)[0] > first(a.mi)[0] ? b : a; }), off: null };
+          return { o: known.reduce(function (a, b) { return first(b.mi)[0] < first(a.mi)[0] ? b : a; }), off: 'under' };
+        }
         var v = sumOf(vs);
         var top = known.reduce(function (a, b) { return hi(b.mi) > hi(a.mi) ? b : a; });
         if (v > hi(top.mi)) return { o: top, off: 'over' };
@@ -3164,28 +3193,47 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
           if (reach.length) return { o: reach.reduce(function (a, b) { return lo(b.mi) > lo(a.mi) ? b : a; }), off: null };
           return { o: known.reduce(function (a, b) { return lo(b.mi) < lo(a.mi) ? b : a; }), off: 'under' };
         }
-        // crafted only: the option the value falls short of by the least, else the biggest one
+        // crafted only: the option whose summed range holds the values (flagged by the slot a value misses), else the
+        // one the values fall short of by the least, else the biggest one
+        var span = known.find(function (x) { return v >= lo(x.mi) && v <= hi(x.mi); });
+        if (span) {
+          var sl = slots(span.mi);
+          var low = vs.some(function (x, i) { return x < sl[i][0]; }), high = vs.some(function (x, i) { return x > sl[i][1]; });
+          return { o: span, off: low ? 'under' : high ? 'over' : null };
+        }
         var above = known.filter(function (x) { return lo(x.mi) > v; });
         if (above.length) return { o: above.reduce(function (a, b) { return lo(b.mi) < lo(a.mi) ? b : a; }), off: 'under' };
         return { o: top, off: 'over' };
       }
       var rows = lines.slice(first + 1).map(function (l) {
-        var t = l.replace(/[‘’]/g, "'").replace(/^(?:\d{1,2}\s*(?:\.(?!\d)|\))\s*|[-•*·]\s+)/, '').replace(/[−–]/g, '-').replace(/\s+/g, ' ').trim();
+        var t = l.replace(/[‘’]/g, "'").replace(/[−–]/g, '-').replace(/^(?:\d{1,2}\s*(?:\.(?!\d)|\))\s*)?(?:[-—•*·]\s+)?/, '').replace(/\s+/g, ' ').trim();
         return t ? { t: t, k: tmplText(t) } : null;
       }).filter(Boolean);
       var used = new Set(), per = [0, 0];
-      // hybrids first: their stat lines, wherever they are, become one mod (text in the template's order)
+      /* Hybrids first: their stat lines, wherever they are, become one mod (text in the template's order). They're
+         joined when a stat only the hybrid gives is there, or when the values fit one of its tiers and a line fits no
+         tier of its own single-stat family; lines that each roll on their own stay two mods. For each stat, the line
+         whose value fits the hybrid's slot is taken first. */
+      function singleFits(r) {
+        var vs = nums(r.t);
+        return [byT[0].get(r.k), byT[1].get(r.k)].some(function (G) { return G && G.t.indexOf(' / ') < 0 && famHolds(G, vs); });
+      }
       hybrids.forEach(function (F) {
         if (used.has(F.f)) return;
         var parts = F.t.toLowerCase().split(' / '), pick = [];
+        var partSlots = tierOptions(cat, F.f).map(function (o) { return MODS[o.mi].x.split(' / ').map(slotsOf); });
         for (var p = 0; p < parts.length; p++) {
-          var j = rows.findIndex(function (r, i) { return !r.claimed && pick.indexOf(i) < 0 && r.k === parts[p]; });
-          if (j < 0) return;
-          pick.push(j);
+          var cand = rows.map(function (r, i) { return i; }).filter(function (i) { return !rows[i].claimed && !rows[i].gone && pick.indexOf(i) < 0 && rows[i].k === parts[p]; });
+          if (!cand.length) return;
+          var fit = cand.find(function (i) {
+            var vs = nums(rows[i].t);
+            return partSlots.some(function (ps) { var sl = ps[p] || []; return sl.length === vs.length && sl.every(function (r, z) { return vs[z] >= r[0] && vs[z] <= r[1]; }); });
+          });
+          pick.push(fit !== undefined ? fit : cand[0]);
         }
         var joined = pick.map(function (j) { return rows[j].t; }).join(' / ');
         var only = parts.some(function (p) { return !single.has(p); });
-        if (!only && !famHolds(F, nums(joined))) return;
+        if (!only && !(famHolds(F, nums(joined)) && pick.some(function (j) { return !singleFits(rows[j]); }))) return;
         pick.forEach(function (j) { rows[j].claimed = true; });
         rows[pick[0]].claimed = false;
         rows[pick[0]].t = joined; rows[pick[0]].k = tmplText(joined); rows[pick[0]].c = [F];
@@ -3916,7 +3964,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
         return { t: h.t, o: h.o, e: h.e ? 1 : 0, st: packSt(h.st), ps: packSt(h.ps), sl: false, a: h.as === undefined ? undefined : (h.as ? 1 : 0), u: h.su,
           sp: Array.isArray(h.sp) ? h.sp : undefined, b: h.b ? 1 : undefined, y: h.bu ? 1 : undefined, buy: h.buy ? 1 : undefined };
       }),
-      su: c.su | 0, bu: c.bu ? 1 : undefined, sx: c.spc || undefined, nm: c.name || undefined, g: c.got && Object.keys(c.got).length ? Object.keys(c.got) : undefined,
+      su: c.su | 0, bu: c.bu ? 1 : undefined, sx: c.spc || undefined, nm: c.name || undefined, na: c.name && c.nameAuto ? 1 : undefined, g: c.got && Object.keys(c.got).length ? Object.keys(c.got) : undefined,
       hd: meta.hdrop || undefined, h0: meta.hdrop ? packSt(meta.h0) : undefined, hs: meta.hs || undefined,
       at: c.at, dev: c.dev
     }));
@@ -3956,6 +4004,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
     c.bu = !!o.bu;
     c.spc = typeof o.sx === 'string' && SPECIAL[o.sx] ? o.sx : null;
     c.name = typeof o.nm === 'string' && o.nm.trim() ? o.nm.trim().slice(0, 60) : null;
+    c.nameAuto = !!(c.name && o.na);
     c.got = {};
     (Array.isArray(o.g) ? o.g : []).forEach(function (k) { if (typeof k === 'string') c.got[k] = 1; });
     return c;
@@ -4399,7 +4448,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
     var c = cur();
     if (c.cls === cls) return;
     if (targetCount(c) || underWay(c)) startCraftFor(cls, base);
-    else { c.cls = cls; c.base = base || defaultBase(cls); c.runeforge = cls === 'gloves'; c.astrid = false; c.name = null; c.spc = null; c.targets = [[], []]; fitTargets(c); touch(c); }
+    else { c.cls = cls; c.base = base || defaultBase(cls); c.runeforge = cls === 'gloves'; c.astrid = false; c.name = null; c.nameAuto = false; c.spc = null; c.targets = [[], []]; fitTargets(c); touch(c); }
     renderDesign(); refreshBadges();
   }
   /* A base picked from the search. Another slot works like clicking that slot. The same slot changes this design's
@@ -6142,14 +6191,16 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
   /* A whole design at once (an import or a special craft): the open craft if it's still empty, else a new one, so a
      craft with targets or progress stays in My crafts. o = { cls, base, ilvl, runeforge, astrid, spc, targets: [[mi], [mi]] } */
   function startDesign(o) {
-    var prev = cur(), keep = worth(prev), c;
+    var prev = cur(), keep = worth(prev), c, prevCls = prev.cls;
     if (keep) { c = blankCraft(o.cls, o.base); app.crafts[c.id] = c; app.curId = c.id; }
     else { c = prev; c.cls = o.cls; c.base = o.base; }
     c.ilvl = o.ilvl || 82;
     c.runeforge = !!o.runeforge;
     c.astrid = !!o.astrid;
     c.spc = o.spc || null;
-    c.name = o.name ? String(o.name).slice(0, 60) : null;
+    // a build gives the craft a name; a name typed in My crafts stays, unless the craft changes slot
+    if (o.name) { c.name = String(o.name).slice(0, 60); c.nameAuto = true; }
+    else if (c.nameAuto || o.cls !== prevCls) { c.name = null; c.nameAuto = false; }
     var cat = catOf(c), extra = 0;
     c.targets = [0, 1].map(function (s) {
       var list = (o.targets[s] || []).map(function (mi) { return { mi: mi }; });
@@ -6300,9 +6351,9 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
       h += '<ul class="bi-mods">' + r.mods.map(function (m, k) {
         var f = E.MODS[m.mi].f, tier = tierWord(E.labelTier(cat, { f: f, mi: m.mi }));
         var room = r.mods.filter(function (y, j) { return j < k && y.s === m.s; }).length >= cat.caps[m.s];
-        var v = (m.text.match(/-?\d+(?:\.\d+)?/) || [''])[0];
+        var v = listAnd((m.text.match(/-?\d+(?:\.\d+)?/g) || []).slice(0, 4));
         var off = m.off === 'over' ? 'asks ' + v + ', above the best roll' : m.off === 'under' ? 'asks ' + v + ', below this tier' : '';
-        return '<li' + (room ? ' class="no-room"' : '') + '><span class="bi-side">' + (m.s ? 'S' : 'P') + '</span><span class="bi-m">' + modHTML(E.famName(f)) +
+        return '<li' + (room ? ' class="no-room"' : '') + '><span class="bi-side">' + (m.s ? 'S' : 'P') + '</span><span class="bi-m"><span class="bi-n">' + modHTML(E.famName(f)) + '</span>' +
           (room ? ' <span class="imp-x">no ' + SIDE[m.s] + ' slot left</span>' : '') + (off ? '<small>' + esc(off) + '</small>' : '') + '</span><span class="imp-tier">' + esc(tier) + '</span></li>';
       }).join('') + '</ul>';
     } else h += '<p class="bi-why">No mods listed: only the base comes across.</p>';
@@ -6330,12 +6381,13 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
         }).join('') + '</div>';
       } else h += '<p class="bld-q">' + esc(st.name) + '</p>';
       h += '<ul class="bld-items" aria-label="Items in ' + esc(st.name) + '">' + st.items.map(buildItemHTML).join('') + '</ul>';
-      h += '<p class="bld-keep">Builds stay in this browser (up to ' + BUILDS_MAX + '), so you can come back for another step or item.</p>';
     }
-    // the file picker and the message stay in view below the list
-    h += '</div><div class="pk-foot bld-foot"><div class="bld-drop" id="bld-drop"><label class="btn small primary bld-file">' + ico('u-file') + (b ? 'Open another build' : 'Open a .build or .zip file') +
-      '<input type="file" id="bld-file" multiple></label><span>or drop it here</span></div>' +
-      '<p id="bld-msg" class="bld-msg' + (bldNote && bldNote.bad ? ' bad' : '') + '" role="status" aria-live="polite">' + esc(bldBusy ? 'Reading…' : bldNote ? bldNote.t : '') + '</p></div></div>';
+    h += '<div class="bld-drop" id="bld-drop"><label class="btn small primary bld-file">' + ico('u-file') + (b ? 'Open another build' : 'Open a .build or .zip file') +
+      '<input type="file" id="bld-file" multiple></label><span class="bld-or">or drop it here</span></div>' +
+      (b ? '<p class="bld-keep">Builds stay in this browser (up to ' + BUILDS_MAX + '), so you can come back for another step or item.</p>' : '');
+    // the message stays in view under the list (an empty footer takes no room but stays in place for screen readers)
+    var note = bldBusy ? 'Reading…' : bldNote ? bldNote.t : '';
+    h += '</div><div class="bld-foot' + (note ? '' : ' quiet') + '"><p id="bld-msg" class="bld-msg' + (bldNote && bldNote.bad ? ' bad' : '') + '" role="status" aria-live="polite">' + esc(note) + '</p></div></div>';
     el.innerHTML = h;
     if (focusSel) {
       var f = el.querySelector(focusSel) || el.querySelector('.bld-steps [aria-pressed="true"]') || el.querySelector('[data-act="bld-use"]') || el.querySelector('#bld-file');
@@ -6344,10 +6396,11 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
   }
   /* The message under the list. The text lands a moment after the region is drawn, so screen readers announce it. */
   function buildMsg(t, bad) {
-    bldNote = { t: t, bad: !!bad };
+    bldNote = t ? { t: t, bad: !!bad } : null;
     var m = $('bld-msg');
     if (!m) return;
     m.classList.toggle('bad', !!bad);
+    if (m.parentNode) m.parentNode.classList.toggle('quiet', !t);
     m.textContent = '';
     setTimeout(function () { if (m.isConnected) m.textContent = t; }, 60);
   }
@@ -6364,15 +6417,24 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
               : 'No build in that file. A .build file is the one the game’s Build Planner reads.', true);
         return;
       }
-      var before = builds, notes = [], last = null;
+      var before = builds, notes = [], last = null, at = 0;
+      function names(list) { return list.length <= 2 ? listAnd(list) : plural(list.length, 'step'); }
       res.builds.forEach(function (nb) {
         nb.at = Date.now();
         var m = window.BuildFile.mergeInto(builds, nb, BUILDS_MAX);
-        builds = m.list; last = m.build;
-        notes.push(m.merged ? 'Updated ' + m.build.title + ': ' + (m.added ? plural(m.added, 'new step') + ', ' : '') + plural(m.build.steps.length, 'step') + ' in all.'
-          : 'Added ' + m.build.title + ': ' + plural(m.build.steps.length, 'step') + '.');
+        builds = m.list; last = m.build; at = m.merged ? m.at : m.build.steps.length - 1;
+        var t = m.build.title;
+        notes.push({ id: m.build.id, t: !m.merged ? 'Added ' + t + ': ' + plural(m.build.steps.length, 'step') + '.'
+          : (m.added.length ? 'Added ' + names(m.added) + (m.updated.length ? ' and updated ' + names(m.updated) : '') + ' to ' + t
+            : 'Updated ' + names(m.updated) + ' in ' + t) + ' (' + plural(m.build.steps.length, 'step') + ' in all).' });
       });
-      app.ui.bld = { id: last.id, step: last.steps.length - 1 };
+      // a build the cap of BUILDS_MAX already pushed out isn't announced as added
+      var kept = notes.filter(function (n) { return builds.some(function (b) { return b.id === n.id; }); });
+      var lost = notes.length - kept.length;
+      notes = kept.map(function (n) { return n.t; });
+      if (lost) notes.push('Only the last ' + BUILDS_MAX + ' builds are kept.');
+      // a merged build shows the step just opened; a new one its last step
+      app.ui.bld = { id: last.id, step: at };
       app.ui.bldDel = false;
       // draw it before keeping it: a build that can't be drawn isn't stored
       try { renderBuilds('.bld-steps [aria-pressed="true"]'); } catch (e) {
@@ -6380,9 +6442,9 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
         buildMsg('That build couldn’t be read.', true);
         return;
       }
-      var kept = saveBuilds();
-      buildMsg(notes.join(' ') + (res.skipped.length ? ' Not a build, left out: ' + res.skipped.join(', ') + '.' : '') +
-        (kept ? '' : ' This browser won’t keep it after you close the page.'));
+      var saved = saveBuilds();
+      buildMsg(notes.join(' ') + (res.skipped.length ? ' Left out: ' + res.skipped.join(', ') + '.' : '') +
+        (saved ? '' : ' This browser won’t keep it after you close the page.'));
     }).catch(function () { bldBusy = false; buildMsg('That file couldn’t be read.', true); });
   }
   function useBuildItem(i) {
@@ -6571,6 +6633,7 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
     if (c && save && inp) {
       var v = inp.value.replace(/\s+/g, ' ').trim().slice(0, 60), x = c.spc && SPECIAL[c.spc];
       c.name = v && v !== (x ? x.name : c.base) ? v : null;   // empty, or the default name, goes back to the default
+      c.nameAuto = false;
       touch(c);
     }
     app.ui.drRen = null;
@@ -6755,8 +6818,8 @@ main{max-width:96rem;margin:0 auto;padding-inline:clamp(16px,2.5vw,32px);padding
       case 'bld-close': closeBuilds(); break;
       case 'bld-step': (function (i) { var b = curBuild(); if (!b) return; app.ui.bld = { id: b.id, step: i }; app.ui.bldDel = false; bldNote = null; renderBuilds('.bld-steps [data-i="' + i + '"]'); })(i); break;
       case 'bld-use': useBuildItem(i); break;
-      case 'bld-del': app.ui.bldDel = true; renderBuilds('[data-act="bld-del-no"]'); break;
-      case 'bld-del-no': app.ui.bldDel = false; renderBuilds('[data-act="bld-del"]'); break;
+      case 'bld-del': app.ui.bldDel = true; bldNote = null; renderBuilds('[data-act="bld-del-no"]'); break;
+      case 'bld-del-no': app.ui.bldDel = false; bldNote = null; renderBuilds('[data-act="bld-del"]'); break;
       case 'bld-del-yes': (function () {
         var b = curBuild(); if (!b) return;
         builds = builds.filter(function (x) { return x !== b; }); saveBuilds();

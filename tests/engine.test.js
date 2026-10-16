@@ -1098,3 +1098,50 @@ test('build files: steps of one guide added one file at a time merge into one bu
   list = BF.mergeInto(list, other.build, 6).list;
   assert.equal(list.length, 2, 'another guide is its own build');
 });
+
+test('build files: ranges written as the goal, single stats that only look like a hybrid, and a hybrid’s best line', () => {
+  const one = (txt) => {
+    const r = E.buildItem(txt), cat = E.catalog(r.base, 82);
+    return r.mods.map((m) => [E.famName(E.MODS[m.mi].f), E.labelTier(cat, { f: E.MODS[m.mi].f, mi: m.mi }), m.off || '']);
+  };
+  assert.deepEqual(one('Sapphire Ring\n+(60-69) to maximum Life'), [['Maximum Life', 'T4', '']], 'a written range counts as its low end');
+  assert.deepEqual(one('Gelid Staff\n(38-43)% increased Cast Speed')[0].slice(1), ['T3', '']);
+  assert.deepEqual(one('Hardwood Spear\n+347 to Accuracy Rating\n8% increased Attack Speed').map((x) => x[0]), ['Accuracy Rating', 'Attack Speed'], 'two rolled mods, not an alloy');
+  assert.deepEqual(one('Stocky Mitts\n27% increased Armour\n+30 to maximum Life').map((x) => x[0]), ['Armour', 'Maximum Life']);
+  // two cast speed lines: the one that fits the alloy's slot goes to the alloy, the other rolls
+  const st = one('Gelid Staff\n50% increased Cast Speed\n39% increased Cast Speed\nGain 11% of Elemental Damage as Extra Cold Damage');
+  assert.deepEqual(st.map((x) => x[1] + (x[2] ? ' ' + x[2] : '')), ['T1', 'alloy']);
+  // a crafted-only pair whose sum fits but a value is under its slot is 'under', not 'over'
+  assert.equal(E.buildItem('Crude Bow\n20% increased Physical Damage\n+6 to all Attributes').mods[0].off, 'under');
+  // dashes a word processor makes are bullets too
+  assert.deepEqual(E.buildItem('Iron Crown\n– +40 to maximum Life\n— +6% to Fire Resistance\n3. – +6% to Cold Resistance').skipped, []);
+  assert.equal(BF.slotLabel('constructor'), 'constructor');
+  assert.equal(BF.slotLabel('toString'), 'toString');
+});
+
+test('build files: steps with the same number or the same name are kept apart, and link-less guides group by author', async () => {
+  const f = (name, json) => asFile(name, Buffer.from(JSON.stringify(json)));
+  const st = (label, n, extra) => Object.assign({ name: label + ' {' + n + '} - x', inventory_slots: [{ inventory_id: 'Gloves1', additional_text: 'Rope Cuffs\n+' + (10 * n) + ' to maximum Life' }] }, extra || {});
+  // two different steps sharing a number, in one zip: both kept
+  const v = await BF.readFiles([asFile('variants.zip', makeZip(['Budget', 'Endgame'].flatMap((lbl) => [1, 2].map((n) => ({ name: lbl + n + '.build', data: JSON.stringify(st(lbl, n, { author: 'A', link: 'https://x.example/v' })) })))))]);
+  assert.equal(v.build.steps.length, 4);
+  // the same zip twice, every step called Leveling: each step replaces its own copy
+  const lev = makeZip([1, 2, 3].map((n) => ({ name: n + '.build', data: JSON.stringify(st('Leveling', n, { author: 'Ann', link: 'https://x.example/l' })) })));
+  let list = BF.mergeInto([], (await BF.readFiles([asFile('leveling.zip', lev)])).build, 6).list;
+  list = BF.mergeInto(list, (await BF.readFiles([asFile('leveling.zip', lev)])).build, 6).list;
+  assert.deepEqual(list[0].steps.map((s) => s.n), [1, 2, 3]);
+  // one pick of a guide's loose files without a link is one build, whatever their cut-short titles
+  const ky = await BF.readFiles([f('a.build', st('Act 1', 1, { author: 'Ky', name: 'Act 1 {1} - [0.5.5] Ky\'s Cold Caster Chr' })), f('b.build', st('Endgame', 6, { author: 'Ky', name: 'Endgame Step 1 {6} - [0.5.5] Ky\'s Cold C' })), f('c.build', st('x', 9, { author: 'Ky', name: 'Nonsense {9} - [0.' }))]);
+  assert.equal(ky.builds.length, 1);
+  assert.equal(ky.build.steps.length, 3);
+  // two unrelated link-less builds by one author with no real title don't replace each other
+  list = BF.mergeInto([], (await BF.readFiles([f('w.build', st('Witch Start', 1, { author: 'Bob', name: 'Witch Start {1} - [0.' }))])).build, 6).list;
+  list = BF.mergeInto(list, (await BF.readFiles([f('r.build', st('Warrior Start', 1, { author: 'Bob', name: 'Warrior Start {1} - [0.' }))])).build, 6).list;
+  assert.equal(list.length, 2);
+  // merging says what came in and where it is
+  const m = BF.mergeInto(list.concat([]), (await BF.readFiles([asFile('leveling.zip', lev)])).build, 6);
+  assert.equal(m.merged, false);
+  const zipped = BF.mergeInto([], (await BF.readFiles([asFile('g.zip', makeZip([1, 3].map((n) => ({ name: n + '.build', data: JSON.stringify(st('Step ' + n, n, { author: 'G', link: 'https://x.example/g' })) }))))])).build, 6).list;
+  const two = BF.mergeInto(zipped, (await BF.readFiles([f('s2.build', st('Step 2', 2, { author: 'G', link: 'https://x.example/g' }))])).build, 6);
+  assert.deepEqual([two.merged, two.added, two.at, two.build.title], [true, ['Step 2'], 1, 'g'], 'the zip’s title stays');
+});

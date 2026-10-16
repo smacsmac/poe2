@@ -653,8 +653,9 @@ async function addTarget(page, side, i, query, famText) {
     assert.match(await bp.locator('.bld-items').innerText(), /Rope Cuffs/);
     // another step file of the same guide joins this build; another guide is a second build
     await bp.setInputFiles('#bld-file', { name: 'Endgame Step 2 {3}.build', mimeType: 'application/octet-stream', buffer: Buffer.from(step(3, 'Endgame Step 2', 'Sirenscale Gloves\n+100 to maximum Life')) });
-    await bp.waitForFunction(() => /^Updated 0\.5\.5 Example Build: 1 new step, 3 steps in all\.$/.test(document.getElementById('bld-msg').textContent));
+    await bp.waitForFunction(() => /^Added Endgame Step 2 to 0\.5\.5 Example Build \(3 steps in all\)\.$/.test(document.getElementById('bld-msg').textContent));
     assert.deepEqual(await bp.locator('.bld-steps button').allInnerTexts(), ['Act 1', 'Endgame Step 1', 'Endgame Step 2']);
+    assert.equal(await bp.locator('.bld-steps [aria-pressed="true"]').innerText(), 'Endgame Step 2', 'the step just opened is shown');
     await bp.setInputFiles('#bld-file', { name: 'other.build', mimeType: 'application/octet-stream', buffer: Buffer.from(JSON.stringify({ author: 'Someone Else With A Long Name', name: 'A much longer guide title for the select {1} - Another guide with a long title',
       inventory_slots: [{ inventory_id: 'Ring1', additional_text: 'Prismatic Ring\n+100 to maximum Life' }] })) });
     await bp.waitForSelector('#bld-pick');
